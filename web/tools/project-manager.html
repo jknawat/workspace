@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Project Manager — JK</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --cream:#fdf6ec;--warm:#f5e6cc;--card:#fffaf3;
+  --accent:#e8956d;--accent2:#d4755a;
+  --dark:#3a2a1a;--mid:#6b4c30;--light:#a07850;
+  --border:#e8d5b5;--shadow:rgba(180,120,60,0.15);
+  --tag:#f0dfc0;
+  --green:#27ae60;--red:#e74c3c;--orange:#e67e22;--blue:#2980b9;
+}
+body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--dark);min-height:100vh;display:flex;flex-direction:column;}
+
+/* TOP BAR */
+.topbar{background:linear-gradient(135deg,#f5e0c0,#eecfa0);border-bottom:2px solid var(--border);padding:16px 28px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 10px var(--shadow);flex-shrink:0;}
+.topbar-left h1{font-size:1.4rem;font-weight:900;color:var(--dark);}
+.topbar-left h1 span{color:var(--accent);}
+.topbar-left p{font-size:0.75rem;color:var(--light);margin-top:2px;}
+.topbar-right{display:flex;gap:10px;align-items:center;}
+
+/* STATS ROW */
+.stats-row{background:white;border-bottom:1.5px solid var(--border);padding:12px 28px;display:flex;gap:24px;align-items:center;}
+.stat{text-align:center;}
+.stat .num{font-size:1.3rem;font-weight:900;color:var(--accent);}
+.stat .lbl{font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--light);}
+.stat-divider{width:1px;height:36px;background:var(--border);}
+
+/* BOARD */
+.board-wrap{flex:1;overflow-x:auto;padding:24px 28px;display:flex;gap:20px;align-items:flex-start;}
+
+/* PROJECT COLUMN */
+.project-col{width:300px;min-width:300px;display:flex;flex-direction:column;gap:0;border-radius:18px;background:var(--warm);border:1.5px solid var(--border);box-shadow:0 4px 16px var(--shadow);overflow:hidden;flex-shrink:0;}
+
+.col-header{padding:16px 16px 12px;background:linear-gradient(135deg,#f0d8b0,#e8c88a);}
+.col-header-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;}
+.col-title{font-size:1rem;font-weight:900;color:var(--dark);line-height:1.3;flex:1;margin-right:8px;}
+.col-actions{display:flex;gap:2px;flex-shrink:0;}
+.btn-icon{background:none;border:none;cursor:pointer;padding:4px 6px;border-radius:8px;font-size:0.85rem;transition:background 0.2s;line-height:1;}
+.btn-icon:hover{background:rgba(0,0,0,0.08);}
+
+.col-meta{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:0.68rem;font-weight:800;text-transform:uppercase;letter-spacing:0.4px;}
+.badge-planning{background:#daeaf7;color:#1a5f8a;}
+.badge-in-progress{background:#fde8c4;color:#8a4e00;}
+.badge-on-hold{background:#e8e8e8;color:#555;}
+.badge-done{background:#c8f0d8;color:#1a6632;}
+.badge-high{background:#fde0e0;color:#8a1a1a;}
+.badge-medium{background:#fef4d0;color:#7a5500;}
+.badge-low{background:#d8f5e4;color:#1a6030;}
+.badge-todo{background:#e8e8e8;color:#555;}
+
+.col-progress{padding:0 16px 12px;}
+.progress-wrap{background:var(--border);border-radius:20px;height:6px;overflow:hidden;}
+.progress-bar{height:100%;border-radius:20px;background:var(--accent);transition:width 0.4s;}
+.progress-label{display:flex;justify-content:space-between;font-size:0.65rem;color:var(--light);font-weight:700;margin-bottom:4px;}
+
+/* TASK LIST */
+.task-list{padding:8px 10px;display:flex;flex-direction:column;gap:8px;min-height:60px;max-height:480px;overflow-y:auto;}
+
+.task-card{background:white;border:1.5px solid var(--border);border-radius:12px;padding:12px 14px;cursor:default;transition:all 0.2s;position:relative;}
+.task-card:hover{box-shadow:0 3px 12px var(--shadow);border-color:var(--accent);}
+.task-card.overdue{border-left:3px solid var(--red);}
+.task-card.done-task{opacity:0.6;}
+
+.task-name{font-size:0.85rem;font-weight:800;color:var(--dark);margin-bottom:6px;line-height:1.3;}
+.task-name.done-text{text-decoration:line-through;color:var(--light);}
+.task-meta{display:flex;gap:5px;align-items:center;flex-wrap:wrap;}
+.task-due{font-size:0.68rem;font-weight:700;color:var(--light);}
+.task-due.overdue-text{color:var(--red);}
+.task-actions{display:flex;gap:2px;margin-top:8px;justify-content:flex-end;}
+
+.task-check{width:16px;height:16px;border-radius:50%;border:2px solid var(--border);cursor:pointer;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;transition:all 0.2s;background:white;}
+.task-check.checked{background:var(--green);border-color:var(--green);color:white;font-size:10px;}
+.task-card-top{display:flex;gap:8px;align-items:flex-start;}
+
+/* ADD TASK AREA */
+.add-task-wrap{padding:8px 10px 12px;}
+.add-task-btn{width:100%;padding:9px;background:rgba(232,149,109,0.1);border:1.5px dashed var(--accent);border-radius:10px;color:var(--accent);font-size:0.82rem;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif;transition:all 0.2s;text-align:center;}
+.add-task-btn:hover{background:rgba(232,149,109,0.2);}
+
+/* QUICK ADD INPUT */
+.quick-add{display:none;flex-direction:column;gap:8px;}
+.quick-add.open{display:flex;}
+.quick-add input{width:100%;padding:8px 12px;border:1.5px solid var(--accent);border-radius:10px;font-size:0.85rem;font-family:'Nunito',sans-serif;font-weight:700;color:var(--dark);background:white;outline:none;}
+.quick-add-actions{display:flex;gap:6px;}
+
+/* ADD PROJECT COLUMN */
+.add-col{width:260px;min-width:260px;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.add-col-btn{width:100%;padding:20px;background:rgba(232,149,109,0.08);border:2px dashed var(--accent);border-radius:18px;color:var(--accent);font-size:0.9rem;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;transition:all 0.2s;text-align:center;}
+.add-col-btn:hover{background:rgba(232,149,109,0.16);}
+
+/* BUTTONS */
+.btn{border:none;padding:8px 16px;border-radius:10px;font-size:0.8rem;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif;transition:all 0.2s;}
+.btn-primary{background:var(--accent);color:white;}
+.btn-primary:hover{background:var(--accent2);}
+.btn-secondary{background:var(--tag);color:var(--mid);}
+.btn-secondary:hover{background:var(--border);}
+.btn-sm{padding:5px 12px;font-size:0.75rem;}
+
+/* MODAL */
+.overlay{display:none;position:fixed;inset:0;background:rgba(80,40,10,0.45);z-index:200;align-items:center;justify-content:center;}
+.overlay.open{display:flex;}
+.modal{background:var(--card);border-radius:20px;padding:28px;width:460px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.25);border:2px solid var(--border);}
+.modal h3{font-size:1.1rem;font-weight:900;margin-bottom:20px;color:var(--dark);}
+.form-group{margin-bottom:14px;}
+.form-group label{display:block;font-size:0.7rem;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:var(--light);margin-bottom:5px;}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:9px 13px;border:1.5px solid var(--border);border-radius:10px;font-size:0.85rem;font-family:'Nunito',sans-serif;background:white;color:var(--dark);font-weight:600;outline:none;transition:border-color 0.2s;}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--accent);}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;}
+
+/* PROJECT DETAIL PANEL */
+.detail-overlay{display:none;position:fixed;inset:0;background:rgba(80,40,10,0.3);z-index:150;align-items:flex-start;justify-content:flex-end;}
+.detail-overlay.open{display:flex;}
+.detail-panel{background:var(--card);width:480px;max-width:95vw;height:100vh;overflow-y:auto;border-left:2px solid var(--border);box-shadow:-8px 0 30px var(--shadow);padding:28px;display:flex;flex-direction:column;gap:16px;}
+.detail-panel h2{font-size:1.2rem;font-weight:900;color:var(--dark);}
+.close-panel{background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--light);padding:4px;}
+.close-panel:hover{color:var(--dark);}
+.detail-section-title{font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.6px;color:var(--light);margin-bottom:10px;}
+
+/* GANTT */
+.gantt-wrap{overflow-x:auto;border-radius:12px;border:1.5px solid var(--border);background:white;}
+.gantt-row-label{font-size:0.78rem;font-weight:700;color:var(--dark);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;}
+.gantt-bar-wrap{position:relative;height:32px;flex:1;}
+.gantt-bar{position:absolute;height:14px;top:9px;border-radius:4px;background:var(--accent);opacity:0.85;min-width:6px;}
+.gantt-bar.done{background:var(--green);}
+.gantt-milestone-dot{position:absolute;top:6px;width:18px;height:18px;background:var(--accent2);transform:rotate(45deg);border-radius:3px;}
+.gantt-today{position:absolute;top:0;bottom:0;width:2px;background:var(--red);opacity:0.7;z-index:5;}
+.gantt-month-label{font-size:0.65rem;font-weight:800;color:var(--mid);text-transform:uppercase;}
+
+/* EMPTY STATE */
+.empty-tasks{text-align:center;padding:20px;color:var(--light);font-size:0.8rem;font-weight:600;}
+
+@media(max-width:600px){
+  .topbar{padding:12px 16px;}
+  .board-wrap{padding:16px;}
+  .stats-row{padding:10px 16px;gap:14px;}
+}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-left">
+    <h1>Project <span>Board</span></h1>
+    <p>Personal Project Manager — JK</p>
+  </div>
+  <div class="topbar-right">
+    <button class="btn btn-secondary btn-sm" onclick="window.print()">🖨 Print</button>
+    <button class="btn btn-primary btn-sm" onclick="openProjectModal()">+ New Project</button>
+  </div>
+</div>
+
+<!-- STATS -->
+<div class="stats-row" id="stats-row"></div>
+
+<!-- BOARD -->
+<div class="board-wrap" id="board"></div>
+
+<!-- PROJECT MODAL -->
+<div class="overlay" id="project-modal">
+  <div class="modal">
+    <h3 id="pm-title">New Project</h3>
+    <div class="form-group">
+      <label>Project Name</label>
+      <input type="text" id="pm-name" placeholder="e.g. Drone Frame Rev2"/>
+    </div>
+    <div class="form-group">
+      <label>Description</label>
+      <textarea id="pm-desc" rows="2" placeholder="What is this project?"></textarea>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Status</label>
+        <select id="pm-status">
+          <option value="planning">Planning</option>
+          <option value="in-progress">In Progress</option>
+          <option value="on-hold">On Hold</option>
+          <option value="done">Done</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Priority</label>
+        <select id="pm-priority">
+          <option value="high">High</option>
+          <option value="medium" selected>Medium</option>
+          <option value="low">Low</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Start Date</label>
+        <input type="date" id="pm-start"/>
+      </div>
+      <div class="form-group">
+        <label>Target Date</label>
+        <input type="date" id="pm-target"/>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Progress (%)</label>
+      <input type="number" id="pm-progress" min="0" max="100" value="0"/>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('project-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveProject()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- TASK MODAL -->
+<div class="overlay" id="task-modal">
+  <div class="modal">
+    <h3 id="tm-title">New Task</h3>
+    <div class="form-group">
+      <label>Task Name</label>
+      <input type="text" id="tm-name" placeholder="e.g. Design motor mount"/>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Status</label>
+        <select id="tm-status">
+          <option value="todo">To Do</option>
+          <option value="in-progress">In Progress</option>
+          <option value="done">Done</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Priority</label>
+        <select id="tm-priority">
+          <option value="high">High</option>
+          <option value="medium" selected>Medium</option>
+          <option value="low">Low</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Start Date</label>
+        <input type="date" id="tm-start"/>
+      </div>
+      <div class="form-group">
+        <label>Due Date</label>
+        <input type="date" id="tm-due"/>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Notes</label>
+      <textarea id="tm-notes" rows="2" placeholder="Any details..."></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('task-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTask()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- PROJECT DETAIL SIDE PANEL -->
+<div class="detail-overlay" id="detail-overlay" onclick="closePanelIfOutside(event)">
+  <div class="detail-panel" id="detail-panel"></div>
+</div>
+
+<script>
+// ── DATA ──
+function load(){return JSON.parse(localStorage.getItem('pm_v2')||'{"projects":[]}')}
+function save(d){localStorage.setItem('pm_v2',JSON.stringify(d))}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
+const today=new Date().toISOString().split('T')[0];
+
+let editingProjectId=null;
+let editingTaskId=null;
+let activeProjectId=null;
+let quickAddProjectId=null;
+
+// ── STATUS HELPERS ──
+const STATUS_LABEL={planning:'Planning','in-progress':'In Progress','on-hold':'On Hold',done:'Done',todo:'To Do'};
+const PRIORITY_COLOR={high:'var(--red)',medium:'var(--orange)',low:'var(--green)'};
+
+function fmtStatus(s){return STATUS_LABEL[s]||s;}
+
+// ── RENDER BOARD ──
+function render(){
+  renderStats();
+  renderBoard();
+}
+
+function renderStats(){
+  const d=load();const ps=d.projects;
+  const allTasks=ps.flatMap(p=>p.tasks||[]);
+  const overdue=allTasks.filter(t=>t.status!=='done'&&t.dueDate&&t.dueDate<today).length;
+  const done=ps.filter(p=>p.status==='done').length;
+  const inProgress=ps.filter(p=>p.status==='in-progress').length;
+  const totalTasks=allTasks.length;
+  const doneTasks=allTasks.filter(t=>t.status==='done').length;
+
+  document.getElementById('stats-row').innerHTML=`
+    <div class="stat"><div class="num">${ps.length}</div><div class="lbl">Projects</div></div>
+    <div class="stat-divider"></div>
+    <div class="stat"><div class="num" style="color:var(--blue);">${inProgress}</div><div class="lbl">In Progress</div></div>
+    <div class="stat-divider"></div>
+    <div class="stat"><div class="num" style="color:var(--green);">${done}</div><div class="lbl">Done</div></div>
+    <div class="stat-divider"></div>
+    <div class="stat"><div class="num">${totalTasks}</div><div class="lbl">Total Tasks</div></div>
+    <div class="stat-divider"></div>
+    <div class="stat"><div class="num" style="color:var(--green);">${doneTasks}</div><div class="lbl">Tasks Done</div></div>
+    <div class="stat-divider"></div>
+    <div class="stat"><div class="num" style="color:var(--red);">${overdue}</div><div class="lbl">Overdue</div></div>
+  `;
+}
+
+function renderBoard(){
+  const d=load();
+  const board=document.getElementById('board');
+
+  const cols=d.projects.map(p=>{
+    const tasks=p.tasks||[];
+    const doneTasks=tasks.filter(t=>t.status==='done').length;
+    const progress=tasks.length>0?Math.round(doneTasks/tasks.length*100):(p.progress||0);
+
+    const taskCards=tasks.map(t=>{
+      const isOverdue=t.status!=='done'&&t.dueDate&&t.dueDate<today;
+      const isDone=t.status==='done';
+      return `
+        <div class="task-card ${isOverdue?'overdue':''} ${isDone?'done-task':''}">
+          <div class="task-card-top">
+            <div class="task-check ${isDone?'checked':''}" onclick="toggleTaskDone('${p.id}','${t.id}')" title="Mark done">
+              ${isDone?'✓':''}
+            </div>
+            <div style="flex:1;">
+              <div class="task-name ${isDone?'done-text':''}">${t.name}</div>
+              <div class="task-meta">
+                <span class="badge badge-${t.priority}">${t.priority}</span>
+                ${t.status!=='done'?`<span class="badge badge-${t.status}">${fmtStatus(t.status)}</span>`:''}
+                ${t.dueDate?`<span class="task-due ${isOverdue?'overdue-text':''}">📅 ${t.dueDate}</span>`:''}
+              </div>
+            </div>
+            <div style="display:flex;gap:2px;flex-shrink:0;">
+              <button class="btn-icon" onclick="editTaskModal('${p.id}','${t.id}')" title="Edit">✏️</button>
+              <button class="btn-icon" onclick="deleteTask('${p.id}','${t.id}')" title="Delete">🗑️</button>
+            </div>
+          </div>
+          ${t.notes?`<div style="font-size:0.72rem;color:var(--mid);margin-top:6px;margin-left:24px;">${t.notes}</div>`:''}
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div class="project-col">
+        <div class="col-header">
+          <div class="col-header-top">
+            <div class="col-title">${p.name}</div>
+            <div class="col-actions">
+              <button class="btn-icon" onclick="openDetailPanel('${p.id}')" title="View details">📋</button>
+              <button class="btn-icon" onclick="editProjectModal('${p.id}')" title="Edit project">✏️</button>
+              <button class="btn-icon" onclick="deleteProject('${p.id}')" title="Delete project">🗑️</button>
+            </div>
+          </div>
+          <div class="col-meta">
+            <span class="badge badge-${p.status}">${fmtStatus(p.status)}</span>
+            <span class="badge badge-${p.priority}">${p.priority}</span>
+            ${p.targetDate?`<span style="font-size:0.67rem;color:var(--mid);font-weight:700;">📅 ${p.targetDate}</span>`:''}
+          </div>
+        </div>
+        <div class="col-progress">
+          <div class="progress-label"><span>${tasks.length} tasks</span><span>${progress}%</span></div>
+          <div class="progress-wrap"><div class="progress-bar" style="width:${progress}%"></div></div>
+        </div>
+        <div class="task-list" id="tasks-${p.id}">
+          ${tasks.length===0?'<div class="empty-tasks">No tasks yet</div>':taskCards}
+        </div>
+        <div class="add-task-wrap">
+          <div class="quick-add" id="qa-${p.id}">
+            <input type="text" placeholder="Task name..." id="qa-input-${p.id}"
+              onkeydown="if(event.key==='Enter')quickAddTask('${p.id}');if(event.key==='Escape')closeQuickAdd('${p.id}')"/>
+            <div class="quick-add-actions">
+              <button class="btn btn-primary btn-sm" onclick="quickAddTask('${p.id}')">Add</button>
+              <button class="btn btn-secondary btn-sm" onclick="closeQuickAdd('${p.id}')">Cancel</button>
+              <button class="btn btn-secondary btn-sm" onclick="openFullTaskModal('${p.id}')">More options</button>
+            </div>
+          </div>
+          <button class="add-task-btn" id="qa-btn-${p.id}" onclick="openQuickAdd('${p.id}')">+ Add Task</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  board.innerHTML=cols+`
+    <div class="add-col">
+      <button class="add-col-btn" onclick="openProjectModal()">＋<br/>New Project</button>
+    </div>
+  `;
+}
+
+// ── QUICK ADD TASK ──
+function openQuickAdd(pid){
+  document.getElementById('qa-'+pid).classList.add('open');
+  document.getElementById('qa-btn-'+pid).style.display='none';
+  setTimeout(()=>document.getElementById('qa-input-'+pid).focus(),50);
+}
+
+function closeQuickAdd(pid){
+  document.getElementById('qa-'+pid).classList.remove('open');
+  document.getElementById('qa-btn-'+pid).style.display='';
+  document.getElementById('qa-input-'+pid).value='';
+}
+
+function quickAddTask(pid){
+  const name=document.getElementById('qa-input-'+pid).value.trim();
+  if(!name) return;
+  const d=load();
+  const p=d.projects.find(x=>x.id===pid);
+  if(!p) return;
+  p.tasks.push({id:uid(),name,status:'todo',priority:'medium',startDate:today,dueDate:'',notes:''});
+  save(d);closeQuickAdd(pid);render();
+}
+
+// ── TASK TOGGLE ──
+function toggleTaskDone(pid,tid){
+  const d=load();
+  const p=d.projects.find(x=>x.id===pid);
+  const t=p&&p.tasks.find(x=>x.id===tid);
+  if(t) t.status=t.status==='done'?'todo':'done';
+  save(d);render();
+  if(document.getElementById('detail-overlay').classList.contains('open')) openDetailPanel(pid);
+}
+
+function deleteTask(pid,tid){
+  if(!confirm('Delete this task?')) return;
+  const d=load();
+  const p=d.projects.find(x=>x.id===pid);
+  if(p) p.tasks=p.tasks.filter(t=>t.id!==tid);
+  save(d);render();
+  if(document.getElementById('detail-overlay').classList.contains('open')) openDetailPanel(pid);
+}
+
+// ── PROJECT MODAL ──
+function openProjectModal(){
+  editingProjectId=null;activeProjectId=null;
+  document.getElementById('pm-title').textContent='New Project';
+  document.getElementById('pm-name').value='';
+  document.getElementById('pm-desc').value='';
+  document.getElementById('pm-status').value='planning';
+  document.getElementById('pm-priority').value='medium';
+  document.getElementById('pm-start').value=today;
+  document.getElementById('pm-target').value='';
+  document.getElementById('pm-progress').value='0';
+  document.getElementById('project-modal').classList.add('open');
+}
+
+function editProjectModal(pid){
+  const d=load();const p=d.projects.find(x=>x.id===pid);
+  if(!p) return;
+  editingProjectId=pid;
+  document.getElementById('pm-title').textContent='Edit Project';
+  document.getElementById('pm-name').value=p.name;
+  document.getElementById('pm-desc').value=p.description||'';
+  document.getElementById('pm-status').value=p.status;
+  document.getElementById('pm-priority').value=p.priority;
+  document.getElementById('pm-start').value=p.startDate||'';
+  document.getElementById('pm-target').value=p.targetDate||'';
+  document.getElementById('pm-progress').value=p.progress||0;
+  document.getElementById('project-modal').classList.add('open');
+}
+
+function saveProject(){
+  const name=document.getElementById('pm-name').value.trim();
+  if(!name) return alert('Project name is required');
+  const d=load();
+  if(editingProjectId){
+    const p=d.projects.find(x=>x.id===editingProjectId);
+    if(p){
+      p.name=name;p.description=document.getElementById('pm-desc').value.trim();
+      p.status=document.getElementById('pm-status').value;
+      p.priority=document.getElementById('pm-priority').value;
+      p.startDate=document.getElementById('pm-start').value;
+      p.targetDate=document.getElementById('pm-target').value;
+      p.progress=parseInt(document.getElementById('pm-progress').value)||0;
+    }
+  } else {
+    d.projects.push({
+      id:uid(),name,
+      description:document.getElementById('pm-desc').value.trim(),
+      status:document.getElementById('pm-status').value,
+      priority:document.getElementById('pm-priority').value,
+      startDate:document.getElementById('pm-start').value,
+      targetDate:document.getElementById('pm-target').value,
+      progress:0,tasks:[],milestones:[]
+    });
+  }
+  save(d);closeModal('project-modal');render();
+}
+
+function deleteProject(pid){
+  if(!confirm('Delete this project and all tasks?')) return;
+  const d=load();
+  d.projects=d.projects.filter(p=>p.id!==pid);
+  save(d);render();
+  document.getElementById('detail-overlay').classList.remove('open');
+}
+
+// ── TASK MODAL ──
+function openFullTaskModal(pid){
+  closeQuickAdd(pid);
+  activeProjectId=pid;editingTaskId=null;
+  document.getElementById('tm-title').textContent='New Task';
+  document.getElementById('tm-name').value='';
+  document.getElementById('tm-status').value='todo';
+  document.getElementById('tm-priority').value='medium';
+  document.getElementById('tm-start').value=today;
+  document.getElementById('tm-due').value='';
+  document.getElementById('tm-notes').value='';
+  document.getElementById('task-modal').classList.add('open');
+}
+
+function editTaskModal(pid,tid){
+  const d=load();const p=d.projects.find(x=>x.id===pid);
+  const t=p&&p.tasks.find(x=>x.id===tid);
+  if(!t) return;
+  activeProjectId=pid;editingTaskId=tid;
+  document.getElementById('tm-title').textContent='Edit Task';
+  document.getElementById('tm-name').value=t.name;
+  document.getElementById('tm-status').value=t.status;
+  document.getElementById('tm-priority').value=t.priority;
+  document.getElementById('tm-start').value=t.startDate||'';
+  document.getElementById('tm-due').value=t.dueDate||'';
+  document.getElementById('tm-notes').value=t.notes||'';
+  document.getElementById('task-modal').classList.add('open');
+}
+
+function saveTask(){
+  const name=document.getElementById('tm-name').value.trim();
+  if(!name) return alert('Task name required');
+  const d=load();const p=d.projects.find(x=>x.id===activeProjectId);
+  if(!p) return;
+  if(editingTaskId){
+    const t=p.tasks.find(x=>x.id===editingTaskId);
+    if(t){
+      t.name=name;t.status=document.getElementById('tm-status').value;
+      t.priority=document.getElementById('tm-priority').value;
+      t.startDate=document.getElementById('tm-start').value;
+      t.dueDate=document.getElementById('tm-due').value;
+      t.notes=document.getElementById('tm-notes').value.trim();
+    }
+  } else {
+    p.tasks.push({
+      id:uid(),name,
+      status:document.getElementById('tm-status').value,
+      priority:document.getElementById('tm-priority').value,
+      startDate:document.getElementById('tm-start').value,
+      dueDate:document.getElementById('tm-due').value,
+      notes:document.getElementById('tm-notes').value.trim()
+    });
+  }
+  save(d);closeModal('task-modal');render();
+  if(document.getElementById('detail-overlay').classList.contains('open')) openDetailPanel(activeProjectId);
+}
+
+// ── DETAIL PANEL (Gantt + Milestones) ──
+function openDetailPanel(pid){
+  activeProjectId=pid;
+  const d=load();const p=d.projects.find(x=>x.id===pid);
+  if(!p) return;
+
+  const tasks=p.tasks||[];
+  const milestones=p.milestones||[];
+
+  // Gantt
+  let ganttHtml='<div style="color:var(--light);font-size:0.8rem;padding:10px 0;">Add tasks with start & due dates to see Gantt chart.</div>';
+  const datedTasks=tasks.filter(t=>t.startDate&&t.dueDate);
+  const datedMs=milestones.filter(m=>m.targetDate);
+
+  if(datedTasks.length>0||datedMs.length>0){
+    const allDates=[...datedTasks.flatMap(t=>[t.startDate,t.dueDate]),...datedMs.map(m=>m.targetDate),...[p.startDate,p.targetDate].filter(Boolean)];
+    let minD=new Date(Math.min(...allDates.map(d=>new Date(d))));
+    let maxD=new Date(Math.max(...allDates.map(d=>new Date(d))));
+    minD.setDate(1);maxD.setMonth(maxD.getMonth()+1);maxD.setDate(0);
+    const total=(maxD-minD)/(86400000);
+    const todayPct=Math.min(100,Math.max(0,((new Date(today)-minD)/86400000)/total*100));
+
+    const ganttRows=[...datedTasks.map(t=>{
+      const left=((new Date(t.startDate)-minD)/86400000)/total*100;
+      const width=Math.max(((new Date(t.dueDate)-new Date(t.startDate))/86400000)/total*100,1.5);
+      return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <div style="width:130px;font-size:0.75rem;font-weight:700;color:var(--dark);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${t.name}">${t.name}</div>
+        <div style="flex:1;position:relative;height:24px;">
+          <div style="position:absolute;top:0;bottom:0;width:2px;background:var(--red);opacity:0.6;left:${todayPct}%;z-index:5;"></div>
+          <div style="position:absolute;height:14px;top:5px;border-radius:4px;background:${t.status==='done'?'var(--green)':'var(--accent)'};left:${left}%;width:${width}%;" title="${t.startDate} → ${t.dueDate}"></div>
+        </div>
+      </div>`;
+    }),...datedMs.map(m=>{
+      const left=Math.min(98,((new Date(m.targetDate)-minD)/86400000)/total*100);
+      return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <div style="width:130px;font-size:0.75rem;font-weight:700;color:var(--accent2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">◆ ${m.name}</div>
+        <div style="flex:1;position:relative;height:24px;">
+          <div style="position:absolute;top:0;bottom:0;width:2px;background:var(--red);opacity:0.6;left:${todayPct}%;z-index:5;"></div>
+          <div style="position:absolute;width:14px;height:14px;top:5px;background:${m.done?'var(--green)':'var(--accent2)'};transform:rotate(45deg);border-radius:2px;left:calc(${left}% - 7px);"></div>
+        </div>
+      </div>`;
+    })].join('');
+
+    ganttHtml=`<div style="padding:4px 0;">${ganttRows}<div style="font-size:0.65rem;color:var(--light);margin-top:8px;"><span style="color:var(--red);">|</span> Today &nbsp; <span style="background:var(--accent);color:white;padding:1px 6px;border-radius:3px;font-size:0.6rem;">█</span> Task &nbsp; <span style="color:var(--green);">█</span> Done &nbsp; <span style="color:var(--accent2);">◆</span> Milestone</div></div>`;
+  }
+
+  // Milestone rows
+  const msRows=milestones.map(m=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);">
+      <div style="width:18px;height:18px;background:${m.done?'var(--green)':'var(--accent2)'};transform:rotate(45deg);border-radius:3px;flex-shrink:0;"></div>
+      <div style="flex:1;">
+        <div style="font-size:0.83rem;font-weight:800;${m.done?'text-decoration:line-through;color:var(--light);':''}">${m.name}</div>
+        <div style="font-size:0.7rem;color:var(--light);">${m.targetDate||'—'}</div>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="toggleMs('${pid}','${m.id}')">${m.done?'Undo':'Done'}</button>
+      <button class="btn-icon" onclick="deleteMs('${pid}','${m.id}')">🗑️</button>
+    </div>
+  `).join('');
+
+  document.getElementById('detail-panel').innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <h2>${p.name}</h2>
+      <button class="close-panel" onclick="closeDetailPanel()">✕</button>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <span class="badge badge-${p.status}">${fmtStatus(p.status)}</span>
+      <span class="badge badge-${p.priority}">${p.priority}</span>
+      ${p.startDate?`<span style="font-size:0.72rem;color:var(--light);">📅 ${p.startDate} → ${p.targetDate||'?'}</span>`:''}
+    </div>
+    ${p.description?`<div style="font-size:0.82rem;color:var(--mid);">${p.description}</div>`:''}
+
+    <div>
+      <div class="detail-section-title">Gantt Chart</div>
+      ${ganttHtml}
+    </div>
+
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div class="detail-section-title" style="margin:0;">Milestones</div>
+        <button class="btn btn-primary btn-sm" onclick="addMilestonePrompt('${pid}')">+ Add</button>
+      </div>
+      ${milestones.length===0?'<div style="font-size:0.8rem;color:var(--light);">No milestones yet.</div>':msRows}
+    </div>
+  `;
+  document.getElementById('detail-overlay').classList.add('open');
+}
+
+function closeDetailPanel(){document.getElementById('detail-overlay').classList.remove('open');}
+function closePanelIfOutside(e){if(e.target===document.getElementById('detail-overlay')) closeDetailPanel();}
+
+function addMilestonePrompt(pid){
+  const name=prompt('Milestone name:');if(!name) return;
+  const date=prompt('Target date (YYYY-MM-DD):');
+  const d=load();const p=d.projects.find(x=>x.id===pid);
+  if(p){p.milestones=p.milestones||[];p.milestones.push({id:uid(),name,targetDate:date||'',done:false});}
+  save(d);render();openDetailPanel(pid);
+}
+
+function toggleMs(pid,mid){
+  const d=load();const p=d.projects.find(x=>x.id===pid);
+  const m=p&&p.milestones&&p.milestones.find(x=>x.id===mid);
+  if(m) m.done=!m.done;
+  save(d);render();openDetailPanel(pid);
+}
+
+function deleteMs(pid,mid){
+  const d=load();const p=d.projects.find(x=>x.id===pid);
+  if(p&&p.milestones) p.milestones=p.milestones.filter(m=>m.id!==mid);
+  save(d);render();openDetailPanel(pid);
+}
+
+// ── MODAL CLOSE ──
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.overlay').forEach(o=>{
+  o.addEventListener('click',e=>{if(e.target===o) o.classList.remove('open');});
+});
+
+// ── INIT ──
+render();
+</script>
+</body>
+</html>
