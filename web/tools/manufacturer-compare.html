@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manufacturer Compare</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --cream: #fdf6ec; --warm: #f5e6cc; --card: #fffaf3;
+  --accent: #e8956d; --accent2: #d4755a;
+  --dark: #3a2a1a; --mid: #6b4c30; --light: #a07850;
+  --border: #e8d5b5; --shadow: rgba(180,120,60,0.15); --tag: #f0dfc0;
+  --green: #27ae60; --red: #e74c3c; --orange: #e67e22; --blue: #2980b9;
+}
+body { font-family: 'Nunito', sans-serif; background: var(--cream); color: var(--dark); min-height: 100vh; }
+
+/* TOPBAR */
+.topbar {
+  background: linear-gradient(135deg, #f5e0c0, #eecfa0);
+  padding: 20px 32px;
+  border-bottom: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.topbar-title { flex: 1; }
+.topbar h1 { font-size: 1.8rem; font-weight: 900; color: var(--accent); line-height: 1.1; }
+.topbar p { font-size: 0.85rem; color: var(--mid); font-weight: 600; margin-top: 2px; }
+.topbar-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* BUTTONS */
+.btn {
+  padding: 9px 18px;
+  border-radius: 10px;
+  border: none;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.18s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent2); transform: translateY(-1px); }
+.btn-secondary { background: var(--card); color: var(--mid); border: 2px solid var(--border); }
+.btn-secondary:hover { background: var(--warm); transform: translateY(-1px); }
+.btn-danger { background: #ffeaea; color: var(--red); border: 2px solid #f5c6c6; }
+.btn-danger:hover { background: #ffd5d5; }
+.btn-sm { padding: 5px 10px; font-size: 0.78rem; border-radius: 7px; }
+.btn-icon { padding: 6px 8px; border-radius: 7px; background: transparent; border: none; cursor: pointer; font-size: 1rem; transition: background 0.15s; color: var(--mid); }
+.btn-icon:hover { background: var(--warm); }
+
+/* MAIN CONTENT */
+.main { padding: 28px 32px; }
+
+/* EMPTY STATE */
+.empty-state {
+  text-align: center;
+  padding: 80px 20px;
+  color: var(--light);
+}
+.empty-state .empty-icon {
+  font-size: 4rem;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+.empty-state h2 { font-size: 1.3rem; font-weight: 700; margin-bottom: 8px; color: var(--mid); }
+.empty-state p { font-size: 0.9rem; margin-bottom: 24px; }
+.empty-state .btn { margin: 0 auto; }
+
+/* COMPARE TABLE */
+.table-wrap {
+  overflow-x: auto;
+  border-radius: 14px;
+  border: 2px solid var(--border);
+  background: var(--card);
+  box-shadow: 0 4px 24px var(--shadow);
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 400px;
+}
+thead th {
+  background: var(--warm);
+  padding: 0;
+  border-right: 2px solid var(--border);
+  vertical-align: top;
+  min-width: 200px;
+}
+thead th:first-child {
+  background: var(--tag);
+  min-width: 160px;
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  border-right: 2px solid var(--border);
+}
+.col-header {
+  padding: 14px 16px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.col-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.col-company-name {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--dark);
+  word-break: break-word;
+}
+.col-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.best-badge {
+  display: inline-block;
+  background: #e8f8ee;
+  color: var(--green);
+  border: 1.5px solid #a8e6bf;
+  border-radius: 20px;
+  padding: 2px 10px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+}
+tbody tr { border-bottom: 1px solid var(--border); }
+tbody tr:last-child { border-bottom: none; }
+tbody td {
+  padding: 12px 16px;
+  font-size: 0.88rem;
+  border-right: 2px solid var(--border);
+  vertical-align: middle;
+}
+tbody td:last-child { border-right: none; }
+tbody td:first-child {
+  background: var(--tag);
+  font-weight: 700;
+  color: var(--mid);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  border-right: 2px solid var(--border);
+}
+tbody tr:hover td:not(:first-child) { background: #fffbf5; }
+
+/* Best column highlight */
+.best-col td { border-left: 4px solid var(--green) !important; }
+thead th.best-col { border-left: 4px solid var(--green) !important; }
+
+/* Color cells */
+.cell-green { color: var(--green); font-weight: 800; }
+.cell-red { color: var(--red); font-weight: 700; }
+.cell-normal { color: var(--dark); }
+
+/* MODAL */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(58,42,26,0.45);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--card);
+  border-radius: 18px;
+  border: 2px solid var(--border);
+  box-shadow: 0 8px 48px var(--shadow);
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.modal-header {
+  padding: 20px 24px 14px;
+  border-bottom: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.modal-header h2 { font-size: 1.15rem; font-weight: 800; color: var(--dark); }
+.modal-body { padding: 20px 24px; }
+.modal-footer { padding: 14px 24px 20px; display: flex; gap: 10px; justify-content: flex-end; border-top: 2px solid var(--border); margin-top: 4px; }
+
+/* FORM */
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: 0.82rem; font-weight: 700; color: var(--mid); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px; }
+.form-group input, .form-group textarea, .form-group select {
+  width: 100%;
+  padding: 9px 13px;
+  border: 2px solid var(--border);
+  border-radius: 9px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  background: #fff;
+  color: var(--dark);
+  transition: border-color 0.15s;
+}
+.form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+/* PRINT */
+@media print {
+  .topbar-actions, .no-print { display: none !important; }
+  .col-actions { display: none !important; }
+  body { background: #fff; }
+  .table-wrap { border: 1px solid #ccc; box-shadow: none; }
+  .modal-overlay { display: none !important; }
+}
+
+.notice {
+  background: var(--warm);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: 0.83rem;
+  color: var(--mid);
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-title">
+    <h1>Manufacturer Compare</h1>
+    <p>Side-by-side Supplier Comparison</p>
+  </div>
+  <div class="topbar-actions no-print">
+    <button class="btn btn-primary" onclick="openAddModal()">+ Add Manufacturer</button>
+    <button class="btn btn-secondary" onclick="exportCSV()">&#8659; Export CSV</button>
+    <button class="btn btn-secondary" onclick="window.print()">&#128438; Print</button>
+  </div>
+</div>
+
+<div class="main">
+  <div id="emptyState" class="empty-state" style="display:none;">
+    <div class="empty-icon">&#127970;</div>
+    <h2>No Manufacturers Yet</h2>
+    <p>Add manufacturers to start comparing side by side</p>
+    <button class="btn btn-primary" onclick="openAddModal()">+ Add First Manufacturer</button>
+  </div>
+
+  <div id="tableContainer" style="display:none;">
+    <div class="notice no-print">
+      &#128161; Lowest unit price column is highlighted green with a &#11088; Best badge. Price and lead time rows are color-coded.
+    </div>
+    <div class="table-wrap">
+      <table id="compareTable">
+        <thead id="tableHead"></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ADD / EDIT MODAL -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modalTitle">Add Manufacturer</h2>
+      <button class="btn-icon" onclick="closeModal()" style="font-size:1.3rem;">&#10005;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Company Name *</label>
+        <input type="text" id="f_name" placeholder="e.g. Shenzhen Parts Co." />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Country</label>
+          <input type="text" id="f_country" placeholder="e.g. China" />
+        </div>
+        <div class="form-group">
+          <label>MOQ (units)</label>
+          <input type="number" id="f_moq" placeholder="e.g. 100" min="0" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Unit Price (&#3647;)</label>
+          <input type="number" id="f_price" placeholder="e.g. 450" min="0" step="0.01" />
+        </div>
+        <div class="form-group">
+          <label>Sample Cost (&#3647;)</label>
+          <input type="number" id="f_sample" placeholder="e.g. 1500" min="0" step="0.01" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Lead Time</label>
+        <input type="text" id="f_lead" placeholder="e.g. 14 days" />
+      </div>
+      <div class="form-group">
+        <label>Certifications</label>
+        <input type="text" id="f_certs" placeholder="e.g. ISO 9001, CE, RoHS" />
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <input type="text" id="f_notes" placeholder="Any extra notes..." />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="modalSaveBtn" onclick="saveManufacturer()">Add Manufacturer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'mfr_data';
+let manufacturers = [];
+let editingId = null;
+
+// ── FIELDS ──────────────────────────────────────────────────────────────────
+const FIELDS = [
+  { key: 'country',  label: 'Country' },
+  { key: 'moq',     label: 'MOQ (units)' },
+  { key: 'price',   label: 'Unit Price (฿)' },
+  { key: 'lead',    label: 'Lead Time' },
+  { key: 'certs',   label: 'Certifications' },
+  { key: 'sample',  label: 'Sample Cost (฿)' },
+  { key: 'notes',   label: 'Notes' },
+];
+
+// ── STORAGE ──────────────────────────────────────────────────────────────────
+function load() {
+  try { manufacturers = JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch { manufacturers = []; }
+}
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(manufacturers));
+}
+
+// ── HELPERS ──────────────────────────────────────────────────────────────────
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+
+function parseDays(str) {
+  if (!str) return null;
+  const m = str.match(/(\d+(\.\d+)?)/);
+  return m ? parseFloat(m[1]) : null;
+}
+
+function getBestId() {
+  if (manufacturers.length < 2) return null;
+  let best = null, bestPrice = Infinity;
+  for (const m of manufacturers) {
+    const p = parseFloat(m.price);
+    if (!isNaN(p) && p < bestPrice) { bestPrice = p; best = m.id; }
+  }
+  return best;
+}
+
+function getPriceRange() {
+  const prices = manufacturers.map(m => parseFloat(m.price)).filter(p => !isNaN(p));
+  if (prices.length < 2) return { min: null, max: null };
+  return { min: Math.min(...prices), max: Math.max(...prices) };
+}
+
+function getLeadRange() {
+  const days = manufacturers.map(m => parseDays(m.lead)).filter(d => d !== null);
+  if (days.length < 2) return { min: null, max: null };
+  return { min: Math.min(...days), max: Math.max(...days) };
+}
+
+// ── RENDER ───────────────────────────────────────────────────────────────────
+function render() {
+  const empty = document.getElementById('emptyState');
+  const tableContainer = document.getElementById('tableContainer');
+
+  if (manufacturers.length === 0) {
+    empty.style.display = '';
+    tableContainer.style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  tableContainer.style.display = '';
+
+  const bestId = getBestId();
+  const priceRange = getPriceRange();
+  const leadRange = getLeadRange();
+
+  const thead = document.getElementById('tableHead');
+  const tbody = document.getElementById('tableBody');
+
+  // Header row
+  let headHtml = '<tr>';
+  headHtml += '<th><div class="col-header"><span style="font-size:0.82rem;font-weight:700;color:var(--mid);text-transform:uppercase;letter-spacing:0.4px;">Attribute</span></div></th>';
+  for (const m of manufacturers) {
+    const isBest = m.id === bestId;
+    headHtml += `<th class="${isBest ? 'best-col' : ''}">
+      <div class="col-header">
+        <div class="col-header-top">
+          <span class="col-company-name">${esc(m.name)}</span>
+          <div class="col-actions no-print">
+            <button class="btn-icon" title="Edit" onclick="openEditModal('${m.id}')">&#9999;&#65039;</button>
+            <button class="btn-icon" title="Delete" onclick="deleteMfr('${m.id}')">&#128465;</button>
+          </div>
+        </div>
+        ${isBest ? '<span class="best-badge">&#11088; Best Value</span>' : ''}
+      </div>
+    </th>`;
+  }
+  headHtml += '</tr>';
+  thead.innerHTML = headHtml;
+
+  // Body rows
+  let bodyHtml = '';
+  for (const field of FIELDS) {
+    bodyHtml += '<tr>';
+    bodyHtml += `<td>${esc(field.label)}</td>`;
+    for (const m of manufacturers) {
+      const isBest = m.id === bestId;
+      let cellClass = '';
+      let displayVal = esc(m[field.key] || '—');
+
+      if (field.key === 'price' && priceRange.min !== null) {
+        const p = parseFloat(m.price);
+        if (!isNaN(p)) {
+          if (p === priceRange.min) cellClass = 'cell-green';
+          else if (p === priceRange.max) cellClass = 'cell-red';
+          displayVal = isNaN(p) ? '—' : '฿' + p.toLocaleString();
+        }
+      }
+      if (field.key === 'sample') {
+        const p = parseFloat(m.sample);
+        displayVal = isNaN(p) ? (m.sample ? esc(m.sample) : '—') : '฿' + p.toLocaleString();
+      }
+      if (field.key === 'moq') {
+        const q = parseInt(m.moq);
+        displayVal = isNaN(q) ? (m.moq ? esc(m.moq) : '—') : q.toLocaleString() + ' units';
+      }
+      if (field.key === 'lead' && leadRange.min !== null) {
+        const d = parseDays(m.lead);
+        if (d !== null) {
+          if (d === leadRange.min) cellClass = 'cell-green';
+          else if (d === leadRange.max) cellClass = 'cell-red';
+        }
+        displayVal = m.lead ? esc(m.lead) : '—';
+      }
+
+      bodyHtml += `<td class="${isBest ? 'best-col' : ''} ${cellClass}">${displayVal}</td>`;
+    }
+    bodyHtml += '</tr>';
+  }
+  tbody.innerHTML = bodyHtml;
+}
+
+// ── MODAL ────────────────────────────────────────────────────────────────────
+function openAddModal() {
+  editingId = null;
+  clearForm();
+  document.getElementById('modalTitle').textContent = 'Add Manufacturer';
+  document.getElementById('modalSaveBtn').textContent = 'Add Manufacturer';
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function openEditModal(id) {
+  const m = manufacturers.find(x => x.id === id);
+  if (!m) return;
+  editingId = id;
+  document.getElementById('f_name').value = m.name || '';
+  document.getElementById('f_country').value = m.country || '';
+  document.getElementById('f_moq').value = m.moq || '';
+  document.getElementById('f_price').value = m.price || '';
+  document.getElementById('f_sample').value = m.sample || '';
+  document.getElementById('f_lead').value = m.lead || '';
+  document.getElementById('f_certs').value = m.certs || '';
+  document.getElementById('f_notes').value = m.notes || '';
+  document.getElementById('modalTitle').textContent = 'Edit Manufacturer';
+  document.getElementById('modalSaveBtn').textContent = 'Save Changes';
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+  editingId = null;
+}
+
+function clearForm() {
+  ['f_name','f_country','f_moq','f_price','f_sample','f_lead','f_certs','f_notes']
+    .forEach(id => document.getElementById(id).value = '');
+}
+
+function saveManufacturer() {
+  const name = document.getElementById('f_name').value.trim();
+  if (!name) { alert('Company name is required.'); return; }
+
+  const data = {
+    name,
+    country: document.getElementById('f_country').value.trim(),
+    moq: document.getElementById('f_moq').value.trim(),
+    price: document.getElementById('f_price').value.trim(),
+    sample: document.getElementById('f_sample').value.trim(),
+    lead: document.getElementById('f_lead').value.trim(),
+    certs: document.getElementById('f_certs').value.trim(),
+    notes: document.getElementById('f_notes').value.trim(),
+  };
+
+  if (editingId) {
+    const idx = manufacturers.findIndex(m => m.id === editingId);
+    if (idx !== -1) manufacturers[idx] = { id: editingId, ...data };
+  } else {
+    manufacturers.push({ id: uid(), ...data });
+  }
+
+  save();
+  render();
+  closeModal();
+}
+
+// ── DELETE ────────────────────────────────────────────────────────────────────
+function deleteMfr(id) {
+  const m = manufacturers.find(x => x.id === id);
+  if (!m) return;
+  if (!confirm(`Delete "${m.name}"? This cannot be undone.`)) return;
+  manufacturers = manufacturers.filter(x => x.id !== id);
+  save();
+  render();
+}
+
+// ── EXPORT CSV ────────────────────────────────────────────────────────────────
+function exportCSV() {
+  if (manufacturers.length === 0) { alert('No data to export.'); return; }
+  const attrs = ['name', ...FIELDS.map(f => f.key)];
+  const labels = ['Company Name', ...FIELDS.map(f => f.label)];
+
+  const rows = [labels];
+  for (const attr of attrs.slice(1)) {
+    // handled below
+  }
+
+  // Build: rows = attributes, columns = manufacturers
+  const csvRows = [];
+  csvRows.push(['Attribute', ...manufacturers.map(m => csvQuote(m.name))].join(','));
+
+  for (const field of FIELDS) {
+    const row = [csvQuote(field.label)];
+    for (const m of manufacturers) {
+      row.push(csvQuote(m[field.key] || ''));
+    }
+    csvRows.push(row.join(','));
+  }
+
+  const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'manufacturer-compare.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function csvQuote(v) {
+  const s = String(v);
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) return '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+
+function esc(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// ── CLOSE MODAL ON OVERLAY CLICK ─────────────────────────────────────────────
+document.getElementById('modalOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+load();
+render();
+</script>
+</body>
+</html>

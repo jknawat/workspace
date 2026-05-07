@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spec Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --cream: #fdf6ec; --warm: #f5e6cc; --card: #fffaf3;
+  --accent: #e8956d; --accent2: #d4755a;
+  --dark: #3a2a1a; --mid: #6b4c30; --light: #a07850;
+  --border: #e8d5b5; --shadow: rgba(180,120,60,0.15); --tag: #f0dfc0;
+  --green: #27ae60; --red: #e74c3c; --orange: #e67e22; --blue: #2980b9;
+}
+body { font-family: 'Nunito', sans-serif; background: var(--cream); color: var(--dark); min-height: 100vh; display: flex; flex-direction: column; }
+
+/* TOPBAR */
+.topbar {
+  background: linear-gradient(135deg, #f5e0c0, #eecfa0);
+  padding: 20px 32px;
+  border-bottom: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+.topbar-title { flex: 1; }
+.topbar h1 { font-size: 1.8rem; font-weight: 900; color: var(--accent); line-height: 1.1; }
+.topbar p { font-size: 0.85rem; color: var(--mid); font-weight: 600; margin-top: 2px; }
+.topbar-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+/* BUTTONS */
+.btn {
+  padding: 9px 18px;
+  border-radius: 10px;
+  border: none;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.18s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent2); transform: translateY(-1px); }
+.btn-secondary { background: var(--card); color: var(--mid); border: 2px solid var(--border); }
+.btn-secondary:hover { background: var(--warm); transform: translateY(-1px); }
+.btn-success { background: #e8f8ee; color: var(--green); border: 2px solid #a8e6bf; }
+.btn-success:hover { background: #d4f0df; }
+.btn-sm { padding: 5px 12px; font-size: 0.78rem; border-radius: 7px; }
+.btn-icon { padding: 5px 7px; border-radius: 6px; background: #fff5f5; border: 1.5px solid #f5c6c6; cursor: pointer; font-size: 0.85rem; color: var(--red); transition: background 0.15s; }
+.btn-icon:hover { background: #ffd5d5; }
+
+/* LAYOUT */
+.workspace {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  overflow: hidden;
+  height: calc(100vh - 85px);
+}
+
+/* LEFT PANEL - FORM */
+.form-panel {
+  background: var(--card);
+  border-right: 2px solid var(--border);
+  overflow-y: auto;
+  padding: 24px 20px;
+}
+.form-panel::-webkit-scrollbar { width: 6px; }
+.form-panel::-webkit-scrollbar-track { background: var(--warm); }
+.form-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+.form-section-title {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--accent);
+  margin-bottom: 12px;
+  margin-top: 20px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--border);
+}
+.form-section-title:first-child { margin-top: 0; }
+
+.form-group { margin-bottom: 12px; }
+.form-group label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--mid);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.form-group input, .form-group textarea, .form-group select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 2px solid var(--border);
+  border-radius: 9px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.88rem;
+  background: #fff;
+  color: var(--dark);
+  transition: border-color 0.15s;
+  resize: vertical;
+}
+.form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.form-group textarea { min-height: 68px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* REVISION TABLE */
+.rev-table-wrap { overflow-x: auto; }
+.rev-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  margin-bottom: 8px;
+}
+.rev-table th {
+  background: var(--tag);
+  padding: 6px 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--mid);
+  border: 1.5px solid var(--border);
+  text-align: left;
+}
+.rev-table td { border: 1.5px solid var(--border); padding: 4px 2px; }
+.rev-table td input {
+  width: 100%;
+  padding: 5px 7px;
+  border: none;
+  background: transparent;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.82rem;
+  color: var(--dark);
+}
+.rev-table td input:focus { outline: none; background: #fffbf0; border-radius: 4px; }
+.rev-table td.del-col { width: 32px; text-align: center; }
+
+/* RIGHT PANEL - PREVIEW */
+.preview-panel {
+  background: #d8cfc6;
+  overflow-y: auto;
+  padding: 32px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.preview-panel::-webkit-scrollbar { width: 6px; }
+.preview-panel::-webkit-scrollbar-track { background: #ccc5bb; }
+.preview-panel::-webkit-scrollbar-thumb { background: #b0a090; border-radius: 3px; }
+
+/* DOCUMENT PREVIEW */
+.doc {
+  background: #fff;
+  width: 100%;
+  max-width: 760px;
+  box-shadow: 0 4px 32px rgba(0,0,0,0.18);
+  border: 1px solid #ccc;
+  font-family: 'Arial', 'Helvetica', sans-serif;
+  font-size: 11pt;
+  color: #111;
+  min-height: 900px;
+}
+
+.doc-header {
+  background: #1a2a4a;
+  color: #fff;
+  padding: 20px 28px 16px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 20px;
+  align-items: center;
+}
+.doc-header-left .doc-company {
+  font-size: 10pt;
+  opacity: 0.7;
+  margin-bottom: 4px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.doc-header-left .doc-title {
+  font-size: 18pt;
+  font-weight: bold;
+  line-height: 1.2;
+  word-break: break-word;
+}
+.doc-header-right {
+  text-align: right;
+  font-size: 9pt;
+  opacity: 0.85;
+  line-height: 1.8;
+}
+.doc-header-right .doc-doctype {
+  font-size: 8pt;
+  opacity: 0.6;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.doc-info-bar {
+  background: #f0f4f8;
+  border-bottom: 2px solid #1a2a4a;
+  padding: 10px 28px;
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+.doc-info-item { font-size: 9pt; color: #444; }
+.doc-info-item span { font-weight: bold; color: #1a2a4a; }
+
+.doc-body { padding: 24px 28px; }
+
+.doc-section { margin-bottom: 22px; }
+.doc-section-title {
+  font-size: 10pt;
+  font-weight: bold;
+  color: #1a2a4a;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  padding-bottom: 5px;
+  border-bottom: 2px solid #1a2a4a;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.doc-section-num {
+  background: #1a2a4a;
+  color: #fff;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9pt;
+  flex-shrink: 0;
+}
+
+.doc-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  border: 1px solid #ccc;
+}
+.doc-grid-item {
+  padding: 7px 12px;
+  border-bottom: 1px solid #e0e0e0;
+  border-right: 1px solid #e0e0e0;
+}
+.doc-grid-item:nth-child(even) { border-right: none; }
+.doc-grid-item:nth-last-child(-n+2) { border-bottom: none; }
+.doc-grid-label { font-size: 8pt; color: #777; text-transform: uppercase; letter-spacing: 0.5px; }
+.doc-grid-value { font-size: 10pt; color: #111; font-weight: 600; min-height: 16px; word-break: break-word; }
+
+.doc-text-block {
+  background: #f8f9fa;
+  border: 1px solid #ddd;
+  border-left: 4px solid #1a2a4a;
+  padding: 10px 14px;
+  font-size: 10pt;
+  line-height: 1.6;
+  color: #222;
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-height: 40px;
+}
+.doc-placeholder { color: #aaa; font-style: italic; }
+
+/* REVISION HISTORY TABLE IN DOC */
+.doc-rev-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9pt;
+}
+.doc-rev-table th {
+  background: #1a2a4a;
+  color: #fff;
+  padding: 7px 10px;
+  text-align: left;
+  font-size: 8pt;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.doc-rev-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid #e0e0e0;
+  border-right: 1px solid #e0e0e0;
+  color: #222;
+}
+.doc-rev-table td:last-child { border-right: none; }
+.doc-rev-table tr:last-child td { border-bottom: none; }
+.doc-rev-table tr:nth-child(even) td { background: #f5f7fa; }
+.doc-rev-table-wrap { border: 1px solid #ccc; }
+
+.doc-footer {
+  border-top: 2px solid #1a2a4a;
+  padding: 10px 28px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 8pt;
+  color: #777;
+  background: #f8f9fa;
+}
+
+/* SAVE/LOAD BAR */
+.doc-actions-bar {
+  width: 100%;
+  max-width: 760px;
+  margin-bottom: 14px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.doc-actions-bar select {
+  padding: 7px 12px;
+  border: 2px solid var(--border);
+  border-radius: 9px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  background: #fff;
+  color: var(--dark);
+  cursor: pointer;
+}
+
+/* PRINT */
+@media print {
+  body { background: #fff; }
+  .topbar, .form-panel, .doc-actions-bar, .no-print { display: none !important; }
+  .workspace { display: block; height: auto; }
+  .preview-panel { background: #fff; padding: 0; display: block; }
+  .doc { box-shadow: none; border: none; max-width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<div class="topbar no-print">
+  <div class="topbar-title">
+    <h1>Spec Generator</h1>
+    <p>Engineering Specification Documents</p>
+  </div>
+  <div class="topbar-actions">
+    <button class="btn btn-secondary" onclick="newDoc()">&#43; New</button>
+    <button class="btn btn-success" onclick="saveDoc()">&#128190; Save</button>
+    <button class="btn btn-primary" onclick="printDoc()">&#128438; Print / Export PDF</button>
+  </div>
+</div>
+
+<div class="workspace">
+
+  <!-- LEFT: FORM -->
+  <div class="form-panel no-print">
+
+    <div class="form-section-title">&#128196; Document Info</div>
+
+    <div class="form-group">
+      <label>Document Title / Part Name *</label>
+      <input type="text" id="f_title" placeholder="e.g. Drone Motor Mount Bracket" oninput="updatePreview()" />
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Part Number</label>
+        <input type="text" id="f_partno" placeholder="e.g. DMM-001" oninput="updatePreview()" />
+      </div>
+      <div class="form-group">
+        <label>Revision</label>
+        <input type="text" id="f_rev" placeholder="e.g. A" oninput="updatePreview()" />
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Date</label>
+        <input type="date" id="f_date" oninput="updatePreview()" />
+      </div>
+      <div class="form-group">
+        <label>Author</label>
+        <input type="text" id="f_author" placeholder="e.g. JK" oninput="updatePreview()" />
+      </div>
+    </div>
+
+    <div class="form-section-title">&#9881; Material &amp; Finish</div>
+
+    <div class="form-group">
+      <label>Material</label>
+      <input type="text" id="f_material" placeholder="e.g. ABS Plastic, Aluminium 6061" oninput="updatePreview()" />
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Surface Finish</label>
+        <input type="text" id="f_finish" placeholder="e.g. Ra 1.6 μm" oninput="updatePreview()" />
+      </div>
+      <div class="form-group">
+        <label>Weight</label>
+        <input type="text" id="f_weight" placeholder="e.g. 45 g" oninput="updatePreview()" />
+      </div>
+    </div>
+
+    <div class="form-section-title">&#128207; Dimensions &amp; Tolerances</div>
+
+    <div class="form-group">
+      <label>Dimensions</label>
+      <textarea id="f_dims" placeholder="e.g. L: 120mm&#10;W: 45mm&#10;H: 30mm" oninput="updatePreview()"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Tolerances</label>
+      <textarea id="f_tol" placeholder="e.g. ±0.1mm general&#10;±0.05mm critical holes" oninput="updatePreview()"></textarea>
+    </div>
+
+    <div class="form-section-title">&#128221; Additional Info</div>
+
+    <div class="form-group">
+      <label>Standard / Reference</label>
+      <input type="text" id="f_std" placeholder="e.g. ISO 2768, ASME Y14.5" oninput="updatePreview()" />
+    </div>
+    <div class="form-group">
+      <label>Notes / Special Requirements</label>
+      <textarea id="f_notes" placeholder="Any special notes, requirements, or instructions..." oninput="updatePreview()"></textarea>
+    </div>
+
+    <div class="form-section-title">&#128196; Revision History</div>
+    <div class="rev-table-wrap">
+      <table class="rev-table" id="revTable">
+        <thead>
+          <tr>
+            <th style="width:50px;">Rev</th>
+            <th style="width:90px;">Date</th>
+            <th>Description</th>
+            <th style="width:70px;">Author</th>
+            <th style="width:32px;"></th>
+          </tr>
+        </thead>
+        <tbody id="revBody"></tbody>
+      </table>
+    </div>
+    <button class="btn btn-secondary btn-sm" onclick="addRevRow()" style="margin-top:6px;">+ Add Revision</button>
+
+    <div style="height: 24px;"></div>
+
+    <!-- SAVE/LOAD inside form panel -->
+    <div class="form-section-title">&#128190; Saved Documents</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <select id="loadSelect" style="flex:1;padding:8px 12px;border:2px solid var(--border);border-radius:9px;font-family:'Nunito',sans-serif;font-size:0.85rem;background:#fff;color:var(--dark);">
+        <option value="">-- Select saved doc --</option>
+      </select>
+      <button class="btn btn-secondary btn-sm" onclick="loadDoc()">Load</button>
+      <button class="btn btn-icon" title="Delete selected" onclick="deleteDoc()">&#128465;</button>
+    </div>
+    <div style="height:20px;"></div>
+  </div>
+
+  <!-- RIGHT: PREVIEW -->
+  <div class="preview-panel">
+
+    <div class="doc-actions-bar no-print">
+      <span style="font-size:0.82rem;font-weight:700;color:var(--mid);opacity:0.8;">Live Preview</span>
+    </div>
+
+    <div class="doc" id="docPreview">
+
+      <!-- HEADER -->
+      <div class="doc-header">
+        <div class="doc-header-left">
+          <div class="doc-company">Your Company Name</div>
+          <div class="doc-title" id="prev_title">Untitled Part</div>
+        </div>
+        <div class="doc-header-right">
+          <div class="doc-doctype">Engineering Specification</div>
+          <div>Part No: <strong id="prev_partno">—</strong></div>
+          <div>Revision: <strong id="prev_rev">—</strong></div>
+          <div>Date: <strong id="prev_date">—</strong></div>
+          <div>Author: <strong id="prev_author">—</strong></div>
+        </div>
+      </div>
+
+      <!-- INFO BAR -->
+      <div class="doc-info-bar">
+        <div class="doc-info-item">Status: <span>Draft</span></div>
+        <div class="doc-info-item">Type: <span>Engineering Specification</span></div>
+        <div class="doc-info-item" id="prev_std_bar">Standard: <span id="prev_std_val">—</span></div>
+      </div>
+
+      <!-- BODY -->
+      <div class="doc-body">
+
+        <!-- SECTION 1: PART INFORMATION -->
+        <div class="doc-section">
+          <div class="doc-section-title">
+            <span class="doc-section-num">1</span> Part Information
+          </div>
+          <div class="doc-grid">
+            <div class="doc-grid-item">
+              <div class="doc-grid-label">Part Name</div>
+              <div class="doc-grid-value" id="prev_name_cell">—</div>
+            </div>
+            <div class="doc-grid-item">
+              <div class="doc-grid-label">Part Number</div>
+              <div class="doc-grid-value" id="prev_partno_cell">—</div>
+            </div>
+            <div class="doc-grid-item">
+              <div class="doc-grid-label">Revision</div>
+              <div class="doc-grid-value" id="prev_rev_cell">—</div>
+            </div>
+            <div class="doc-grid-item">
+              <div class="doc-grid-label">Date</div>
+              <div class="doc-grid-value" id="prev_date_cell">—</div>
+            </div>
+            <div class="doc-grid-item">
+              <div class="doc-grid-label">Author / Engineer</div>
+              <div class="doc-grid-value" id="prev_author_cell">—</div>
+            </div>
+            <div class="doc-grid-item">
+              <div class="doc-grid-label">Weight</div>
+              <div class="doc-grid-value" id="prev_weight_cell">—</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 2: MATERIAL & FINISH -->
+        <div class="doc-section">
+          <div class="doc-section-title">
+            <span class="doc-section-num">2</span> Material &amp; Finish
+          </div>
+          <div class="doc-grid" style="grid-template-columns:1fr 1fr;">
+            <div class="doc-grid-item" style="border-right:1px solid #e0e0e0;border-bottom:none;">
+              <div class="doc-grid-label">Material</div>
+              <div class="doc-grid-value" id="prev_material_cell">—</div>
+            </div>
+            <div class="doc-grid-item" style="border-bottom:none;">
+              <div class="doc-grid-label">Surface Finish</div>
+              <div class="doc-grid-value" id="prev_finish_cell">—</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 3: DIMENSIONS & TOLERANCES -->
+        <div class="doc-section">
+          <div class="doc-section-title">
+            <span class="doc-section-num">3</span> Dimensions &amp; Tolerances
+          </div>
+          <div style="margin-bottom:8px;">
+            <div class="doc-grid-label" style="margin-bottom:4px;font-size:8pt;color:#777;text-transform:uppercase;letter-spacing:0.5px;">Dimensions</div>
+            <div class="doc-text-block" id="prev_dims">—</div>
+          </div>
+          <div>
+            <div class="doc-grid-label" style="margin-bottom:4px;font-size:8pt;color:#777;text-transform:uppercase;letter-spacing:0.5px;">Tolerances</div>
+            <div class="doc-text-block" id="prev_tol">—</div>
+          </div>
+        </div>
+
+        <!-- SECTION 4: NOTES -->
+        <div class="doc-section">
+          <div class="doc-section-title">
+            <span class="doc-section-num">4</span> Notes &amp; Special Requirements
+          </div>
+          <div class="doc-text-block" id="prev_notes">—</div>
+        </div>
+
+        <!-- REVISION HISTORY -->
+        <div class="doc-section">
+          <div class="doc-section-title">
+            <span class="doc-section-num">&#8635;</span> Revision History
+          </div>
+          <div class="doc-rev-table-wrap">
+            <table class="doc-rev-table">
+              <thead>
+                <tr>
+                  <th style="width:60px;">Rev</th>
+                  <th style="width:100px;">Date</th>
+                  <th>Description</th>
+                  <th style="width:90px;">Author</th>
+                </tr>
+              </thead>
+              <tbody id="prev_rev_tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div><!-- end doc-body -->
+
+      <!-- FOOTER -->
+      <div class="doc-footer">
+        <span>CONFIDENTIAL — Engineering Use Only</span>
+        <span id="prev_footer_info">Spec Generator | JK Engineering</span>
+      </div>
+
+    </div><!-- end .doc -->
+  </div><!-- end preview-panel -->
+
+</div><!-- end workspace -->
+
+<script>
+const STORAGE_KEY = 'spec_data';
+let revRows = [];
+let revCounter = 0;
+
+// ── REVISION ROWS ─────────────────────────────────────────────────────────────
+function addRevRow(data) {
+  const id = 'rev_' + (++revCounter);
+  revRows.push(id);
+  const tbody = document.getElementById('revBody');
+  const tr = document.createElement('tr');
+  tr.id = 'tr_' + id;
+  tr.innerHTML = `
+    <td><input type="text" id="${id}_rev" value="${esc(data?.rev||'')}" placeholder="A" oninput="updatePreview()" /></td>
+    <td><input type="text" id="${id}_date" value="${esc(data?.date||'')}" placeholder="2024-01-01" oninput="updatePreview()" /></td>
+    <td><input type="text" id="${id}_desc" value="${esc(data?.desc||'')}" placeholder="Initial release" oninput="updatePreview()" /></td>
+    <td><input type="text" id="${id}_author" value="${esc(data?.author||'')}" placeholder="JK" oninput="updatePreview()" /></td>
+    <td class="del-col"><button class="btn-icon" onclick="removeRevRow('${id}')">&#10005;</button></td>
+  `;
+  tbody.appendChild(tr);
+  updatePreview();
+}
+
+function removeRevRow(id) {
+  revRows = revRows.filter(r => r !== id);
+  const tr = document.getElementById('tr_' + id);
+  if (tr) tr.remove();
+  updatePreview();
+}
+
+// ── COLLECT FORM DATA ────────────────────────────────────────────────────────
+function collectForm() {
+  const revHistory = revRows.map(id => ({
+    rev:    document.getElementById(id + '_rev')?.value || '',
+    date:   document.getElementById(id + '_date')?.value || '',
+    desc:   document.getElementById(id + '_desc')?.value || '',
+    author: document.getElementById(id + '_author')?.value || '',
+  }));
+  return {
+    title:    document.getElementById('f_title').value,
+    partno:   document.getElementById('f_partno').value,
+    rev:      document.getElementById('f_rev').value,
+    date:     document.getElementById('f_date').value,
+    author:   document.getElementById('f_author').value,
+    material: document.getElementById('f_material').value,
+    finish:   document.getElementById('f_finish').value,
+    weight:   document.getElementById('f_weight').value,
+    dims:     document.getElementById('f_dims').value,
+    tol:      document.getElementById('f_tol').value,
+    std:      document.getElementById('f_std').value,
+    notes:    document.getElementById('f_notes').value,
+    revHistory,
+  };
+}
+
+// ── UPDATE PREVIEW ───────────────────────────────────────────────────────────
+function updatePreview() {
+  const d = collectForm();
+  const title = d.title || 'Untitled Part';
+
+  set('prev_title', title);
+  set('prev_partno', d.partno || '—');
+  set('prev_rev', d.rev || '—');
+  set('prev_date', fmt(d.date));
+  set('prev_author', d.author || '—');
+
+  set('prev_name_cell', title);
+  set('prev_partno_cell', d.partno || '—');
+  set('prev_rev_cell', d.rev || '—');
+  set('prev_date_cell', fmt(d.date));
+  set('prev_author_cell', d.author || '—');
+  set('prev_weight_cell', d.weight || '—');
+
+  set('prev_material_cell', d.material || '—');
+  set('prev_finish_cell', d.finish || '—');
+
+  setPre('prev_dims', d.dims || '—');
+  setPre('prev_tol', d.tol || '—');
+  setPre('prev_notes', d.notes || '—');
+
+  set('prev_std_val', d.std || '—');
+
+  set('prev_footer_info', `${d.partno ? d.partno + ' | ' : ''}Rev ${d.rev || '—'} | ${fmt(d.date)}`);
+
+  // Revision history table
+  const tbody = document.getElementById('prev_rev_tbody');
+  if (d.revHistory.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#aaa;font-style:italic;padding:10px;">No revision history</td></tr>';
+  } else {
+    tbody.innerHTML = d.revHistory.map(r => `
+      <tr>
+        <td>${esc(r.rev||'—')}</td>
+        <td>${esc(r.date||'—')}</td>
+        <td>${esc(r.desc||'—')}</td>
+        <td>${esc(r.author||'—')}</td>
+      </tr>
+    `).join('');
+  }
+}
+
+function set(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+function setPre(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+function fmt(dateStr) {
+  if (!dateStr) return '—';
+  try {
+    const d = new Date(dateStr + 'T00:00:00');
+    return d.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+  } catch { return dateStr; }
+}
+function esc(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// ── SAVE ──────────────────────────────────────────────────────────────────────
+function saveDoc() {
+  const d = collectForm();
+  const name = d.title.trim() || 'Untitled';
+  if (!name) { alert('Please enter a document title first.'); return; }
+
+  let docs = loadAllDocs();
+  const existing = docs.findIndex(x => x._name === name);
+  if (existing !== -1) {
+    if (!confirm(`Overwrite "${name}"?`)) return;
+    docs[existing] = { _name: name, ...d };
+  } else {
+    docs.push({ _name: name, ...d });
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(docs));
+  populateLoadSelect();
+  alert(`Saved: "${name}"`);
+}
+
+// ── LOAD ──────────────────────────────────────────────────────────────────────
+function loadAllDocs() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch { return []; }
+}
+
+function populateLoadSelect() {
+  const sel = document.getElementById('loadSelect');
+  const current = sel.value;
+  const docs = loadAllDocs();
+  sel.innerHTML = '<option value="">-- Select saved doc --</option>';
+  for (const doc of docs) {
+    const opt = document.createElement('option');
+    opt.value = doc._name;
+    opt.textContent = doc._name;
+    sel.appendChild(opt);
+  }
+  sel.value = current;
+}
+
+function loadDoc() {
+  const name = document.getElementById('loadSelect').value;
+  if (!name) { alert('Select a document to load.'); return; }
+  const docs = loadAllDocs();
+  const doc = docs.find(x => x._name === name);
+  if (!doc) { alert('Document not found.'); return; }
+  fillForm(doc);
+}
+
+function fillForm(d) {
+  document.getElementById('f_title').value    = d.title || '';
+  document.getElementById('f_partno').value   = d.partno || '';
+  document.getElementById('f_rev').value      = d.rev || '';
+  document.getElementById('f_date').value     = d.date || '';
+  document.getElementById('f_author').value   = d.author || '';
+  document.getElementById('f_material').value = d.material || '';
+  document.getElementById('f_finish').value   = d.finish || '';
+  document.getElementById('f_weight').value   = d.weight || '';
+  document.getElementById('f_dims').value     = d.dims || '';
+  document.getElementById('f_tol').value      = d.tol || '';
+  document.getElementById('f_std').value      = d.std || '';
+  document.getElementById('f_notes').value    = d.notes || '';
+
+  // Clear and rebuild revision rows
+  revRows = [];
+  revCounter = 0;
+  document.getElementById('revBody').innerHTML = '';
+  for (const r of (d.revHistory || [])) {
+    addRevRow(r);
+  }
+
+  updatePreview();
+}
+
+function deleteDoc() {
+  const name = document.getElementById('loadSelect').value;
+  if (!name) { alert('Select a document to delete.'); return; }
+  if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+  let docs = loadAllDocs();
+  docs = docs.filter(x => x._name !== name);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(docs));
+  populateLoadSelect();
+  alert(`Deleted: "${name}"`);
+}
+
+// ── NEW ───────────────────────────────────────────────────────────────────────
+function newDoc() {
+  if (!confirm('Start a new document? Unsaved changes will be lost.')) return;
+  ['f_title','f_partno','f_rev','f_date','f_author','f_material',
+   'f_finish','f_weight','f_dims','f_tol','f_std','f_notes'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  revRows = [];
+  revCounter = 0;
+  document.getElementById('revBody').innerHTML = '';
+  addRevRow();
+  updatePreview();
+}
+
+// ── PRINT ─────────────────────────────────────────────────────────────────────
+function printDoc() {
+  window.print();
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+// Set today's date
+document.getElementById('f_date').value = new Date().toISOString().split('T')[0];
+addRevRow({ rev: 'A', date: new Date().toISOString().split('T')[0], desc: 'Initial release', author: '' });
+populateLoadSelect();
+updatePreview();
+</script>
+</body>
+</html>

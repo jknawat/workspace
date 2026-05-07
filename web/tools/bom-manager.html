@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BOM Manager — JK Workspace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --cream: #fdf6ec; --warm: #f5e6cc; --card: #fffaf3;
+  --accent: #e8956d; --accent2: #d4755a;
+  --dark: #3a2a1a; --mid: #6b4c30; --light: #a07850;
+  --border: #e8d5b5; --shadow: rgba(180,120,60,0.15); --tag: #f0dfc0;
+  --green: #27ae60; --red: #e74c3c; --orange: #e67e22; --blue: #2980b9;
+}
+body { font-family: 'Nunito', sans-serif; background: var(--cream); color: var(--dark); min-height: 100vh; }
+
+/* TOPBAR */
+.topbar {
+  background: linear-gradient(135deg, #f5e0c0 0%, #eecfa0 100%);
+  padding: 20px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 2px solid var(--border);
+  box-shadow: 0 2px 12px var(--shadow);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.topbar-left h1 {
+  font-size: 1.8rem;
+  font-weight: 900;
+  color: var(--dark);
+  line-height: 1.1;
+}
+.topbar-left h1 span { color: var(--accent); }
+.topbar-left p {
+  font-size: 0.85rem;
+  color: var(--mid);
+  font-weight: 600;
+  margin-top: 2px;
+}
+.topbar-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* BUTTONS */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 18px;
+  border-radius: 10px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.btn-primary:hover { background: var(--accent2); border-color: var(--accent2); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(232,149,109,0.4); }
+.btn-secondary {
+  background: var(--card);
+  color: var(--mid);
+  border-color: var(--border);
+}
+.btn-secondary:hover { background: var(--warm); border-color: var(--light); transform: translateY(-1px); }
+.btn-danger { background: var(--red); color: #fff; border-color: var(--red); }
+.btn-danger:hover { background: #c0392b; border-color: #c0392b; }
+.btn-sm { padding: 5px 10px; font-size: 0.8rem; border-radius: 7px; border-width: 1.5px; }
+.btn-icon { padding: 6px 9px; font-size: 1rem; border-radius: 8px; background: transparent; border: 1.5px solid var(--border); cursor: pointer; transition: all 0.15s; }
+.btn-icon:hover { background: var(--warm); border-color: var(--light); }
+
+/* CONTENT AREA */
+.content { padding: 28px 32px; max-width: 1400px; margin: 0 auto; }
+
+/* STATS */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+}
+.stat-card {
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 22px;
+  box-shadow: 0 2px 8px var(--shadow);
+}
+.stat-card .stat-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--light);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+.stat-card .stat-value {
+  font-size: 1.9rem;
+  font-weight: 900;
+  color: var(--dark);
+  line-height: 1;
+}
+.stat-card .stat-value.accent { color: var(--accent); }
+.stat-card .stat-value.green { color: var(--green); }
+.stat-card .stat-value.orange { color: var(--orange); }
+
+/* TABLE WRAPPER */
+.table-wrapper {
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 2px 12px var(--shadow);
+  overflow: hidden;
+}
+.table-header {
+  padding: 16px 22px;
+  border-bottom: 1.5px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.table-header h2 {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--dark);
+}
+.table-scroll { overflow-x: auto; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+thead th {
+  background: var(--warm);
+  color: var(--mid);
+  font-weight: 800;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 12px 14px;
+  text-align: left;
+  border-bottom: 1.5px solid var(--border);
+  white-space: nowrap;
+}
+tbody tr:nth-child(odd) { background: #fff; }
+tbody tr:nth-child(even) { background: var(--cream); }
+tbody tr:hover { background: var(--warm); transition: background 0.12s; }
+tbody td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+tbody tr:last-child td { border-bottom: none; }
+.col-num { width: 40px; color: var(--light); font-weight: 700; }
+.col-actions { width: 90px; text-align: center; }
+.actions-cell { display: flex; gap: 6px; justify-content: center; }
+
+/* GRAND TOTAL ROW */
+.grand-total-row td {
+  background: linear-gradient(135deg, #f5e0c0, #eecfa0) !important;
+  font-weight: 900;
+  font-size: 0.95rem;
+  color: var(--dark);
+  border-top: 2.5px solid var(--accent) !important;
+  border-bottom: none !important;
+}
+
+/* BADGES */
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+.badge-active { background: rgba(39,174,96,0.12); color: var(--green); border: 1px solid rgba(39,174,96,0.25); }
+.badge-obsolete { background: rgba(120,120,120,0.1); color: #888; border: 1px solid rgba(120,120,120,0.2); }
+.badge-pending { background: rgba(230,126,34,0.12); color: var(--orange); border: 1px solid rgba(230,126,34,0.25); }
+
+/* EMPTY STATE */
+.empty-state {
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--light);
+}
+.empty-state .empty-icon { font-size: 3rem; margin-bottom: 12px; }
+.empty-state p { font-size: 0.95rem; font-weight: 600; }
+
+/* MODAL OVERLAY */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(58,42,26,0.45);
+  backdrop-filter: blur(3px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.2s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal {
+  background: var(--card);
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(58,42,26,0.25);
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  overflow-y: auto;
+  transform: translateY(20px) scale(0.97);
+  transition: transform 0.2s;
+  margin: 16px;
+}
+.modal-overlay.open .modal { transform: translateY(0) scale(1); }
+.modal-header {
+  padding: 22px 28px 0;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.modal-header h2 { font-size: 1.2rem; font-weight: 900; color: var(--dark); }
+.modal-close {
+  background: var(--warm); border: none; border-radius: 50%; width: 32px; height: 32px;
+  font-size: 1.1rem; cursor: pointer; color: var(--mid); display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.modal-close:hover { background: var(--border); color: var(--dark); }
+.modal-body { padding: 20px 28px 28px; }
+
+/* FORM FIELDS */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.form-grid .full { grid-column: 1 / -1; }
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-group label { font-size: 0.8rem; font-weight: 700; color: var(--mid); text-transform: uppercase; letter-spacing: 0.04em; }
+.form-group input,
+.form-group select,
+.form-group textarea {
+  padding: 10px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  color: var(--dark);
+  background: #fff;
+  transition: border-color 0.15s;
+  outline: none;
+}
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(232,149,109,0.15); }
+.form-group textarea { resize: vertical; min-height: 72px; }
+.modal-footer {
+  padding: 0 28px 24px;
+  display: flex; gap: 10px; justify-content: flex-end;
+}
+
+/* TOAST */
+.toast {
+  position: fixed;
+  bottom: 28px; right: 28px;
+  background: var(--dark);
+  color: #fff;
+  padding: 12px 22px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+  z-index: 2000;
+  transform: translateY(80px);
+  opacity: 0;
+  transition: all 0.25s ease;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.success { background: var(--green); }
+.toast.error { background: var(--red); }
+
+/* SEARCH */
+.search-box {
+  padding: 9px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.875rem;
+  color: var(--dark);
+  background: #fff;
+  outline: none;
+  width: 220px;
+  transition: border-color 0.15s;
+}
+.search-box:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(232,149,109,0.15); }
+
+/* CONFIRM DIALOG */
+.confirm-overlay {
+  position: fixed; inset: 0;
+  background: rgba(58,42,26,0.55);
+  backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1100;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.2s;
+}
+.confirm-overlay.open { opacity: 1; pointer-events: all; }
+.confirm-box {
+  background: var(--card);
+  border-radius: 18px;
+  padding: 32px;
+  max-width: 380px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(58,42,26,0.3);
+  transform: scale(0.95);
+  transition: transform 0.2s;
+}
+.confirm-overlay.open .confirm-box { transform: scale(1); }
+.confirm-box .confirm-icon { font-size: 2.5rem; margin-bottom: 12px; }
+.confirm-box h3 { font-size: 1.1rem; font-weight: 800; color: var(--dark); margin-bottom: 8px; }
+.confirm-box p { font-size: 0.88rem; color: var(--mid); margin-bottom: 24px; font-weight: 600; }
+.confirm-actions { display: flex; gap: 10px; justify-content: center; }
+
+@media (max-width: 640px) {
+  .topbar { padding: 16px 18px; }
+  .content { padding: 18px 16px; }
+  .form-grid { grid-template-columns: 1fr; }
+  .search-box { width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-left">
+    <h1>BOM <span>Manager</span></h1>
+    <p>Bill of Materials Tracker</p>
+  </div>
+  <div class="topbar-actions">
+    <button class="btn btn-primary" onclick="openAddModal()">+ Add Part</button>
+    <button class="btn btn-secondary" onclick="triggerImport()">&#8593; Import CSV</button>
+    <button class="btn btn-secondary" onclick="exportCSV()">&#8595; Export CSV</button>
+  </div>
+</div>
+
+<div class="content">
+  <!-- STATS -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">Total Parts</div>
+      <div class="stat-value" id="stat-total">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total Cost (฿)</div>
+      <div class="stat-value accent" id="stat-cost">฿0.00</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Active Parts</div>
+      <div class="stat-value green" id="stat-active">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Pending Parts</div>
+      <div class="stat-value orange" id="stat-pending">0</div>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="table-wrapper">
+    <div class="table-header">
+      <h2>Parts List</h2>
+      <input class="search-box" type="text" id="search-input" placeholder="Search parts..." oninput="renderTable()" />
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th class="col-num">#</th>
+            <th>Part Name</th>
+            <th>Part Number</th>
+            <th>Quantity</th>
+            <th>Unit Cost (฿)</th>
+            <th>Total Cost (฿)</th>
+            <th>Supplier</th>
+            <th>Lead Time</th>
+            <th>Status</th>
+            <th class="col-actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="bom-tbody"></tbody>
+        <tfoot id="bom-tfoot"></tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ADD/EDIT MODAL -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-title">Add Part</h2>
+      <button class="modal-close" onclick="closeModal()">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <form id="part-form" onsubmit="savePart(event)" autocomplete="off">
+        <div class="form-grid">
+          <div class="form-group full">
+            <label>Part Name *</label>
+            <input type="text" id="f-name" required placeholder="e.g. M3 x 12mm Bolt" />
+          </div>
+          <div class="form-group">
+            <label>Part Number</label>
+            <input type="text" id="f-partno" placeholder="e.g. BLT-M3-12" />
+          </div>
+          <div class="form-group">
+            <label>Supplier</label>
+            <input type="text" id="f-supplier" placeholder="e.g. Misumi" />
+          </div>
+          <div class="form-group">
+            <label>Quantity *</label>
+            <input type="number" id="f-qty" min="0" step="1" required placeholder="0" />
+          </div>
+          <div class="form-group">
+            <label>Unit Cost ฿ *</label>
+            <input type="number" id="f-cost" min="0" step="0.01" required placeholder="0.00" />
+          </div>
+          <div class="form-group">
+            <label>Lead Time</label>
+            <input type="text" id="f-lead" placeholder="e.g. 7 days" />
+          </div>
+          <div class="form-group">
+            <label>Status</label>
+            <select id="f-status">
+              <option value="active">Active</option>
+              <option value="pending">Pending</option>
+              <option value="obsolete">Obsolete</option>
+            </select>
+          </div>
+          <div class="form-group full">
+            <label>Notes</label>
+            <textarea id="f-notes" placeholder="Optional notes..."></textarea>
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="savePart(event)">Save Part</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM DELETE -->
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="confirm-box">
+    <div class="confirm-icon">🗑️</div>
+    <h3>Delete Part?</h3>
+    <p>This action cannot be undone.</p>
+    <div class="confirm-actions">
+      <button class="btn btn-secondary" onclick="closeConfirm()">Cancel</button>
+      <button class="btn btn-danger" id="confirm-delete-btn">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- HIDDEN FILE INPUT -->
+<input type="file" id="csv-file-input" accept=".csv" style="display:none" onchange="importCSV(event)" />
+
+<script>
+// ==================== DATA ====================
+const STORAGE_KEY = 'bom_data';
+let parts = [];
+let editingId = null;
+let deleteTargetId = null;
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    parts = raw ? JSON.parse(raw) : [];
+  } catch(e) { parts = []; }
+}
+function saveData() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(parts));
+}
+function genId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+// ==================== RENDER ====================
+function fmt(n) {
+  return Number(n || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function renderTable() {
+  const query = (document.getElementById('search-input').value || '').toLowerCase();
+  const tbody = document.getElementById('bom-tbody');
+  const tfoot = document.getElementById('bom-tfoot');
+
+  const filtered = parts.filter(p =>
+    p.name.toLowerCase().includes(query) ||
+    (p.partno || '').toLowerCase().includes(query) ||
+    (p.supplier || '').toLowerCase().includes(query)
+  );
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state"><div class="empty-icon">📋</div><p>${parts.length === 0 ? 'No parts yet. Click "+ Add Part" to start.' : 'No parts match your search.'}</p></div></td></tr>`;
+    tfoot.innerHTML = '';
+    updateStats();
+    return;
+  }
+
+  let grandTotal = 0;
+  tbody.innerHTML = filtered.map((p, i) => {
+    const total = (p.qty || 0) * (p.cost || 0);
+    grandTotal += total;
+    const badgeClass = p.status === 'active' ? 'badge-active' : p.status === 'obsolete' ? 'badge-obsolete' : 'badge-pending';
+    return `<tr>
+      <td class="col-num">${i + 1}</td>
+      <td><strong>${escHtml(p.name)}</strong>${p.notes ? `<br><small style="color:var(--light);font-weight:600;">${escHtml(p.notes)}</small>` : ''}</td>
+      <td style="font-family:monospace;font-size:0.82rem;color:var(--mid);">${escHtml(p.partno || '—')}</td>
+      <td><strong>${p.qty}</strong></td>
+      <td>฿${fmt(p.cost)}</td>
+      <td><strong>฿${fmt(total)}</strong></td>
+      <td>${escHtml(p.supplier || '—')}</td>
+      <td>${escHtml(p.lead || '—')}</td>
+      <td><span class="badge ${badgeClass}">${p.status}</span></td>
+      <td class="col-actions">
+        <div class="actions-cell">
+          <button class="btn-icon" title="Edit" onclick="openEditModal('${p.id}')">✏️</button>
+          <button class="btn-icon" title="Delete" onclick="confirmDelete('${p.id}')">🗑️</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  if (filtered.length > 0) {
+    tfoot.innerHTML = `<tr class="grand-total-row">
+      <td colspan="5"><strong>GRAND TOTAL</strong></td>
+      <td colspan="5"><strong>฿${fmt(grandTotal)}</strong></td>
+    </tr>`;
+  } else {
+    tfoot.innerHTML = '';
+  }
+
+  updateStats();
+}
+
+function updateStats() {
+  document.getElementById('stat-total').textContent = parts.length;
+  const total = parts.reduce((s, p) => s + (p.qty || 0) * (p.cost || 0), 0);
+  document.getElementById('stat-cost').textContent = '฿' + fmt(total);
+  document.getElementById('stat-active').textContent = parts.filter(p => p.status === 'active').length;
+  document.getElementById('stat-pending').textContent = parts.filter(p => p.status === 'pending').length;
+}
+
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ==================== MODAL ====================
+function openAddModal() {
+  editingId = null;
+  document.getElementById('modal-title').textContent = 'Add Part';
+  document.getElementById('part-form').reset();
+  document.getElementById('f-status').value = 'active';
+  document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('f-name').focus(), 100);
+}
+
+function openEditModal(id) {
+  const p = parts.find(x => x.id === id);
+  if (!p) return;
+  editingId = id;
+  document.getElementById('modal-title').textContent = 'Edit Part';
+  document.getElementById('f-name').value = p.name;
+  document.getElementById('f-partno').value = p.partno || '';
+  document.getElementById('f-qty').value = p.qty;
+  document.getElementById('f-cost').value = p.cost;
+  document.getElementById('f-supplier').value = p.supplier || '';
+  document.getElementById('f-lead').value = p.lead || '';
+  document.getElementById('f-status').value = p.status || 'active';
+  document.getElementById('f-notes').value = p.notes || '';
+  document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('f-name').focus(), 100);
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+function savePart(e) {
+  if (e) e.preventDefault();
+  const name = document.getElementById('f-name').value.trim();
+  if (!name) { showToast('Part name is required.', 'error'); return; }
+  const qty = parseFloat(document.getElementById('f-qty').value) || 0;
+  const cost = parseFloat(document.getElementById('f-cost').value) || 0;
+
+  const data = {
+    name,
+    partno: document.getElementById('f-partno').value.trim(),
+    qty,
+    cost,
+    supplier: document.getElementById('f-supplier').value.trim(),
+    lead: document.getElementById('f-lead').value.trim(),
+    status: document.getElementById('f-status').value,
+    notes: document.getElementById('f-notes').value.trim(),
+  };
+
+  if (editingId) {
+    const idx = parts.findIndex(p => p.id === editingId);
+    if (idx !== -1) parts[idx] = { ...parts[idx], ...data };
+    showToast('Part updated!', 'success');
+  } else {
+    parts.push({ id: genId(), ...data });
+    showToast('Part added!', 'success');
+  }
+
+  saveData();
+  renderTable();
+  closeModal();
+}
+
+// ==================== DELETE ====================
+function confirmDelete(id) {
+  deleteTargetId = id;
+  document.getElementById('confirm-overlay').classList.add('open');
+  document.getElementById('confirm-delete-btn').onclick = () => doDelete();
+}
+function closeConfirm() {
+  document.getElementById('confirm-overlay').classList.remove('open');
+  deleteTargetId = null;
+}
+function doDelete() {
+  parts = parts.filter(p => p.id !== deleteTargetId);
+  saveData();
+  renderTable();
+  closeConfirm();
+  showToast('Part deleted.', 'success');
+}
+
+// ==================== CSV IMPORT/EXPORT ====================
+function triggerImport() {
+  document.getElementById('csv-file-input').click();
+}
+
+function importCSV(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const text = e.target.result;
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    let imported = 0;
+    // Skip header row if it looks like a header
+    const startIdx = lines[0].toLowerCase().includes('part name') ? 1 : 0;
+    for (let i = startIdx; i < lines.length; i++) {
+      const cols = parseCSVLine(lines[i]);
+      if (cols.length < 1 || !cols[0].trim()) continue;
+      parts.push({
+        id: genId(),
+        name: cols[0] ? cols[0].trim() : '',
+        partno: cols[1] ? cols[1].trim() : '',
+        qty: parseFloat(cols[2]) || 0,
+        cost: parseFloat(cols[3]) || 0,
+        supplier: cols[4] ? cols[4].trim() : '',
+        lead: cols[5] ? cols[5].trim() : '',
+        status: (cols[6] ? cols[6].trim().toLowerCase() : 'active') || 'active',
+        notes: cols[7] ? cols[7].trim() : '',
+      });
+      imported++;
+    }
+    saveData();
+    renderTable();
+    showToast(`Imported ${imported} part(s)!`, 'success');
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let cur = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i+1] === '"') { cur += '"'; i++; }
+      else inQuotes = !inQuotes;
+    } else if (ch === ',' && !inQuotes) {
+      result.push(cur);
+      cur = '';
+    } else {
+      cur += ch;
+    }
+  }
+  result.push(cur);
+  return result;
+}
+
+function csvEscape(val) {
+  const str = String(val == null ? '' : val);
+  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    return '"' + str.replace(/"/g, '""') + '"';
+  }
+  return str;
+}
+
+function exportCSV() {
+  if (parts.length === 0) { showToast('No data to export.', 'error'); return; }
+  const headers = ['Part Name', 'Part Number', 'Quantity', 'Unit Cost', 'Supplier', 'Lead Time', 'Status', 'Notes'];
+  const rows = parts.map(p => [p.name, p.partno || '', p.qty, p.cost, p.supplier || '', p.lead || '', p.status, p.notes || ''].map(csvEscape).join(','));
+  const csv = [headers.join(','), ...rows].join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'bom_export_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('CSV exported!', 'success');
+}
+
+// ==================== TOAST ====================
+let toastTimer = null;
+function showToast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (type ? ' ' + type : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.classList.remove('show'); }, 3000);
+}
+
+// ==================== KEYBOARD ====================
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeModal(); closeConfirm(); }
+});
+
+// Click outside modal to close
+document.getElementById('modal-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+document.getElementById('confirm-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeConfirm();
+});
+
+// ==================== INIT ====================
+loadData();
+renderTable();
+</script>
+</body>
+</html>

@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Meeting Summary — JK</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --cream:#fdf6ec;--warm:#f5e6cc;--card:#fffaf3;
+  --accent:#e8956d;--accent2:#d4755a;
+  --dark:#3a2a1a;--mid:#6b4c30;--light:#a07850;
+  --border:#e8d5b5;--shadow:rgba(180,120,60,0.15);--tag:#f0dfc0;
+  --green:#27ae60;--red:#e74c3c;--orange:#e67e22;--blue:#2980b9;
+}
+body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--dark);min-height:100vh;display:flex;flex-direction:column;}
+
+.topbar{background:linear-gradient(135deg,#f5e0c0,#eecfa0);border-bottom:2px solid var(--border);padding:20px 32px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 10px var(--shadow);}
+.topbar h1{font-size:1.8rem;font-weight:900;color:var(--dark);}
+.topbar h1 span{color:var(--accent);}
+.topbar p{font-size:0.8rem;color:var(--light);margin-top:3px;}
+.topbar-right{display:flex;gap:10px;align-items:center;}
+
+/* API KEY BAR */
+.api-bar{background:white;border-bottom:1.5px solid var(--border);padding:10px 32px;display:flex;align-items:center;gap:12px;}
+.api-bar label{font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:var(--light);white-space:nowrap;}
+.api-bar input{flex:1;max-width:420px;padding:7px 12px;border:1.5px solid var(--border);border-radius:9px;font-size:0.82rem;font-family:'Nunito',sans-serif;font-weight:600;color:var(--dark);background:white;outline:none;}
+.api-bar input:focus{border-color:var(--accent);}
+.api-bar .hint{font-size:0.7rem;color:var(--light);font-weight:600;}
+
+/* MAIN LAYOUT */
+.main{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:0;min-height:0;}
+
+/* PANELS */
+.panel{display:flex;flex-direction:column;overflow:hidden;}
+.panel-header{padding:16px 28px 12px;border-bottom:1.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--warm);flex-shrink:0;}
+.panel-header h2{font-size:0.95rem;font-weight:900;color:var(--dark);}
+.panel-body{flex:1;padding:20px 28px;overflow-y:auto;}
+.panel-left{border-right:2px solid var(--border);}
+
+/* TEXTAREA */
+textarea{width:100%;border:1.5px solid var(--border);border-radius:12px;padding:14px;font-size:0.85rem;font-family:'Nunito',sans-serif;font-weight:600;color:var(--dark);background:white;outline:none;resize:none;line-height:1.6;transition:border-color 0.2s;}
+textarea:focus{border-color:var(--accent);}
+#notes-input{min-height:320px;}
+
+/* META FIELDS */
+.meta-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+.form-group{margin-bottom:14px;}
+.form-group label{display:block;font-size:0.68rem;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:var(--light);margin-bottom:4px;}
+.form-group input{width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:9px;font-size:0.83rem;font-family:'Nunito',sans-serif;background:white;color:var(--dark);font-weight:600;outline:none;}
+.form-group input:focus{border-color:var(--accent);}
+
+/* BUTTONS */
+.btn{border:none;padding:9px 18px;border-radius:10px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif;transition:all 0.2s;display:inline-flex;align-items:center;gap:6px;}
+.btn-primary{background:var(--accent);color:white;}
+.btn-primary:hover{background:var(--accent2);}
+.btn-primary:disabled{background:#ccc;cursor:not-allowed;}
+.btn-secondary{background:var(--tag);color:var(--mid);}
+.btn-secondary:hover{background:var(--border);}
+.btn-sm{padding:5px 12px;font-size:0.74rem;}
+
+/* GENERATE BUTTON */
+.generate-wrap{margin-top:16px;display:flex;gap:10px;align-items:center;}
+.spinner{display:none;width:18px;height:18px;border:2px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin 0.7s linear infinite;}
+.spinner.show{display:block;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* OUTPUT */
+.output-empty{text-align:center;padding:60px 20px;color:var(--light);}
+.output-empty .icon{font-size:3rem;margin-bottom:12px;}
+.output-empty p{font-size:0.85rem;font-weight:600;}
+
+.summary-doc{background:white;border-radius:14px;border:1.5px solid var(--border);padding:24px;box-shadow:0 3px 12px var(--shadow);}
+.summary-doc h3{font-size:1.1rem;font-weight:900;color:var(--dark);margin-bottom:4px;}
+.summary-doc .meta{font-size:0.75rem;color:var(--light);font-weight:600;margin-bottom:20px;padding-bottom:12px;border-bottom:1.5px solid var(--border);}
+
+.summary-section{margin-bottom:18px;}
+.summary-section h4{font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:var(--accent);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.summary-section p{font-size:0.85rem;color:var(--dark);line-height:1.6;font-weight:600;}
+.summary-section ul{padding-left:18px;}
+.summary-section ul li{font-size:0.85rem;color:var(--dark);line-height:1.7;font-weight:600;}
+
+.action-item{background:var(--tag);border-radius:8px;padding:8px 12px;margin-bottom:6px;display:flex;align-items:flex-start;gap:8px;}
+.action-item .bullet{color:var(--accent);font-weight:900;flex-shrink:0;}
+.action-item .text{font-size:0.83rem;font-weight:700;color:var(--dark);flex:1;}
+.action-item .owner{font-size:0.7rem;background:var(--accent);color:white;padding:1px 8px;border-radius:20px;font-weight:800;white-space:nowrap;}
+.action-item .due{font-size:0.7rem;color:var(--mid);font-weight:700;white-space:nowrap;}
+
+.decision-item{border-left:3px solid var(--accent);padding:6px 12px;margin-bottom:6px;background:rgba(232,149,109,0.06);border-radius:0 8px 8px 0;}
+.decision-item p{font-size:0.83rem;font-weight:700;color:var(--dark);}
+
+.question-item{border-left:3px solid var(--blue);padding:6px 12px;margin-bottom:6px;background:rgba(41,128,185,0.06);border-radius:0 8px 8px 0;}
+.question-item p{font-size:0.83rem;font-weight:700;color:var(--dark);}
+
+.output-actions{display:flex;gap:8px;margin-bottom:16px;}
+
+/* ERROR */
+.error-box{background:#fde8e8;border:1.5px solid #f5c6c6;border-radius:10px;padding:12px 16px;margin-top:12px;font-size:0.82rem;color:var(--red);font-weight:700;display:none;}
+.error-box.show{display:block;}
+
+/* HISTORY */
+.history-item{background:var(--card);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:8px;cursor:pointer;transition:all 0.2s;}
+.history-item:hover{border-color:var(--accent);background:#fdf0de;}
+.history-item .title{font-size:0.85rem;font-weight:800;color:var(--dark);}
+.history-item .date{font-size:0.68rem;color:var(--light);font-weight:600;}
+
+/* PRINT */
+@media print{
+  .topbar,.api-bar,.panel-left,.output-actions,.topbar-right{display:none!important;}
+  .main{display:block;}
+  .panel-right{border:none;}
+  .summary-doc{box-shadow:none;border:1px solid #ccc;}
+  body{background:white;}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <h1>Meeting <span>Summary</span></h1>
+    <p>AI-powered meeting notes processor</p>
+  </div>
+  <div class="topbar-right">
+    <button class="btn btn-secondary btn-sm" onclick="window.print()">🖨 Print</button>
+    <button class="btn btn-secondary btn-sm" onclick="exportTxt()">⬇ Export .txt</button>
+    <button class="btn btn-secondary btn-sm" onclick="clearAll()">🗑 Clear</button>
+  </div>
+</div>
+
+<!-- API KEY BAR -->
+<div class="api-bar">
+  <label>Anthropic API Key</label>
+  <input type="password" id="api-key" placeholder="sk-ant-..." oninput="saveKey()"/>
+  <span class="hint">Stored locally only. Get yours at console.anthropic.com</span>
+</div>
+
+<div class="main">
+  <!-- LEFT: INPUT -->
+  <div class="panel panel-left">
+    <div class="panel-header">
+      <h2>📝 Raw Notes</h2>
+      <button class="btn btn-secondary btn-sm" onclick="loadExample()">Load Example</button>
+    </div>
+    <div class="panel-body">
+      <div class="meta-row">
+        <div class="form-group">
+          <label>Meeting Title</label>
+          <input type="text" id="meeting-title" placeholder="e.g. Sprint Planning"/>
+        </div>
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" id="meeting-date"/>
+        </div>
+      </div>
+      <div class="meta-row">
+        <div class="form-group">
+          <label>Attendees</label>
+          <input type="text" id="meeting-attendees" placeholder="JK, Boss, Team..."/>
+        </div>
+        <div class="form-group">
+          <label>Language</label>
+          <select id="meeting-lang" style="width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:9px;font-size:0.83rem;font-family:'Nunito',sans-serif;background:white;color:var(--dark);font-weight:600;outline:none;">
+            <option value="auto">Auto Detect</option>
+            <option value="en">English</option>
+            <option value="th">Thai</option>
+            <option value="mixed">Thai + English</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Paste your raw notes here</label>
+        <textarea id="notes-input" placeholder="Paste your meeting notes here...
+
+Can be in Thai, English, or mixed. Even messy bullet points, stream of consciousness, or incomplete sentences. Claude will structure it for you.
+
+Example:
+- discuss new product
+- jk said need 3 weeks for prototype
+- boss approve budget 5000
+- need to order parts by friday
+- open question: which supplier?"></textarea>
+      </div>
+      <div class="generate-wrap">
+        <button class="btn btn-primary" id="gen-btn" onclick="generateSummary()">
+          ✨ Generate Summary
+          <div class="spinner" id="spinner"></div>
+        </button>
+        <span id="gen-status" style="font-size:0.75rem;color:var(--light);font-weight:600;"></span>
+      </div>
+      <div class="error-box" id="error-box"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT: OUTPUT -->
+  <div class="panel panel-right">
+    <div class="panel-header">
+      <h2>📋 Structured Summary</h2>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-secondary btn-sm" onclick="copyOutput()">📋 Copy</button>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div id="output-area">
+        <div class="output-empty">
+          <div class="icon">🤖</div>
+          <p>Paste your notes on the left<br/>and click Generate Summary</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const today=new Date().toISOString().split('T')[0];
+document.getElementById('meeting-date').value=today;
+
+// ── API KEY ──
+function saveKey(){localStorage.setItem('anthro_key',document.getElementById('api-key').value.trim());}
+function loadKey(){const k=localStorage.getItem('anthro_key')||'';document.getElementById('api-key').value=k;}
+loadKey();
+
+// ── EXAMPLE ──
+function loadExample(){
+  document.getElementById('meeting-title').value='Product Review Meeting';
+  document.getElementById('meeting-attendees').value='JK, Boss, Supplier A';
+  document.getElementById('notes-input').value=`- ประชุมทบทวนสถานะโปรเจกต์ drone frame
+- jk รายงาน progress 60% แล้ว
+- boss ถามว่า prototype จะเสร็จเมื่อไหร่ → jk บอก 2 สัปดาห์
+- ปัญหา: bearing ที่สั่งมาขนาดไม่ตรง ต้องสั่งใหม่
+- boss approve ให้สั่ง bearing จาก supplier ใหม่ budget max 3000 บาท
+- jk ต้องส่ง design drawing ให้ boss review ภายใน วันศุกร์
+- ยังไม่ตัดสินใจเรื่อง surface finish - รอผลทดสอบก่อน
+- next meeting: 2 สัปดาห์ข้างหน้า`;
+}
+
+// ── GENERATE ──
+async function generateSummary(){
+  const key=document.getElementById('api-key').value.trim();
+  const notes=document.getElementById('notes-input').value.trim();
+  const title=document.getElementById('meeting-title').value.trim()||'Meeting';
+  const date=document.getElementById('meeting-date').value||today;
+  const attendees=document.getElementById('meeting-attendees').value.trim();
+  const lang=document.getElementById('meeting-lang').value;
+
+  if(!key) return showError('Please enter your Anthropic API key above.');
+  if(!notes) return showError('Please paste your meeting notes.');
+
+  setLoading(true);
+  hideError();
+
+  const langHint=lang==='th'?'Notes are in Thai.'
+    :lang==='mixed'?'Notes may be in Thai, English, or mixed. Translate everything to English in the output.'
+    :lang==='en'?'Notes are in English.':'Detect the language and translate everything to English in the output.';
+
+  const prompt=`You are a meeting summarizer for an engineering team. ${langHint}
+
+Meeting: "${title}"
+Date: ${date}
+Attendees: ${attendees||'Not specified'}
+
+Raw notes:
+${notes}
+
+Create a structured meeting summary in this EXACT JSON format:
+{
+  "summary": "2-3 sentence overview of the meeting",
+  "keyDecisions": ["decision 1", "decision 2"],
+  "actionItems": [
+    {"task": "task description", "owner": "person name or TBD", "due": "due date or TBD"}
+  ],
+  "openQuestions": ["question 1", "question 2"],
+  "nextMeeting": "next meeting info or empty string"
+}
+
+Rules:
+- Extract ALL action items with owner and due date if mentioned
+- Key decisions = things that were agreed/approved
+- Open questions = things not yet decided
+- Keep language simple and clear
+- If no items in a category, use empty array
+- Return ONLY valid JSON, no other text`;
+
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key':key,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
+      body:JSON.stringify({
+        model:'claude-haiku-4-5-20251001',
+        max_tokens:1024,
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+
+    if(!res.ok){
+      const err=await res.json().catch(()=>({}));
+      throw new Error(err.error?.message||`API error ${res.status}`);
+    }
+
+    const data=await res.json();
+    const text=data.content[0].text.trim();
+
+    // parse JSON from response
+    const jsonMatch=text.match(/\{[\s\S]*\}/);
+    if(!jsonMatch) throw new Error('Could not parse response. Try again.');
+    const summary=JSON.parse(jsonMatch[0]);
+
+    renderSummary(summary,title,date,attendees);
+    saveToHistory(summary,title,date,attendees,notes);
+    setLoading(false);
+  } catch(e){
+    setLoading(false);
+    showError('Error: '+e.message+(e.message.includes('fetch')?'\n\nTip: Make sure you are connected to the internet and your API key is correct.':''));
+  }
+}
+
+function renderSummary(s,title,date,attendees){
+  const html=`
+    <div class="output-actions">
+      <button class="btn btn-secondary btn-sm" onclick="copyOutput()">📋 Copy All</button>
+      <button class="btn btn-secondary btn-sm" onclick="window.print()">🖨 Print</button>
+      <button class="btn btn-secondary btn-sm" onclick="exportTxt()">⬇ Export .txt</button>
+    </div>
+    <div class="summary-doc" id="summary-doc">
+      <h3>${title}</h3>
+      <div class="meta">📅 ${date} &nbsp;|&nbsp; 👥 ${attendees||'—'}</div>
+
+      <div class="summary-section">
+        <h4>📌 Overview</h4>
+        <p>${s.summary||'—'}</p>
+      </div>
+
+      ${s.keyDecisions&&s.keyDecisions.length?`
+      <div class="summary-section">
+        <h4>✅ Key Decisions</h4>
+        ${s.keyDecisions.map(d=>`<div class="decision-item"><p>${d}</p></div>`).join('')}
+      </div>`:''}
+
+      ${s.actionItems&&s.actionItems.length?`
+      <div class="summary-section">
+        <h4>⚡ Action Items</h4>
+        ${s.actionItems.map(a=>`
+          <div class="action-item">
+            <div class="bullet">→</div>
+            <div class="text">${a.task}</div>
+            ${a.owner&&a.owner!=='TBD'?`<div class="owner">${a.owner}</div>`:''}
+            ${a.due&&a.due!=='TBD'?`<div class="due">📅 ${a.due}</div>`:''}
+          </div>
+        `).join('')}
+      </div>`:''}
+
+      ${s.openQuestions&&s.openQuestions.length?`
+      <div class="summary-section">
+        <h4>❓ Open Questions</h4>
+        ${s.openQuestions.map(q=>`<div class="question-item"><p>${q}</p></div>`).join('')}
+      </div>`:''}
+
+      ${s.nextMeeting?`
+      <div class="summary-section">
+        <h4>📅 Next Meeting</h4>
+        <p>${s.nextMeeting}</p>
+      </div>`:''}
+    </div>
+  `;
+  document.getElementById('output-area').innerHTML=html;
+  window._lastSummary={s,title,date,attendees};
+}
+
+// ── HISTORY ──
+function saveToHistory(s,title,date,attendees,notes){
+  const h=JSON.parse(localStorage.getItem('meeting_history')||'[]');
+  h.unshift({id:Date.now(),title,date,attendees,notes,summary:s});
+  if(h.length>20)h.pop();
+  localStorage.setItem('meeting_history',JSON.stringify(h));
+}
+
+// ── COPY / EXPORT ──
+function copyOutput(){
+  if(!window._lastSummary){navigator.clipboard?.writeText('No summary generated yet.');return;}
+  const {s,title,date,attendees}=window._lastSummary;
+  const text=buildTextOutput(s,title,date,attendees);
+  navigator.clipboard?.writeText(text).then(()=>{
+    const btn=event.target;btn.textContent='✓ Copied!';setTimeout(()=>btn.textContent='📋 Copy All',2000);
+  });
+}
+
+function exportTxt(){
+  if(!window._lastSummary){alert('Generate a summary first.');return;}
+  const {s,title,date,attendees}=window._lastSummary;
+  const text=buildTextOutput(s,title,date,attendees);
+  const blob=new Blob([text],{type:'text/plain'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`meeting-${date}-${title.replace(/\s+/g,'-')}.txt`;
+  a.click();
+}
+
+function buildTextOutput(s,title,date,attendees){
+  let out=`MEETING SUMMARY\n${'='.repeat(40)}\n`;
+  out+=`Title: ${title}\nDate: ${date}\nAttendees: ${attendees||'—'}\n\n`;
+  out+=`OVERVIEW\n${s.summary||'—'}\n\n`;
+  if(s.keyDecisions?.length){out+=`KEY DECISIONS\n${s.keyDecisions.map(d=>`• ${d}`).join('\n')}\n\n`;}
+  if(s.actionItems?.length){out+=`ACTION ITEMS\n${s.actionItems.map(a=>`→ ${a.task} | ${a.owner} | ${a.due}`).join('\n')}\n\n`;}
+  if(s.openQuestions?.length){out+=`OPEN QUESTIONS\n${s.openQuestions.map(q=>`? ${q}`).join('\n')}\n\n`;}
+  if(s.nextMeeting){out+=`NEXT MEETING\n${s.nextMeeting}\n`;}
+  return out;
+}
+
+function clearAll(){
+  if(!confirm('Clear all notes and output?'))return;
+  document.getElementById('notes-input').value='';
+  document.getElementById('meeting-title').value='';
+  document.getElementById('meeting-attendees').value='';
+  document.getElementById('meeting-date').value=today;
+  document.getElementById('output-area').innerHTML=`<div class="output-empty"><div class="icon">🤖</div><p>Paste your notes on the left<br/>and click Generate Summary</p></div>`;
+  window._lastSummary=null;
+}
+
+function setLoading(on){
+  document.getElementById('gen-btn').disabled=on;
+  document.getElementById('spinner').className='spinner'+(on?' show':'');
+  document.getElementById('gen-status').textContent=on?'Processing with Claude AI...':'';
+}
+
+function showError(msg){const b=document.getElementById('error-box');b.textContent=msg;b.classList.add('show');}
+function hideError(){document.getElementById('error-box').classList.remove('show');}
+</script>
+</body>
+</html>

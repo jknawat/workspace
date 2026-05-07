@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vendor Log — Supplier & Contact Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --cream: #fdf6ec; --warm: #f5e6cc; --card: #fffaf3;
+  --accent: #e8956d; --accent2: #d4755a;
+  --dark: #3a2a1a; --mid: #6b4c30; --light: #a07850;
+  --border: #e8d5b5; --shadow: rgba(180,120,60,0.15); --tag: #f0dfc0;
+  --green: #27ae60; --red: #e74c3c; --orange: #e67e22; --blue: #2980b9;
+}
+body { font-family: 'Nunito', sans-serif; background: var(--cream); color: var(--dark); min-height: 100vh; }
+
+/* TOPBAR */
+.topbar {
+  background: linear-gradient(135deg, #f5e0c0, #eecfa0);
+  padding: 20px 32px;
+  border-bottom: 2px solid var(--border);
+  box-shadow: 0 2px 10px var(--shadow);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.topbar-left h1 { font-size: 1.8rem; font-weight: 900; color: var(--dark); }
+.topbar-left h1 .accent { color: var(--accent); }
+.topbar-left p { font-size: 0.85rem; color: var(--mid); font-weight: 600; margin-top: 2px; }
+.btn-primary {
+  background: var(--accent); color: white; border: none;
+  border-radius: 10px; font-weight: 700; font-size: 0.95rem;
+  padding: 10px 20px; cursor: pointer; font-family: 'Nunito', sans-serif;
+  transition: background 0.2s, transform 0.1s;
+}
+.btn-primary:hover { background: var(--accent2); transform: translateY(-1px); }
+.btn-primary:active { transform: translateY(0); }
+
+/* SEARCH & FILTERS */
+.controls {
+  padding: 20px 32px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.search-wrap { position: relative; }
+.search-wrap input {
+  width: 100%; padding: 12px 16px 12px 44px;
+  border: 2px solid var(--border); border-radius: 10px;
+  font-family: 'Nunito', sans-serif; font-size: 0.95rem;
+  background: var(--card); color: var(--dark);
+  transition: border-color 0.2s;
+}
+.search-wrap input:focus { outline: none; border-color: var(--accent); }
+.search-wrap .icon {
+  position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+  font-size: 1.1rem; color: var(--light);
+}
+.filter-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.filter-row select {
+  padding: 9px 14px; border: 2px solid var(--border); border-radius: 8px;
+  font-family: 'Nunito', sans-serif; font-size: 0.9rem;
+  background: var(--card); color: var(--dark); cursor: pointer;
+  transition: border-color 0.2s;
+}
+.filter-row select:focus { outline: none; border-color: var(--accent); }
+.result-count { font-size: 0.85rem; color: var(--light); font-weight: 600; align-self: center; margin-left: auto; }
+
+/* GRID */
+.grid-area { padding: 20px 32px 40px; }
+.vendor-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 18px;
+}
+
+/* VENDOR CARD */
+.vendor-card {
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 2px 8px var(--shadow);
+  transition: transform 0.15s, box-shadow 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.vendor-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px var(--shadow); }
+.card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.card-header-left { flex: 1; min-width: 0; }
+.company-name { font-size: 1.1rem; font-weight: 900; color: var(--dark); line-height: 1.2; }
+.contact-person { font-size: 0.85rem; color: var(--mid); font-weight: 600; margin-top: 3px; }
+.category-badge {
+  font-size: 0.72rem; font-weight: 700; padding: 3px 9px;
+  border-radius: 20px; white-space: nowrap; flex-shrink: 0;
+}
+.cat-electronics   { background: #d6eaf8; color: #1a6fa0; }
+.cat-mechanical    { background: #d5f5e3; color: #1a7a45; }
+.cat-raw-materials { background: #fdebd0; color: #a05e0a; }
+.cat-printing      { background: #e8daef; color: #6c3483; }
+.cat-packaging     { background: #fadbd8; color: #a93226; }
+.cat-services      { background: #d1f2eb; color: #0e7461; }
+.cat-other         { background: var(--tag); color: var(--mid); }
+
+.card-divider { height: 1px; background: var(--border); }
+
+.contact-row { display: flex; flex-direction: column; gap: 5px; }
+.contact-item { display: flex; align-items: center; gap: 7px; font-size: 0.85rem; }
+.contact-item .ci-icon { font-size: 0.9rem; color: var(--light); flex-shrink: 0; }
+.contact-item a { color: var(--mid); text-decoration: none; font-weight: 600; }
+.contact-item a:hover { color: var(--accent); text-decoration: underline; }
+.contact-item span { color: var(--mid); font-weight: 600; }
+
+.meta-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.country-tag { font-size: 0.82rem; color: var(--mid); font-weight: 600; display: flex; align-items: center; gap: 4px; }
+.stars { font-size: 0.95rem; letter-spacing: 1px; }
+.star-filled { color: #f0a500; }
+.star-empty  { color: #ddd; }
+.last-contacted { font-size: 0.78rem; color: var(--light); font-weight: 600; margin-left: auto; }
+
+.notes-text {
+  font-size: 0.82rem; color: var(--mid); line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; font-style: italic;
+}
+.followup-badge {
+  font-size: 0.78rem; font-weight: 700; padding: 4px 10px;
+  border-radius: 8px; display: inline-flex; align-items: center; gap: 4px;
+  background: #fff3cd; color: #856404; border: 1px solid #ffc107;
+}
+.followup-badge.overdue { background: #fde8e8; color: var(--red); border-color: var(--red); }
+
+.card-actions { display: flex; gap: 8px; margin-top: 4px; }
+.btn-edit, .btn-delete {
+  flex: 1; padding: 7px 0; border: none; border-radius: 8px;
+  font-family: 'Nunito', sans-serif; font-size: 0.85rem; font-weight: 700;
+  cursor: pointer; transition: background 0.2s;
+}
+.btn-edit   { background: var(--tag); color: var(--mid); }
+.btn-edit:hover { background: var(--warm); color: var(--dark); }
+.btn-delete { background: #fde8e8; color: var(--red); }
+.btn-delete:hover { background: #fbd0d0; }
+
+/* EMPTY STATE */
+.empty-state {
+  grid-column: 1 / -1;
+  text-align: center; padding: 64px 20px;
+  color: var(--light);
+}
+.empty-state .empty-icon { font-size: 3.5rem; margin-bottom: 16px; }
+.empty-state h3 { font-size: 1.2rem; font-weight: 800; color: var(--mid); margin-bottom: 8px; }
+.empty-state p { font-size: 0.9rem; }
+
+/* MODAL OVERLAY */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(58,42,26,0.45); z-index: 1000;
+  align-items: center; justify-content: center;
+  padding: 20px;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+  background: var(--card); border-radius: 16px;
+  padding: 28px; width: 100%; max-width: 520px;
+  max-height: 90vh; overflow-y: auto;
+  box-shadow: 0 12px 48px rgba(58,42,26,0.3);
+}
+.modal h2 { font-size: 1.3rem; font-weight: 900; color: var(--dark); margin-bottom: 20px; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-group.full { grid-column: 1 / -1; }
+.form-group label { font-size: 0.82rem; font-weight: 700; color: var(--mid); }
+.form-group input, .form-group select, .form-group textarea {
+  padding: 9px 12px; border: 2px solid var(--border); border-radius: 8px;
+  font-family: 'Nunito', sans-serif; font-size: 0.9rem;
+  background: white; color: var(--dark);
+  transition: border-color 0.2s;
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+  outline: none; border-color: var(--accent);
+}
+.form-group textarea { resize: vertical; min-height: 80px; }
+.modal-actions { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
+.btn-cancel {
+  padding: 9px 20px; border: 2px solid var(--border); border-radius: 8px;
+  background: transparent; color: var(--mid); font-family: 'Nunito', sans-serif;
+  font-weight: 700; font-size: 0.9rem; cursor: pointer;
+  transition: border-color 0.2s;
+}
+.btn-cancel:hover { border-color: var(--light); }
+.btn-save {
+  padding: 9px 24px; background: var(--accent); color: white;
+  border: none; border-radius: 8px; font-family: 'Nunito', sans-serif;
+  font-weight: 700; font-size: 0.9rem; cursor: pointer;
+  transition: background 0.2s;
+}
+.btn-save:hover { background: var(--accent2); }
+
+/* TOAST */
+.toast {
+  position: fixed; bottom: 24px; right: 24px; z-index: 2000;
+  background: var(--dark); color: white;
+  padding: 12px 20px; border-radius: 10px;
+  font-weight: 700; font-size: 0.9rem;
+  opacity: 0; transform: translateY(10px);
+  transition: opacity 0.3s, transform 0.3s;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+
+@media (max-width: 600px) {
+  .topbar { padding: 16px 20px; }
+  .controls, .grid-area { padding-left: 16px; padding-right: 16px; }
+  .form-grid { grid-template-columns: 1fr; }
+  .filter-row { flex-direction: column; }
+}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-left">
+    <h1>Vendor <span class="accent">Log</span></h1>
+    <p>Supplier &amp; Contact Manager</p>
+  </div>
+  <button class="btn-primary" onclick="openModal()">+ Add Vendor</button>
+</div>
+
+<!-- CONTROLS -->
+<div class="controls">
+  <div class="search-wrap">
+    <span class="icon">🔍</span>
+    <input type="text" id="searchInput" placeholder="Search vendors..." oninput="renderVendors()">
+  </div>
+  <div class="filter-row">
+    <select id="filterCategory" onchange="renderVendors()">
+      <option value="">All Categories</option>
+    </select>
+    <select id="filterCountry" onchange="renderVendors()">
+      <option value="">All Countries</option>
+    </select>
+    <span class="result-count" id="resultCount"></span>
+  </div>
+</div>
+
+<!-- GRID -->
+<div class="grid-area">
+  <div class="vendor-grid" id="vendorGrid"></div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h2 id="modalTitle">Add Vendor</h2>
+    <div class="form-grid">
+      <div class="form-group full">
+        <label>Company Name *</label>
+        <input type="text" id="f_company" placeholder="e.g. BangkokParts Co.">
+      </div>
+      <div class="form-group">
+        <label>Contact Person</label>
+        <input type="text" id="f_contact" placeholder="e.g. Somchai K.">
+      </div>
+      <div class="form-group">
+        <label>Country</label>
+        <input type="text" id="f_country" placeholder="e.g. Thailand 🇹🇭">
+      </div>
+      <div class="form-group">
+        <label>Phone</label>
+        <input type="tel" id="f_phone" placeholder="+66 2 123 4567">
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="f_email" placeholder="contact@vendor.com">
+      </div>
+      <div class="form-group">
+        <label>Category</label>
+        <select id="f_category">
+          <option value="Electronics">Electronics</option>
+          <option value="Mechanical Parts">Mechanical Parts</option>
+          <option value="Raw Materials">Raw Materials</option>
+          <option value="Printing">Printing</option>
+          <option value="Packaging">Packaging</option>
+          <option value="Services">Services</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Star Rating</label>
+        <select id="f_rating">
+          <option value="5">★★★★★ (5 - Excellent)</option>
+          <option value="4">★★★★☆ (4 - Good)</option>
+          <option value="3" selected>★★★☆☆ (3 - Average)</option>
+          <option value="2">★★☆☆☆ (2 - Below avg)</option>
+          <option value="1">★☆☆☆☆ (1 - Poor)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Last Contacted</label>
+        <input type="date" id="f_lastContact">
+      </div>
+      <div class="form-group">
+        <label>Follow-up Reminder</label>
+        <input type="date" id="f_followup">
+      </div>
+      <div class="form-group full">
+        <label>Notes</label>
+        <textarea id="f_notes" placeholder="MOQ, lead time, payment terms, special notes..."></textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" onclick="saveVendor()">Save Vendor</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+const STORAGE_KEY = 'vendor_data';
+let vendors = [];
+let editingId = null;
+
+// --- CATEGORY STYLE MAP ---
+const catClass = {
+  'Electronics':      'cat-electronics',
+  'Mechanical Parts': 'cat-mechanical',
+  'Raw Materials':    'cat-raw-materials',
+  'Printing':         'cat-printing',
+  'Packaging':        'cat-packaging',
+  'Services':         'cat-services',
+  'Other':            'cat-other',
+};
+
+// --- LOAD / SAVE ---
+function load() {
+  try { vendors = JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch(e) { vendors = []; }
+}
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(vendors));
+}
+
+// --- ID ---
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+// --- STARS ---
+function starsHTML(n) {
+  n = parseInt(n) || 0;
+  let h = '';
+  for (let i = 1; i <= 5; i++) {
+    h += `<span class="${i <= n ? 'star-filled' : 'star-empty'}">★</span>`;
+  }
+  return h;
+}
+
+// --- DATE FORMAT ---
+function fmtDate(d) {
+  if (!d) return '';
+  const dt = new Date(d + 'T00:00:00');
+  return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function isOverdue(d) {
+  if (!d) return false;
+  return new Date(d + 'T00:00:00') < new Date(new Date().toDateString());
+}
+
+// --- POPULATE FILTERS ---
+function populateFilters() {
+  const cats = [...new Set(vendors.map(v => v.category).filter(Boolean))].sort();
+  const countries = [...new Set(vendors.map(v => v.country).filter(Boolean))].sort();
+
+  const catSel = document.getElementById('filterCategory');
+  const curCat = catSel.value;
+  catSel.innerHTML = '<option value="">All Categories</option>';
+  cats.forEach(c => {
+    const o = document.createElement('option');
+    o.value = c; o.textContent = c;
+    if (c === curCat) o.selected = true;
+    catSel.appendChild(o);
+  });
+
+  const ctrSel = document.getElementById('filterCountry');
+  const curCtr = ctrSel.value;
+  ctrSel.innerHTML = '<option value="">All Countries</option>';
+  countries.forEach(c => {
+    const o = document.createElement('option');
+    o.value = c; o.textContent = c;
+    if (c === curCtr) o.selected = true;
+    ctrSel.appendChild(o);
+  });
+}
+
+// --- RENDER ---
+function renderVendors() {
+  populateFilters();
+  const q = document.getElementById('searchInput').value.toLowerCase().trim();
+  const catF = document.getElementById('filterCategory').value;
+  const ctrF = document.getElementById('filterCountry').value;
+
+  let list = vendors.filter(v => {
+    const matchQ = !q || v.company.toLowerCase().includes(q) || (v.contact || '').toLowerCase().includes(q);
+    const matchCat = !catF || v.category === catF;
+    const matchCtr = !ctrF || v.country === ctrF;
+    return matchQ && matchCat && matchCtr;
+  });
+
+  const grid = document.getElementById('vendorGrid');
+  document.getElementById('resultCount').textContent = list.length + ' vendor' + (list.length !== 1 ? 's' : '');
+
+  if (list.length === 0) {
+    grid.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">📋</div>
+        <h3>${vendors.length === 0 ? 'No vendors yet' : 'No results found'}</h3>
+        <p>${vendors.length === 0 ? 'Click "+ Add Vendor" to add your first supplier.' : 'Try a different search or filter.'}</p>
+      </div>`;
+    return;
+  }
+
+  grid.innerHTML = list.map(v => {
+    const cls = catClass[v.category] || 'cat-other';
+    const fu = v.followup;
+    const fuHTML = fu
+      ? `<div class="followup-badge ${isOverdue(fu) ? 'overdue' : ''}">
+           🔔 Follow up: ${fmtDate(fu)}${isOverdue(fu) ? ' — OVERDUE' : ''}
+         </div>`
+      : '';
+    const notesHTML = v.notes
+      ? `<div class="notes-text">${escHtml(v.notes)}</div>`
+      : '';
+    return `
+    <div class="vendor-card">
+      <div class="card-header">
+        <div class="card-header-left">
+          <div class="company-name">${escHtml(v.company)}</div>
+          ${v.contact ? `<div class="contact-person">👤 ${escHtml(v.contact)}</div>` : ''}
+        </div>
+        <span class="category-badge ${cls}">${escHtml(v.category)}</span>
+      </div>
+      <div class="card-divider"></div>
+      <div class="contact-row">
+        ${v.phone ? `<div class="contact-item"><span class="ci-icon">📞</span><a href="tel:${escHtml(v.phone)}">${escHtml(v.phone)}</a></div>` : ''}
+        ${v.email ? `<div class="contact-item"><span class="ci-icon">✉️</span><a href="mailto:${escHtml(v.email)}">${escHtml(v.email)}</a></div>` : ''}
+      </div>
+      <div class="meta-row">
+        ${v.country ? `<span class="country-tag">🌏 ${escHtml(v.country)}</span>` : ''}
+        <span class="stars">${starsHTML(v.rating)}</span>
+        ${v.lastContact ? `<span class="last-contacted">Last: ${fmtDate(v.lastContact)}</span>` : ''}
+      </div>
+      ${fuHTML}
+      ${notesHTML}
+      <div class="card-divider"></div>
+      <div class="card-actions">
+        <button class="btn-edit" onclick="openModal('${v.id}')">✏️ Edit</button>
+        <button class="btn-delete" onclick="deleteVendor('${v.id}')">🗑 Delete</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function escHtml(s) {
+  if (!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// --- MODAL ---
+function openModal(id) {
+  editingId = id || null;
+  const modal = document.getElementById('modalOverlay');
+  modal.classList.add('active');
+
+  if (id) {
+    const v = vendors.find(x => x.id === id);
+    document.getElementById('modalTitle').textContent = 'Edit Vendor';
+    document.getElementById('f_company').value    = v.company || '';
+    document.getElementById('f_contact').value    = v.contact || '';
+    document.getElementById('f_country').value    = v.country || '';
+    document.getElementById('f_phone').value      = v.phone || '';
+    document.getElementById('f_email').value      = v.email || '';
+    document.getElementById('f_category').value   = v.category || 'Other';
+    document.getElementById('f_rating').value     = v.rating || '3';
+    document.getElementById('f_lastContact').value= v.lastContact || '';
+    document.getElementById('f_followup').value   = v.followup || '';
+    document.getElementById('f_notes').value      = v.notes || '';
+  } else {
+    document.getElementById('modalTitle').textContent = 'Add Vendor';
+    document.getElementById('f_company').value    = '';
+    document.getElementById('f_contact').value    = '';
+    document.getElementById('f_country').value    = '';
+    document.getElementById('f_phone').value      = '';
+    document.getElementById('f_email').value      = '';
+    document.getElementById('f_category').value   = 'Mechanical Parts';
+    document.getElementById('f_rating').value     = '3';
+    document.getElementById('f_lastContact').value= '';
+    document.getElementById('f_followup').value   = '';
+    document.getElementById('f_notes').value      = '';
+  }
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('active');
+  editingId = null;
+}
+
+function saveVendor() {
+  const company = document.getElementById('f_company').value.trim();
+  if (!company) { alert('Company name is required.'); return; }
+
+  const data = {
+    company,
+    contact:     document.getElementById('f_contact').value.trim(),
+    country:     document.getElementById('f_country').value.trim(),
+    phone:       document.getElementById('f_phone').value.trim(),
+    email:       document.getElementById('f_email').value.trim(),
+    category:    document.getElementById('f_category').value,
+    rating:      document.getElementById('f_rating').value,
+    lastContact: document.getElementById('f_lastContact').value,
+    followup:    document.getElementById('f_followup').value,
+    notes:       document.getElementById('f_notes').value.trim(),
+  };
+
+  if (editingId) {
+    const idx = vendors.findIndex(v => v.id === editingId);
+    if (idx !== -1) vendors[idx] = { ...vendors[idx], ...data };
+    showToast('Vendor updated ✓');
+  } else {
+    data.id = uid();
+    vendors.unshift(data);
+    showToast('Vendor added ✓');
+  }
+
+  save();
+  closeModal();
+  renderVendors();
+}
+
+function deleteVendor(id) {
+  const v = vendors.find(x => x.id === id);
+  if (!confirm(`Delete "${v.company}"?`)) return;
+  vendors = vendors.filter(x => x.id !== id);
+  save();
+  renderVendors();
+  showToast('Vendor deleted');
+}
+
+// --- CLOSE OVERLAY ON BACKGROUND CLICK ---
+document.getElementById('modalOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+// --- TOAST ---
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// --- SEED DATA ---
+function seedDemo() {
+  if (vendors.length > 0) return;
+  vendors = [
+    {
+      id: uid(), company: 'BangkokParts Co.', contact: 'Somchai Krit', country: 'Thailand 🇹🇭',
+      phone: '+66 2 123 4567', email: 'somchai@bkkparts.co.th',
+      category: 'Mechanical Parts', rating: '4',
+      lastContact: '2026-04-20', followup: '2026-05-15',
+      notes: 'Good MOQ at 50pcs. Lead time 2 weeks. Net-30 payment terms. Ask for Somchai directly.',
+    },
+    {
+      id: uid(), company: 'Shenzhen ElecHub', contact: 'David Chen', country: 'China 🇨🇳',
+      phone: '+86 755 8888 0001', email: 'david@elechub.cn',
+      category: 'Electronics', rating: '5',
+      lastContact: '2026-05-01', followup: '',
+      notes: 'Best price for BLDC motors and ESCs. Fast shipping via DHL. Min order $200 USD.',
+    },
+    {
+      id: uid(), company: 'FilaMaster Thailand', contact: 'Naree S.', country: 'Thailand 🇹🇭',
+      phone: '+66 81 999 5555', email: 'naree@filamaster.th',
+      category: 'Raw Materials', rating: '3',
+      lastContact: '2026-03-10', followup: '2026-05-05',
+      notes: 'PLA and PETG rolls. Prices competitive but quality varies batch to batch. Always ask for sample.',
+    },
+  ];
+  save();
+}
+
+// --- INIT ---
+load();
+seedDemo();
+renderVendors();
+</script>
+</body>
+</html>

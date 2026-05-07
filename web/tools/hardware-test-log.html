@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Test Log — Hardware Test Session Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --cream: #fdf6ec; --warm: #f5e6cc; --card: #fffaf3;
+  --accent: #e8956d; --accent2: #d4755a;
+  --dark: #3a2a1a; --mid: #6b4c30; --light: #a07850;
+  --border: #e8d5b5; --shadow: rgba(180,120,60,0.15); --tag: #f0dfc0;
+  --green: #27ae60; --red: #e74c3c; --orange: #e67e22; --blue: #2980b9;
+}
+body { font-family: 'Nunito', sans-serif; background: var(--cream); color: var(--dark); min-height: 100vh; display: flex; flex-direction: column; }
+
+/* TOPBAR */
+.topbar {
+  background: linear-gradient(135deg, #f5e0c0, #eecfa0);
+  padding: 20px 32px;
+  border-bottom: 2px solid var(--border);
+  box-shadow: 0 2px 10px var(--shadow);
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  flex-wrap: wrap;
+}
+.topbar-left h1 { font-size: 1.8rem; font-weight: 900; color: var(--dark); }
+.topbar-left h1 .accent { color: var(--accent); }
+.topbar-left p { font-size: 0.85rem; color: var(--mid); font-weight: 600; margin-top: 2px; }
+.topbar-actions { display: flex; gap: 10px; align-items: center; }
+.btn-primary {
+  background: var(--accent); color: white; border: none;
+  border-radius: 10px; font-weight: 700; font-size: 0.95rem;
+  padding: 10px 20px; cursor: pointer; font-family: 'Nunito', sans-serif;
+  transition: background 0.2s, transform 0.1s;
+}
+.btn-primary:hover { background: var(--accent2); transform: translateY(-1px); }
+.btn-secondary {
+  background: var(--tag); color: var(--mid); border: 1.5px solid var(--border);
+  border-radius: 10px; font-weight: 700; font-size: 0.9rem;
+  padding: 9px 16px; cursor: pointer; font-family: 'Nunito', sans-serif;
+  transition: background 0.2s;
+}
+.btn-secondary:hover { background: var(--warm); }
+
+/* LAYOUT */
+.app-body {
+  display: flex; flex: 1; overflow: hidden; min-height: 0;
+}
+
+/* SIDEBAR */
+.sidebar {
+  width: 280px; flex-shrink: 0;
+  background: var(--warm); border-right: 2px solid var(--border);
+  display: flex; flex-direction: column;
+  min-height: calc(100vh - 86px);
+}
+.sidebar-header {
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.78rem; font-weight: 800; color: var(--light);
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
+.sessions-list { flex: 1; overflow-y: auto; padding: 8px; }
+.session-item {
+  padding: 12px 14px; border-radius: 10px; cursor: pointer;
+  margin-bottom: 6px; border: 1.5px solid transparent;
+  transition: background 0.15s, border-color 0.15s;
+}
+.session-item:hover { background: rgba(255,255,255,0.5); }
+.session-item.active { background: var(--card); border-color: var(--accent); }
+.session-item-name { font-size: 0.92rem; font-weight: 800; color: var(--dark); line-height: 1.2; }
+.session-item-rev  { font-size: 0.78rem; color: var(--mid); font-weight: 600; margin-top: 2px; }
+.session-item-meta { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
+.session-item-date { font-size: 0.75rem; color: var(--light); }
+.pass-rate-badge {
+  font-size: 0.72rem; font-weight: 800; padding: 2px 8px; border-radius: 20px;
+}
+.badge-green  { background: #d5f5e3; color: #1a7a45; }
+.badge-red    { background: #fadbd8; color: #a93226; }
+.badge-orange { background: #fdebd0; color: #a05e0a; }
+.badge-gray   { background: var(--tag); color: var(--light); }
+
+.sidebar-empty {
+  padding: 32px 16px; text-align: center;
+  color: var(--light); font-size: 0.85rem;
+}
+
+/* MAIN PANEL */
+.main-panel {
+  flex: 1; display: flex; flex-direction: column;
+  overflow: hidden; min-height: 0;
+}
+
+/* PLACEHOLDER */
+.placeholder {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  color: var(--light); text-align: center; padding: 40px;
+}
+.placeholder .ph-icon { font-size: 4rem; margin-bottom: 16px; }
+.placeholder h3 { font-size: 1.1rem; font-weight: 800; color: var(--mid); margin-bottom: 8px; }
+.placeholder p { font-size: 0.9rem; }
+
+/* SESSION HEADER */
+.session-header {
+  background: var(--card); border-bottom: 2px solid var(--border);
+  padding: 18px 28px; display: flex; align-items: flex-start;
+  justify-content: space-between; gap: 16px; flex-wrap: wrap;
+}
+.session-title-area h2 { font-size: 1.25rem; font-weight: 900; color: var(--dark); }
+.session-title-area .rev-chip {
+  display: inline-block; font-size: 0.8rem; font-weight: 700;
+  background: var(--tag); color: var(--mid); border-radius: 6px;
+  padding: 2px 9px; margin-left: 8px;
+}
+.session-title-area .sess-date { font-size: 0.82rem; color: var(--light); margin-top: 4px; font-weight: 600; }
+.session-title-area .sess-notes { font-size: 0.82rem; color: var(--mid); margin-top: 4px; font-style: italic; }
+.session-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.btn-danger {
+  background: #fde8e8; color: var(--red); border: 1.5px solid #f5c6c6;
+  border-radius: 8px; font-family: 'Nunito', sans-serif; font-weight: 700;
+  font-size: 0.85rem; padding: 7px 14px; cursor: pointer; transition: background 0.2s;
+}
+.btn-danger:hover { background: #fbd0d0; }
+
+/* SUMMARY BAR */
+.summary-bar {
+  background: white; border-bottom: 1.5px solid var(--border);
+  padding: 14px 28px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+}
+.stat-pill {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.85rem; font-weight: 700;
+}
+.stat-pill .dot {
+  width: 10px; height: 10px; border-radius: 50%;
+}
+.dot-total  { background: var(--mid); }
+.dot-pass   { background: var(--green); }
+.dot-fail   { background: var(--red); }
+.dot-pending{ background: #999; }
+.progress-wrap { flex: 1; min-width: 140px; }
+.progress-label { font-size: 0.78rem; font-weight: 700; color: var(--mid); margin-bottom: 4px; display: flex; justify-content: space-between; }
+.progress-bar-outer { background: #eee; border-radius: 20px; height: 10px; overflow: hidden; }
+.progress-bar-inner {
+  height: 100%; border-radius: 20px;
+  background: linear-gradient(90deg, var(--green), #2ecc71);
+  transition: width 0.4s ease;
+}
+.btn-add-test {
+  background: var(--tag); color: var(--mid); border: 1.5px solid var(--border);
+  border-radius: 8px; font-family: 'Nunito', sans-serif; font-weight: 700;
+  font-size: 0.85rem; padding: 7px 14px; cursor: pointer;
+  transition: background 0.2s; margin-left: auto;
+}
+.btn-add-test:hover { background: var(--warm); }
+
+/* TEST TABLE */
+.table-wrap { flex: 1; overflow: auto; padding: 20px 28px 32px; }
+table {
+  width: 100%; border-collapse: collapse;
+  font-size: 0.87rem; min-width: 700px;
+}
+thead th {
+  background: var(--warm); color: var(--mid); font-weight: 800;
+  font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em;
+  padding: 10px 14px; text-align: left; position: sticky; top: 0; z-index: 1;
+  border-bottom: 2px solid var(--border);
+}
+tbody tr { border-bottom: 1px solid var(--border); transition: background 0.12s; }
+tbody tr:hover { background: rgba(255,250,243,0.8); }
+tbody td { padding: 11px 14px; vertical-align: top; color: var(--dark); }
+td.num { color: var(--light); font-weight: 700; width: 36px; text-align: center; }
+td.status-cell { width: 110px; }
+.status-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 0.8rem; font-weight: 700; padding: 4px 10px; border-radius: 20px;
+}
+.status-pass    { background: #d5f5e3; color: #1a7a45; }
+.status-fail    { background: #fadbd8; color: #a93226; }
+.status-pending { background: var(--tag); color: var(--light); }
+td.actions-cell { width: 90px; }
+.tbl-btn {
+  background: none; border: none; cursor: pointer; font-size: 1rem;
+  padding: 3px 6px; border-radius: 5px; transition: background 0.15s;
+}
+.tbl-btn:hover { background: var(--warm); }
+.tbl-notes { font-size: 0.8rem; color: var(--mid); font-style: italic; }
+.empty-table {
+  text-align: center; padding: 48px 20px;
+  color: var(--light); font-size: 0.9rem;
+}
+.empty-table .ei { font-size: 2.5rem; margin-bottom: 10px; }
+
+/* MODAL */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(58,42,26,0.45); z-index: 1000;
+  align-items: center; justify-content: center; padding: 20px;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+  background: var(--card); border-radius: 16px; padding: 28px;
+  width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto;
+  box-shadow: 0 12px 48px rgba(58,42,26,0.3);
+}
+.modal h2 { font-size: 1.2rem; font-weight: 900; color: var(--dark); margin-bottom: 20px; }
+.form-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+.form-group label { font-size: 0.82rem; font-weight: 700; color: var(--mid); }
+.form-group input, .form-group select, .form-group textarea {
+  padding: 9px 12px; border: 2px solid var(--border); border-radius: 8px;
+  font-family: 'Nunito', sans-serif; font-size: 0.9rem;
+  background: white; color: var(--dark); transition: border-color 0.2s;
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+  outline: none; border-color: var(--accent);
+}
+.form-group textarea { resize: vertical; min-height: 70px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.modal-actions { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
+.btn-cancel {
+  padding: 9px 20px; border: 2px solid var(--border); border-radius: 8px;
+  background: transparent; color: var(--mid); font-family: 'Nunito', sans-serif;
+  font-weight: 700; font-size: 0.9rem; cursor: pointer;
+}
+.btn-cancel:hover { border-color: var(--light); }
+.btn-save {
+  padding: 9px 24px; background: var(--accent); color: white;
+  border: none; border-radius: 8px; font-family: 'Nunito', sans-serif;
+  font-weight: 700; font-size: 0.9rem; cursor: pointer;
+}
+.btn-save:hover { background: var(--accent2); }
+
+/* TOAST */
+.toast {
+  position: fixed; bottom: 24px; right: 24px; z-index: 2000;
+  background: var(--dark); color: white;
+  padding: 12px 20px; border-radius: 10px;
+  font-weight: 700; font-size: 0.9rem;
+  opacity: 0; transform: translateY(10px);
+  transition: opacity 0.3s, transform 0.3s;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+
+/* PRINT */
+@media print {
+  .sidebar, .topbar-actions, .session-actions, .btn-add-test,
+  .tbl-btn, .actions-cell, .modal-overlay, .toast { display: none !important; }
+  .sidebar { display: none !important; }
+  .app-body { display: block; }
+  .main-panel { overflow: visible; }
+  .table-wrap { overflow: visible; padding: 10px; }
+  thead th { background: #eee !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .status-badge { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+
+/* RESPONSIVE */
+@media (max-width: 720px) {
+  .sidebar { width: 100%; min-height: unset; border-right: none; border-bottom: 2px solid var(--border); }
+  .app-body { flex-direction: column; }
+  .table-wrap { padding: 14px 12px 28px; }
+  .summary-bar { padding: 12px 14px; }
+  .session-header { padding: 14px 14px; }
+  .topbar { padding: 14px 16px; }
+}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-left">
+    <h1>Test <span class="accent">Log</span></h1>
+    <p>Hardware Test Session Manager</p>
+  </div>
+  <div class="topbar-actions">
+    <button class="btn-secondary" onclick="printSession()">🖨 Print / PDF</button>
+    <button class="btn-primary" onclick="openSessionModal()">+ New Session</button>
+  </div>
+</div>
+
+<!-- APP BODY -->
+<div class="app-body">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">Sessions</div>
+    <div class="sessions-list" id="sessionsList"></div>
+  </aside>
+
+  <!-- MAIN PANEL -->
+  <main class="main-panel" id="mainPanel">
+    <div class="placeholder" id="placeholder">
+      <div class="ph-icon">🧪</div>
+      <h3>No Session Selected</h3>
+      <p>Select a session from the left, or create a new one with "+ New Session".</p>
+    </div>
+
+    <!-- SESSION VIEW (hidden until session selected) -->
+    <div id="sessionView" style="display:none; flex:1; flex-direction:column; overflow:hidden;">
+
+      <div class="session-header">
+        <div class="session-title-area">
+          <h2 id="viewName">—</h2>
+          <div>
+            <span class="rev-chip" id="viewRev"></span>
+            <span class="sess-date" id="viewDate"></span>
+          </div>
+          <div class="sess-notes" id="viewNotes"></div>
+        </div>
+        <div class="session-actions">
+          <button class="btn-danger" onclick="deleteSession()">🗑 Delete Session</button>
+        </div>
+      </div>
+
+      <div class="summary-bar" id="summaryBar">
+        <div class="stat-pill"><span class="dot dot-total"></span><span id="statTotal">0 Total</span></div>
+        <div class="stat-pill"><span class="dot dot-pass"></span><span id="statPass">0 Pass</span></div>
+        <div class="stat-pill"><span class="dot dot-fail"></span><span id="statFail">0 Fail</span></div>
+        <div class="stat-pill"><span class="dot dot-pending"></span><span id="statPending">0 Pending</span></div>
+        <div class="progress-wrap">
+          <div class="progress-label">
+            <span>Pass Rate</span>
+            <span id="passRatePct">—</span>
+          </div>
+          <div class="progress-bar-outer">
+            <div class="progress-bar-inner" id="progressBar" style="width:0%"></div>
+          </div>
+        </div>
+        <button class="btn-add-test" onclick="openTestModal()">+ Add Test Case</button>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Test Name</th>
+              <th>Expected Result</th>
+              <th>Actual Result</th>
+              <th>Status</th>
+              <th>Notes</th>
+              <th class="actions-cell">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="testTableBody"></tbody>
+        </table>
+        <div id="emptyTests" class="empty-table" style="display:none;">
+          <div class="ei">🔬</div>
+          <div>No test cases yet. Click "+ Add Test Case" to start.</div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- SESSION MODAL -->
+<div class="modal-overlay" id="sessionModal">
+  <div class="modal">
+    <h2 id="sessionModalTitle">New Session</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Product Name *</label>
+        <input type="text" id="sm_name" placeholder="e.g. Drone Frame v2">
+      </div>
+      <div class="form-group">
+        <label>Revision</label>
+        <input type="text" id="sm_rev" placeholder="e.g. Rev.1">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Test Date</label>
+      <input type="date" id="sm_date">
+    </div>
+    <div class="form-group">
+      <label>Notes</label>
+      <textarea id="sm_notes" placeholder="Test environment, goals, setup info..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeSessionModal()">Cancel</button>
+      <button class="btn-save" onclick="saveSession()">Create Session</button>
+    </div>
+  </div>
+</div>
+
+<!-- TEST CASE MODAL -->
+<div class="modal-overlay" id="testModal">
+  <div class="modal">
+    <h2 id="testModalTitle">Add Test Case</h2>
+    <div class="form-group">
+      <label>Test Name *</label>
+      <input type="text" id="tm_name" placeholder="e.g. Motor spin-up under load">
+    </div>
+    <div class="form-group">
+      <label>Expected Result</label>
+      <input type="text" id="tm_expected" placeholder="e.g. Motor reaches 8000 RPM within 2s">
+    </div>
+    <div class="form-group">
+      <label>Actual Result</label>
+      <input type="text" id="tm_actual" placeholder="e.g. Reached 7800 RPM in 2.3s">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Status</label>
+        <select id="tm_status">
+          <option value="pending">⏳ Pending</option>
+          <option value="pass">✅ Pass</option>
+          <option value="fail">❌ Fail</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Notes</label>
+      <textarea id="tm_notes" placeholder="Observations, measurements, issues..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeTestModal()">Cancel</button>
+      <button class="btn-save" onclick="saveTest()">Save Test</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+const STORAGE_KEY = 'testlog_data';
+let data = { sessions: [] };
+let activeSessionId = null;
+let editingTestId = null;
+
+// --- LOAD / SAVE ---
+function load() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) data = JSON.parse(raw);
+    if (!data.sessions) data.sessions = [];
+  } catch(e) { data = { sessions: [] }; }
+}
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+// --- DATE FORMAT ---
+function fmtDate(d) {
+  if (!d) return '';
+  const dt = new Date(d + 'T00:00:00');
+  return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+// --- PASS RATE ---
+function calcRate(sess) {
+  const tests = sess.tests || [];
+  if (tests.length === 0) return null;
+  const passed = tests.filter(t => t.status === 'pass').length;
+  return Math.round((passed / tests.length) * 100);
+}
+
+function rateBadge(rate) {
+  if (rate === null) return '<span class="pass-rate-badge badge-gray">No tests</span>';
+  if (rate >= 80) return `<span class="pass-rate-badge badge-green">${rate}% Pass</span>`;
+  if (rate >= 50) return `<span class="pass-rate-badge badge-orange">${rate}% Pass</span>`;
+  return `<span class="pass-rate-badge badge-red">${rate}% Pass</span>`;
+}
+
+// --- RENDER SIDEBAR ---
+function renderSidebar() {
+  const list = document.getElementById('sessionsList');
+  if (data.sessions.length === 0) {
+    list.innerHTML = '<div class="sidebar-empty">No sessions yet.<br>Create one to start.</div>';
+    return;
+  }
+  list.innerHTML = data.sessions.map(s => {
+    const rate = calcRate(s);
+    const active = s.id === activeSessionId ? ' active' : '';
+    return `
+    <div class="session-item${active}" onclick="selectSession('${s.id}')">
+      <div class="session-item-name">${escHtml(s.name)}</div>
+      <div class="session-item-rev">${escHtml(s.revision || '—')}</div>
+      <div class="session-item-meta">
+        <span class="session-item-date">${fmtDate(s.date)}</span>
+        ${rateBadge(rate)}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// --- SELECT SESSION ---
+function selectSession(id) {
+  activeSessionId = id;
+  renderSidebar();
+  renderSessionView();
+}
+
+// --- RENDER SESSION VIEW ---
+function renderSessionView() {
+  const ph = document.getElementById('placeholder');
+  const sv = document.getElementById('sessionView');
+
+  if (!activeSessionId) {
+    ph.style.display = 'flex';
+    sv.style.display = 'none';
+    return;
+  }
+
+  const sess = data.sessions.find(s => s.id === activeSessionId);
+  if (!sess) {
+    ph.style.display = 'flex';
+    sv.style.display = 'none';
+    return;
+  }
+
+  ph.style.display = 'none';
+  sv.style.display = 'flex';
+
+  document.getElementById('viewName').textContent = sess.name;
+  document.getElementById('viewRev').textContent = sess.revision || '';
+  document.getElementById('viewDate').textContent = sess.date ? '📅 ' + fmtDate(sess.date) : '';
+  document.getElementById('viewNotes').textContent = sess.notes || '';
+
+  // Summary
+  const tests = sess.tests || [];
+  const total = tests.length;
+  const passed  = tests.filter(t => t.status === 'pass').length;
+  const failed  = tests.filter(t => t.status === 'fail').length;
+  const pending = tests.filter(t => t.status === 'pending').length;
+  const rate = total > 0 ? Math.round((passed / total) * 100) : null;
+
+  document.getElementById('statTotal').textContent   = `${total} Total`;
+  document.getElementById('statPass').textContent    = `${passed} Pass`;
+  document.getElementById('statFail').textContent    = `${failed} Fail`;
+  document.getElementById('statPending').textContent = `${pending} Pending`;
+  document.getElementById('passRatePct').textContent = rate !== null ? rate + '%' : '—';
+  document.getElementById('progressBar').style.width = rate !== null ? rate + '%' : '0%';
+
+  // Tests table
+  const tbody = document.getElementById('testTableBody');
+  const emptyDiv = document.getElementById('emptyTests');
+
+  if (tests.length === 0) {
+    tbody.innerHTML = '';
+    emptyDiv.style.display = 'block';
+    return;
+  }
+  emptyDiv.style.display = 'none';
+
+  tbody.innerHTML = tests.map((t, i) => {
+    const statusBadge = {
+      pass:    '<span class="status-badge status-pass">✅ Pass</span>',
+      fail:    '<span class="status-badge status-fail">❌ Fail</span>',
+      pending: '<span class="status-badge status-pending">⏳ Pending</span>',
+    }[t.status] || '';
+
+    return `
+    <tr>
+      <td class="num">${i + 1}</td>
+      <td><strong>${escHtml(t.name)}</strong></td>
+      <td>${escHtml(t.expected) || '<span style="color:var(--light)">—</span>'}</td>
+      <td>${escHtml(t.actual)   || '<span style="color:var(--light)">—</span>'}</td>
+      <td class="status-cell">${statusBadge}</td>
+      <td class="tbl-notes">${escHtml(t.notes) || ''}</td>
+      <td class="actions-cell">
+        <button class="tbl-btn" title="Edit" onclick="openTestModal('${t.id}')">✏️</button>
+        <button class="tbl-btn" title="Delete" onclick="deleteTest('${t.id}')">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function escHtml(s) {
+  if (!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// --- SESSION MODAL ---
+function openSessionModal() {
+  document.getElementById('sessionModalTitle').textContent = 'New Session';
+  document.getElementById('sm_name').value  = '';
+  document.getElementById('sm_rev').value   = '';
+  document.getElementById('sm_date').value  = new Date().toISOString().slice(0, 10);
+  document.getElementById('sm_notes').value = '';
+  document.getElementById('sessionModal').classList.add('active');
+}
+function closeSessionModal() {
+  document.getElementById('sessionModal').classList.remove('active');
+}
+function saveSession() {
+  const name = document.getElementById('sm_name').value.trim();
+  if (!name) { alert('Product name is required.'); return; }
+  const sess = {
+    id: uid(),
+    name,
+    revision: document.getElementById('sm_rev').value.trim(),
+    date:     document.getElementById('sm_date').value,
+    notes:    document.getElementById('sm_notes').value.trim(),
+    tests:    [],
+  };
+  data.sessions.unshift(sess);
+  save();
+  closeSessionModal();
+  activeSessionId = sess.id;
+  renderSidebar();
+  renderSessionView();
+  showToast('Session created ✓');
+}
+
+// --- DELETE SESSION ---
+function deleteSession() {
+  const sess = data.sessions.find(s => s.id === activeSessionId);
+  if (!sess) return;
+  if (!confirm(`Delete session "${sess.name}"? This will delete all ${sess.tests.length} test case(s).`)) return;
+  data.sessions = data.sessions.filter(s => s.id !== activeSessionId);
+  activeSessionId = null;
+  save();
+  renderSidebar();
+  renderSessionView();
+  showToast('Session deleted');
+}
+
+// --- TEST MODAL ---
+function openTestModal(id) {
+  editingTestId = id || null;
+  const sess = data.sessions.find(s => s.id === activeSessionId);
+  if (!sess) return;
+
+  if (id) {
+    const t = sess.tests.find(x => x.id === id);
+    document.getElementById('testModalTitle').textContent = 'Edit Test Case';
+    document.getElementById('tm_name').value     = t.name || '';
+    document.getElementById('tm_expected').value = t.expected || '';
+    document.getElementById('tm_actual').value   = t.actual || '';
+    document.getElementById('tm_status').value   = t.status || 'pending';
+    document.getElementById('tm_notes').value    = t.notes || '';
+  } else {
+    document.getElementById('testModalTitle').textContent = 'Add Test Case';
+    document.getElementById('tm_name').value     = '';
+    document.getElementById('tm_expected').value = '';
+    document.getElementById('tm_actual').value   = '';
+    document.getElementById('tm_status').value   = 'pending';
+    document.getElementById('tm_notes').value    = '';
+  }
+  document.getElementById('testModal').classList.add('active');
+}
+function closeTestModal() {
+  document.getElementById('testModal').classList.remove('active');
+  editingTestId = null;
+}
+function saveTest() {
+  const name = document.getElementById('tm_name').value.trim();
+  if (!name) { alert('Test name is required.'); return; }
+
+  const sess = data.sessions.find(s => s.id === activeSessionId);
+  if (!sess) return;
+
+  const testData = {
+    name,
+    expected: document.getElementById('tm_expected').value.trim(),
+    actual:   document.getElementById('tm_actual').value.trim(),
+    status:   document.getElementById('tm_status').value,
+    notes:    document.getElementById('tm_notes').value.trim(),
+  };
+
+  if (editingTestId) {
+    const idx = sess.tests.findIndex(t => t.id === editingTestId);
+    if (idx !== -1) sess.tests[idx] = { ...sess.tests[idx], ...testData };
+    showToast('Test case updated ✓');
+  } else {
+    testData.id = uid();
+    sess.tests.push(testData);
+    showToast('Test case added ✓');
+  }
+
+  save();
+  closeTestModal();
+  renderSidebar();
+  renderSessionView();
+}
+
+function deleteTest(id) {
+  const sess = data.sessions.find(s => s.id === activeSessionId);
+  if (!sess) return;
+  const t = sess.tests.find(x => x.id === id);
+  if (!confirm(`Delete test "${t.name}"?`)) return;
+  sess.tests = sess.tests.filter(x => x.id !== id);
+  save();
+  renderSidebar();
+  renderSessionView();
+  showToast('Test deleted');
+}
+
+// --- PRINT ---
+function printSession() {
+  if (!activeSessionId) { alert('Select a session first.'); return; }
+  window.print();
+}
+
+// --- CLOSE MODALS ON BG CLICK ---
+document.getElementById('sessionModal').addEventListener('click', function(e) {
+  if (e.target === this) closeSessionModal();
+});
+document.getElementById('testModal').addEventListener('click', function(e) {
+  if (e.target === this) closeTestModal();
+});
+
+// --- TOAST ---
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// --- SEED DEMO ---
+function seedDemo() {
+  if (data.sessions.length > 0) return;
+  const sid = uid();
+  data.sessions = [
+    {
+      id: sid,
+      name: 'Drone Frame v2',
+      revision: 'Rev.1',
+      date: '2026-05-06',
+      notes: 'First full structural + electrical test after new arm redesign. Lab bench test.',
+      tests: [
+        { id: uid(), name: 'Frame flex under load', expected: 'Max 2mm flex at 500g load', actual: '1.8mm flex measured', status: 'pass', notes: 'Within spec.' },
+        { id: uid(), name: 'Motor mount thread pull-out', expected: 'Hold M3 at 5Nm torque', actual: '4.8Nm — stripped', status: 'fail', notes: 'Need M3 heat-set insert. Current PLA not strong enough.' },
+        { id: uid(), name: 'ESC heat after 5min hover', expected: 'ESC stays below 70°C', actual: 'Not yet tested', status: 'pending', notes: '' },
+        { id: uid(), name: 'Landing gear drop test 50cm', expected: 'No cracks at 50cm drop', actual: 'No visible cracks', status: 'pass', notes: 'Tested 3 times. PETG held well.' },
+      ],
+    },
+  ];
+  save();
+}
+
+// --- INIT ---
+load();
+seedDemo();
+renderSidebar();
+// Auto-select first session
+if (data.sessions.length > 0) {
+  activeSessionId = data.sessions[0].id;
+  renderSidebar();
+  renderSessionView();
+}
+</script>
+</body>
+</html>
