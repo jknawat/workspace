@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JK's Tools</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #fdf6ec;
+    --cream2: #faebd7;
+    --card: #fffdf9;
+    --border: #e8d9c4;
+    --text: #3a2e22;
+    --muted: #9e8c78;
+    --accent: #e8956d;
+    --accent2: #d4784e;
+    --green: #5cb85c;
+    --blue: #4a90d9;
+    --purple: #9b59b6;
+    --teal: #1abc9c;
+    --orange: #e67e22;
+    --red: #e74c3c;
+    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+    --shadow-hover: 0 8px 28px rgba(0,0,0,0.15);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: var(--cream);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* TOP BAR */
+  .topbar {
+    background: linear-gradient(135deg, #3a2e22 0%, #5c4a36 100%);
+    color: white;
+    padding: 0 2rem;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+  }
+  .topbar-logo {
+    font-size: 1.5rem;
+    font-weight: 900;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+  }
+  .topbar-sub {
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.55);
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  .topbar-spacer { flex: 1; }
+  .topbar-date {
+    font-size: 0.82rem;
+    color: rgba(255,255,255,0.5);
+    font-weight: 600;
+  }
+
+  /* HERO */
+  .hero {
+    text-align: center;
+    padding: 3rem 2rem 2rem;
+  }
+  .hero h1 {
+    font-size: 2.2rem;
+    font-weight: 900;
+    color: var(--text);
+    margin-bottom: 0.5rem;
+  }
+  .hero h1 span { color: var(--accent); }
+  .hero p {
+    color: var(--muted);
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  /* GRID */
+  .grid-wrap {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+  }
+
+  /* TOOL CARD */
+  .tool-card {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 16px;
+    padding: 1.6rem 1.6rem 1.4rem;
+    box-shadow: var(--shadow);
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .tool-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+    border-radius: 16px 16px 0 0;
+    background: var(--card-color, var(--accent));
+    opacity: 0.85;
+  }
+  .tool-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-hover);
+    border-color: var(--card-color, var(--accent));
+  }
+
+  .card-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  .card-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+    background: var(--card-color-bg, #fef3ec);
+  }
+  .card-info { flex: 1; }
+  .card-name {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: var(--text);
+    line-height: 1.2;
+    margin-bottom: 0.2rem;
+  }
+  .card-cat {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--card-color, var(--accent));
+    opacity: 0.85;
+  }
+
+  .card-desc {
+    font-size: 0.88rem;
+    color: var(--muted);
+    line-height: 1.55;
+    font-weight: 600;
+  }
+
+  .card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.25rem;
+  }
+  .tag {
+    background: var(--cream2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 0.2rem 0.55rem;
+    border-radius: 20px;
+  }
+
+  .card-arrow {
+    position: absolute;
+    bottom: 1.2rem;
+    right: 1.4rem;
+    font-size: 1.1rem;
+    color: var(--card-color, var(--accent));
+    opacity: 0;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+  }
+  .tool-card:hover .card-arrow {
+    opacity: 1;
+    transform: translateX(3px);
+  }
+
+  /* SECTION LABEL */
+  .section-label {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 2rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">JK Tools</div>
+  <div class="topbar-sub">Engineering Productivity Suite</div>
+  <div class="topbar-spacer"></div>
+  <div class="topbar-date" id="dateDisplay"></div>
+</div>
+
+<div class="hero">
+  <h1>Your <span>Tools</span></h1>
+  <p>All engineering productivity tools in one place</p>
+</div>
+
+<div class="section-label">Project & Tasks</div>
+<div class="grid-wrap" style="padding-top:0; padding-bottom:1rem;">
+
+  <a href="project-manager.html" class="tool-card" style="--card-color:#e8956d; --card-color-bg:#fef0e8;">
+    <div class="card-top">
+      <div class="card-icon">📋</div>
+      <div class="card-info">
+        <div class="card-name">Project Manager</div>
+        <div class="card-cat">Planning</div>
+      </div>
+    </div>
+    <div class="card-desc">Kanban board for projects and tasks. Track status, drag tasks between columns, manage purchases and reimbursements.</div>
+    <div class="card-tags">
+      <span class="tag">Kanban</span>
+      <span class="tag">Tasks</span>
+      <span class="tag">Purchases</span>
+      <span class="tag">Drag & Drop</span>
+    </div>
+    <div class="card-arrow">→</div>
+  </a>
+
+  <a href="meeting-summary.html" class="tool-card" style="--card-color:#9b59b6; --card-color-bg:#f5eefb;">
+    <div class="card-top">
+      <div class="card-icon">🤖</div>
+      <div class="card-info">
+        <div class="card-name">Meeting Summary</div>
+        <div class="card-cat">AI-Powered</div>
+      </div>
+    </div>
+    <div class="card-desc">Paste raw meeting notes → AI turns them into structured summary with decisions, action items, and open questions.</div>
+    <div class="card-tags">
+      <span class="tag">AI</span>
+      <span class="tag">Claude Haiku</span>
+      <span class="tag">Thai/EN</span>
+      <span class="tag">PDF</span>
+    </div>
+    <div class="card-arrow">→</div>
+  </a>
+
+</div>
+
+<div class="section-label">Parts & Inventory</div>
+<div class="grid-wrap" style="padding-top:0; padding-bottom:1rem;">
+
+  <a href="bom-manager.html" class="tool-card" style="--card-color:#4a90d9; --card-color-bg:#eaf3fb;">
+    <div class="card-top">
+      <div class="card-icon">🔩</div>
+      <div class="card-info">
+        <div class="card-name">BOM Manager</div>
+        <div class="card-cat">Engineering</div>
+      </div>
+    </div>
+    <div class="card-desc">Bill of Materials tracker. Add parts with cost, supplier, lead time. Auto-calculates total cost. CSV import/export.</div>
+    <div class="card-tags">
+      <span class="tag">BOM</span>
+      <span class="tag">Cost Calc</span>
+      <span class="tag">CSV</span>
+      <span class="tag">Search</span>
+    </div>
+    <div class="card-arrow">→</div>
+  </a>
+
+  <a href="stock-tracker.html" class="tool-card" style="--card-color:#1abc9c; --card-color-bg:#e8faf6;">
+    <div class="card-top">
+      <div class="card-icon">📦</div>
+      <div class="card-info">
+        <div class="card-name">Stock Tracker</div>
+        <div class="card-cat">Inventory</div>
+      </div>
+    </div>
+    <div class="card-desc">Stock in/out management with low-stock alerts. Transaction log shows every movement. Color-coded by stock level.</div>
+    <div class="card-tags">
+      <span class="tag">Inventory</span>
+      <span class="tag">Stock In/Out</span>
+      <span class="tag">Alerts</span>
+      <span class="tag">Log</span>
+    </div>
+    <div class="card-arrow">→</div>
+  </a>
+
+</div>
+
+<div class="section-label">Vendors & Manufacturers</div>
+<div class="grid-wrap" style="padding-top:0; padding-bottom:1rem;">
+
+  <a href="vendor-log.html" class="tool-card" style="--card-color:#e67e22; --card-color-bg:#fef3e8;">
+    <div class="card-top">
+      <div class="card-icon">🏭</div>
+      <div class="card-info">
+        <div class="card-name">Vendor Log</div>
+        <div class="card-cat">Suppliers</div>
+      </div>
+    </div>
+    <div class="card-desc">Supplier directory with contact info, star rating, and follow-up reminders. Filter by category and country.</div>
+    <div class="card-tags">
+      <span class="tag">Suppliers</span>
+      <span class="tag">Rating</span>
+      <span class="tag">Reminders</span>
+      <span class="tag">Search</span>
+    </div>
+    <div class="card-arrow">→</div>
+  </a>
+
+  <a href="manufacturer-compare.html" class="tool-card" style="--card-color:#e74c3c; --card-color-bg:#fdecea;">
+    <div class="card-top">
+      <div class="card-icon">⚖️</div>
+      <div class="card-info">
+        <div class="card-name">Manufacturer Comparison</div>
+        <div class="card-cat">Analysis</div>
+      </div>
+    </div>
+    <div class="card-desc">Compare manufacturers side-by-side. Auto-highlights best price and shortest lead time. Export to CSV.</div>
+    <div class="card-tags">
+      <span class="tag">Compare</span>
+      <span class="tag">Best Value</span>
+      <span class="tag">Lead Time</span>
+      <span class="tag">CSV</span>
+    </div>
+    <div class="card-arrow">→</div>
+  </a>
+
+</div>
+
+<div class="section-label">Documentation & Testing</div>
+<div class="grid-wrap" style="padding-top:0;">
+
+  <a href="spec-generator.html" class="tool-card" style="--card-color:#5cb85c; --card-color-bg:#edf7ed;">
+    <div class="card-top">
+      <div class="card-icon">📄</div>
+      <div class="card-info">
+        <div class="card-name">Spec Generator</div>
+        <div class="card-cat">Documentation</div>
+      </div>
+    </div>
+    <div class="card-desc">Engineering spec document builder with live preview. Fill the form, see the document update in real time. Print to PDF.</div>
+    <div class="card-tags">
+      <span class="tag">Spec Sheet</span>
+      <span class="tag">Live Preview</span>
+      <span class="tag">Save/Load</span>
+      <span class="tag">PDF</span>
+    </div>
+    <div class="card-arrow">→</div>
+  </a>
+
+  <a href="hardware-test-log.html" class="tool-card" style="--card-color:#34495e; --card-color-bg:#eaecef;">
+    <div class="card-top">
+      <div class="card-icon">🧪</div>
+      <div class="card-info">
+        <div class="card-name">Hardware Test Log</div>
+        <div class="card-cat">QA / Testing</div>
+      </div>
+    </div>
+    <div class="card-desc">Log hardware test sessions with pass/fail results. See pass rate per session. Print test reports to PDF.</div>
+    <div class="card-tags">
+      <span class="tag">Test Sessions</span>
+      <span class="tag">Pass/Fail</span>
+      <span class="tag">Pass Rate</span>
+      <span class="tag">PDF</span>
+    </div>
+    <div class="card-arrow">→</div>
+  </a>
+
+</div>
+
+<script>
+  const d = new Date();
+  document.getElementById('dateDisplay').textContent = d.toLocaleDateString('en-US', {weekday:'short', year:'numeric', month:'short', day:'numeric'});
+</script>
+
+</body>
+</html>
