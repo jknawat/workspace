@@ -1,0 +1,42 @@
+[
+  {
+    "id": 1,
+    "name": "Graphic Design Tool",
+    "description": "Image generator using Pollinations.ai",
+    "status": "done",
+    "agent": "Pixel",
+    "priority": "high",
+    "created": "2026-04-29",
+    "updated": "2026-04-29"
+  },
+  {
+    "id": 2,
+    "name": "Agent Team Setup",
+    "description": "Scout, Spark, Byte, Pixel, Boss, Reel, Webb agents",
+    "status": "done",
+    "agent": "All",
+    "priority": "high",
+    "created": "2026-04-29",
+    "updated": "2026-04-29"
+  },
+  {
+    "id": 3,
+    "name": "Business Model",
+    "description": "3D printing creator business — STL files, content, Shopee",
+    "status": "in-progress",
+    "agent": "Boss",
+    "priority": "high",
+    "created": "2026-04-29",
+    "updated": "2026-04-29"
+  },
+  {
+    "id": 4,
+    "name": "Team Dashboard",
+    "description": "Web dashboard to track agents and projects",
+    "status": "in-progress",
+    "agent": "Webb",
+    "priority": "medium",
+    "created": "2026-04-29",
+    "updated": "2026-04-29"
+  }
+]
