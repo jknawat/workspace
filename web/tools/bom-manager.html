@@ -346,6 +346,7 @@ tbody tr:last-child td { border-bottom: none; }
     <button class="btn btn-secondary" onclick="triggerImport()">&#8593; Import CSV</button>
     <button class="btn btn-secondary" onclick="exportCSV()">&#8595; Export CSV</button>
   </div>
+  <div id="sync-dot" style="width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,0.2);flex-shrink:0;transition:background 0.4s;cursor:default;" title="GitHub sync"></div>
 </div>
 
 <div class="content">
@@ -473,6 +474,7 @@ tbody tr:last-child td { border-bottom: none; }
 <!-- HIDDEN FILE INPUT -->
 <input type="file" id="csv-file-input" accept=".csv" style="display:none" onchange="importCSV(event)" />
 
+<script src="../js/sync.js"></script>
 <script>
 // ==================== DATA ====================
 const STORAGE_KEY = 'bom_data';
@@ -488,6 +490,10 @@ function loadData() {
 }
 function saveData() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(parts));
+  GHSync.push('bom.json', 'bom_data', s => {
+    const d = document.getElementById('sync-dot');
+    if (d) d.style.background = {syncing:'#ffd60a',ok:'#30d158',error:'#ff453a',none:'rgba(255,255,255,0.2)'}[s]||'rgba(255,255,255,0.2)';
+  });
 }
 function genId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -752,6 +758,16 @@ document.getElementById('confirm-overlay').addEventListener('click', function(e)
 // ==================== INIT ====================
 loadData();
 renderTable();
+
+(async () => {
+  const d = document.getElementById('sync-dot');
+  const setDot = s => { if(d) d.style.background={syncing:'#ffd60a',ok:'#30d158',error:'#ff453a',none:'rgba(255,255,255,0.2)'}[s]||'rgba(255,255,255,0.2)'; };
+  if (!GHSync.token()) { setDot('none'); return; }
+  setDot('syncing');
+  const data = await GHSync.pull('bom.json', 'bom_data');
+  setDot(data !== null ? 'ok' : 'none');
+  if (data !== null && typeof renderTable === 'function') { loadData(); renderTable(); }
+})();
 </script>
 </body>
 </html>

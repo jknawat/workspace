@@ -282,6 +282,7 @@ td.actions-cell { width: 90px; }
     <button class="btn-secondary" onclick="printSession()">🖨 Print / PDF</button>
     <button class="btn-primary" onclick="openSessionModal()">+ New Session</button>
   </div>
+  <div id="sync-dot" style="width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,0.2);flex-shrink:0;transition:background 0.4s;cursor:default;" title="GitHub sync"></div>
 </div>
 
 <!-- APP BODY -->
@@ -429,6 +430,7 @@ td.actions-cell { width: 90px; }
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
+<script src="../js/sync.js"></script>
 <script>
 const STORAGE_KEY = 'testlog_data';
 let data = { sessions: [] };
@@ -445,6 +447,10 @@ function load() {
 }
 function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  GHSync.push('testlog.json', 'testlog_data', s => {
+    const d = document.getElementById('sync-dot');
+    if (d) d.style.background = {syncing:'#ffd60a',ok:'#30d158',error:'#ff453a',none:'rgba(255,255,255,0.2)'}[s]||'rgba(255,255,255,0.2)';
+  });
 }
 
 function uid() {
@@ -754,6 +760,24 @@ if (data.sessions.length > 0) {
   renderSidebar();
   renderSessionView();
 }
+
+(async () => {
+  const d = document.getElementById('sync-dot');
+  const setDot = s => { if(d) d.style.background={syncing:'#ffd60a',ok:'#30d158',error:'#ff453a',none:'rgba(255,255,255,0.2)'}[s]||'rgba(255,255,255,0.2)'; };
+  if (!GHSync.token()) { setDot('none'); return; }
+  setDot('syncing');
+  const pulled = await GHSync.pull('testlog.json', 'testlog_data');
+  setDot(pulled !== null ? 'ok' : 'none');
+  if (pulled !== null && typeof renderSidebar === 'function') {
+    load();
+    renderSidebar();
+    if (data.sessions.length > 0) {
+      activeSessionId = data.sessions[0].id;
+      renderSidebar();
+      renderSessionView();
+    }
+  }
+})();
 </script>
 </body>
 </html>

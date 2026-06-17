@@ -393,6 +393,7 @@ tbody tr:last-child td { border-bottom: none; }
     <button class="btn btn-orange" onclick="openStockOutModal()">&#x2212; Stock Out</button>
     <button class="btn btn-secondary" onclick="exportCSV()">&#8595; Export CSV</button>
   </div>
+  <div id="sync-dot" style="width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,0.2);flex-shrink:0;transition:background 0.4s;cursor:default;" title="GitHub sync"></div>
 </div>
 
 <div class="content">
@@ -581,6 +582,7 @@ tbody tr:last-child td { border-bottom: none; }
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
+<script src="../js/sync.js"></script>
 <script>
 // ==================== DATA ====================
 const STORAGE_KEY = 'stock_data';
@@ -599,6 +601,10 @@ function loadData() {
 }
 function saveData() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+  GHSync.push('stock.json', 'stock_data', s => {
+    const d = document.getElementById('sync-dot');
+    if (d) d.style.background = {syncing:'#ffd60a',ok:'#30d158',error:'#ff453a',none:'rgba(255,255,255,0.2)'}[s]||'rgba(255,255,255,0.2)';
+  });
 }
 function genId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -958,6 +964,16 @@ function showToast(msg, type = '') {
 // ==================== INIT ====================
 loadData();
 renderAll();
+
+(async () => {
+  const d = document.getElementById('sync-dot');
+  const setDot = s => { if(d) d.style.background={syncing:'#ffd60a',ok:'#30d158',error:'#ff453a',none:'rgba(255,255,255,0.2)'}[s]||'rgba(255,255,255,0.2)'; };
+  if (!GHSync.token()) { setDot('none'); return; }
+  setDot('syncing');
+  const data = await GHSync.pull('stock.json', 'stock_data');
+  setDot(data !== null ? 'ok' : 'none');
+  if (data !== null && typeof renderAll === 'function') { loadData(); renderAll(); }
+})();
 </script>
 </body>
 </html>

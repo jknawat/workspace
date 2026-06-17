@@ -233,6 +233,88 @@
   .pill-low  { background: rgba(255,159,10,0.18); color: var(--orange); }
 
   .empty { font-size: 0.75rem; color: var(--muted); padding: 12px 0; text-align: center; }
+
+  /* ── TOPBAR ACTIONS ── */
+  .tb-btn {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.7);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s, color 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .tb-btn:hover { background: rgba(255,255,255,0.14); color: white; }
+  .sync-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    transition: background 0.4s;
+    flex-shrink: 0;
+  }
+
+  /* ── SETTINGS MODAL ── */
+  .overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(8px);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    background: #141420;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 20px;
+    padding: 2rem;
+    width: 420px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+  .modal h3 { font-size: 1rem; font-weight: 700; margin-bottom: 1.4rem; }
+  .modal h3 span { color: var(--orange); }
+  .field { margin-bottom: 1rem; }
+  .field label { display: block; font-size: 0.7rem; font-weight: 600; color: var(--sub); margin-bottom: 6px; letter-spacing: 0.3px; }
+  .field input {
+    width: 100%;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px;
+    padding: 9px 12px;
+    color: var(--text);
+    font-size: 0.82rem;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .field input:focus { border-color: rgba(255,255,255,0.3); }
+  .field .hint { font-size: 0.67rem; color: var(--muted); margin-top: 5px; line-height: 1.5; }
+  .modal-btns { display: flex; gap: 8px; margin-top: 1.4rem; }
+  .mbtn {
+    flex: 1;
+    padding: 9px;
+    border-radius: 10px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    transition: opacity 0.15s;
+  }
+  .mbtn:hover { opacity: 0.85; }
+  .mbtn-save   { background: var(--orange); color: white; }
+  .mbtn-cancel { background: rgba(255,255,255,0.08); color: var(--sub); }
+  .mbtn-test   { background: rgba(10,132,255,0.2); color: var(--blue); }
+  .mbtn-sync   { background: rgba(48,209,88,0.2);  color: var(--green); }
+  .modal-status { font-size: 0.72rem; margin-top: 10px; text-align: center; min-height: 18px; }
 </style>
 </head>
 <body>
@@ -243,6 +325,38 @@
   <div class="greeting" id="greeting">Good morning, JK</div>
   <div class="topbar-spacer"></div>
   <div class="top-date" id="topDate"></div>
+  <div class="sync-dot" id="syncDot" title="GitHub sync not configured"></div>
+  <button class="tb-btn" onclick="openSettings()">⚙ Sync Settings</button>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="overlay" id="settingsOverlay">
+  <div class="modal">
+    <h3>GitHub <span>Sync Settings</span></h3>
+
+    <div class="field">
+      <label>Personal Access Token (PAT)</label>
+      <input type="password" id="inp-pat" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" />
+      <div class="hint">
+        Generate at GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic).<br>
+        Permissions needed: <strong>repo</strong> (full).
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Branch</label>
+      <input type="text" id="inp-branch" placeholder="tools" value="tools" />
+    </div>
+
+    <div class="modal-status" id="modal-status"></div>
+
+    <div class="modal-btns">
+      <button class="mbtn mbtn-cancel" onclick="closeSettings()">Cancel</button>
+      <button class="mbtn mbtn-test"   onclick="testConn()">Test</button>
+      <button class="mbtn mbtn-sync"   onclick="syncAll()">Sync All</button>
+      <button class="mbtn mbtn-save"   onclick="saveSettings()">Save</button>
+    </div>
+  </div>
 </div>
 
 <div class="wrap">
@@ -353,59 +467,138 @@
   </div>
 </div>
 
+<script src="js/sync.js"></script>
 <script>
+  // ── DATE / GREETING ──
   const now = new Date();
   const h = now.getHours();
   document.getElementById('greeting').textContent = (h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening') + ', JK';
   document.getElementById('topDate').textContent = now.toLocaleDateString('en-US', {weekday:'short', day:'numeric', month:'short', year:'numeric'});
 
-  const pm = JSON.parse(localStorage.getItem('pm_v2') || '{"projects":[]}');
-  const projects = pm.projects || [];
-  const allTasks = projects.flatMap(p => (p.tasks || []).map(t => ({...t, proj: p.name})));
-  const active   = allTasks.filter(t => ['in-progress','todo','planning'].includes(t.status));
-  const pending  = projects.flatMap(p => (p.purchases || []).filter(x => x.status === 'pending'));
-  const pendingTotal = pending.reduce((s,x) => s + (parseFloat(x.amount)||0), 0);
+  // ── SYNC DOT ──
+  const dot = document.getElementById('syncDot');
+  const dotColors = { none:'rgba(255,255,255,0.2)', syncing:'#ffd60a', ok:'#30d158', error:'#ff453a' };
+  const dotLabels = { none:'GitHub sync not configured', syncing:'Syncing…', ok:'Synced to GitHub', error:'Sync failed' };
+  let blinkTimer;
+  function setDot(s) {
+    clearInterval(blinkTimer);
+    dot.style.background = dotColors[s] || dotColors.none;
+    dot.title = dotLabels[s] || '';
+    dot.style.opacity = '1';
+    if (s === 'syncing') {
+      let v = true;
+      blinkTimer = setInterval(() => { dot.style.opacity = (v=!v) ? '1' : '0.3'; }, 400);
+    }
+  }
+  setDot(GHSync.token() ? 'none' : 'none');
 
-  document.getElementById('s-projects').textContent = projects.length;
-  document.getElementById('s-tasks').textContent    = active.length;
-  document.getElementById('s-pending').textContent  = pendingTotal > 0 ? '฿' + pendingTotal.toLocaleString() : '฿0';
+  // ── RENDER STATS ──
+  function renderStats() {
+    const pm = JSON.parse(localStorage.getItem('pm_v2') || '{"projects":[]}');
+    const projects = pm.projects || [];
+    const allTasks = projects.flatMap(p => (p.tasks || []).map(t => ({...t, proj: p.name})));
+    const active   = allTasks.filter(t => ['in-progress','todo','planning'].includes(t.status));
+    const pending  = projects.flatMap(p => (p.purchases || []).filter(x => x.status === 'pending'));
+    const pendingTotal = pending.reduce((s,x) => s + (parseFloat(x.amount)||0), 0);
+    document.getElementById('s-projects').textContent = projects.length;
+    document.getElementById('s-tasks').textContent    = active.length;
+    document.getElementById('s-pending').textContent  = pendingTotal > 0 ? '฿' + pendingTotal.toLocaleString() : '฿0';
 
-  const sd    = JSON.parse(localStorage.getItem('stock_data') || '{"parts":[]}');
-  const parts = sd.parts || [];
-  const outP  = parts.filter(p => p.qty === 0);
-  const lowP  = parts.filter(p => p.qty > 0 && p.qty <= (p.minLevel || 0));
-  document.getElementById('s-stock').textContent = outP.length + lowP.length;
+    const sd    = JSON.parse(localStorage.getItem('stock_data') || '{"parts":[]}');
+    const parts = sd.parts || [];
+    const outP  = parts.filter(p => p.qty === 0);
+    const lowP  = parts.filter(p => p.qty > 0 && p.qty <= (p.minLevel || 0));
+    document.getElementById('s-stock').textContent = outP.length + lowP.length;
 
-  const bom = JSON.parse(localStorage.getItem('bom_data') || '[]');
-  document.getElementById('s-parts').textContent = bom.length;
+    const bom = JSON.parse(localStorage.getItem('bom_data') || '[]');
+    document.getElementById('s-parts').textContent = bom.length;
 
-  const statusColor = {'in-progress':'#0a84ff','todo':'#ffd60a','planning':'#5ac8fa','on-hold':'#98989d'};
-  const statusPill  = {'in-progress':'pill-prog','todo':'pill-todo','planning':'pill-plan','on-hold':''};
-  const statusLabel = {'in-progress':'In Progress','todo':'To Do','planning':'Planning','on-hold':'On Hold'};
-  const tEl = document.getElementById('task-list');
-  if (!active.length) {
-    tEl.innerHTML = '<div class="empty">No active tasks</div>';
-  } else {
-    tEl.innerHTML = active.slice(0,6).map(t=>`
-      <div class="row">
-        <div class="row-dot" style="background:${statusColor[t.status]||'#98989d'}"></div>
-        <div class="row-name">${t.title||t.name||'Untitled'}<div class="row-sub">${t.proj}</div></div>
-        <span class="pill ${statusPill[t.status]||''}">${statusLabel[t.status]||t.status}</span>
-      </div>`).join('') + (active.length > 6 ? `<div class="empty" style="padding-top:6px">+${active.length-6} more</div>` : '');
+    const statusColor = {'in-progress':'#0a84ff','todo':'#ffd60a','planning':'#5ac8fa','on-hold':'#98989d'};
+    const statusPill  = {'in-progress':'pill-prog','todo':'pill-todo','planning':'pill-plan','on-hold':''};
+    const statusLabel = {'in-progress':'In Progress','todo':'To Do','planning':'Planning','on-hold':'On Hold'};
+    const tEl = document.getElementById('task-list');
+    if (!active.length) {
+      tEl.innerHTML = '<div class="empty">No active tasks</div>';
+    } else {
+      tEl.innerHTML = active.slice(0,6).map(t=>`
+        <div class="row">
+          <div class="row-dot" style="background:${statusColor[t.status]||'#98989d'}"></div>
+          <div class="row-name">${t.title||t.name||'Untitled'}<div class="row-sub">${t.proj}</div></div>
+          <span class="pill ${statusPill[t.status]||''}">${statusLabel[t.status]||t.status}</span>
+        </div>`).join('') + (active.length > 6 ? `<div class="empty" style="padding-top:6px">+${active.length-6} more</div>` : '');
+    }
+
+    const alerts = [...outP.map(p=>({...p,_t:'out'})),...lowP.map(p=>({...p,_t:'low'}))];
+    const sEl = document.getElementById('stock-list');
+    if (!alerts.length) {
+      sEl.innerHTML = '<div class="empty">All stock levels OK ✓</div>';
+    } else {
+      sEl.innerHTML = alerts.slice(0,6).map(p=>`
+        <div class="row">
+          <div class="row-dot" style="background:${p._t==='out'?'#ff453a':'#ff9f0a'}"></div>
+          <div class="row-name">${p.name}<div class="row-sub">${p.supplier||''}</div></div>
+          <span class="pill ${p._t==='out'?'pill-out':'pill-low'}">${p._t==='out'?'OUT':'LOW'} · ${p.qty}</span>
+        </div>`).join('') + (alerts.length > 6 ? `<div class="empty" style="padding-top:6px">+${alerts.length-6} more</div>` : '');
+    }
+  }
+  renderStats();
+
+  // ── SETTINGS MODAL ──
+  function openSettings() {
+    document.getElementById('inp-pat').value    = GHSync.token();
+    document.getElementById('inp-branch').value = GHSync.branch();
+    document.getElementById('modal-status').textContent = '';
+    document.getElementById('settingsOverlay').classList.add('open');
+  }
+  function closeSettings() {
+    document.getElementById('settingsOverlay').classList.remove('open');
+  }
+  function saveSettings() {
+    const pat    = document.getElementById('inp-pat').value.trim();
+    const branch = document.getElementById('inp-branch').value.trim() || 'tools';
+    localStorage.setItem('gh_pat', pat);
+    localStorage.setItem('gh_branch', branch);
+    setDot(pat ? 'none' : 'none');
+    closeSettings();
+  }
+  async function testConn() {
+    document.getElementById('modal-status').style.color = '#ffd60a';
+    document.getElementById('modal-status').textContent = 'Testing connection…';
+    // temporarily use input values
+    const origPat = localStorage.getItem('gh_pat');
+    localStorage.setItem('gh_pat', document.getElementById('inp-pat').value.trim());
+    const ok = await GHSync.verify();
+    if (origPat !== null) localStorage.setItem('gh_pat', origPat); else localStorage.removeItem('gh_pat');
+    document.getElementById('modal-status').style.color = ok ? '#30d158' : '#ff453a';
+    document.getElementById('modal-status').textContent = ok ? '✓ Connected to jknawat/workspace' : '✗ Failed — check token and permissions';
+  }
+  async function syncAll() {
+    const st = document.getElementById('modal-status');
+    st.style.color = '#ffd60a';
+    st.textContent = 'Syncing all tools from GitHub…';
+    setDot('syncing');
+    const files = [
+      ['pm.json',           'pm_v2'],
+      ['bom.json',          'bom_data'],
+      ['stock.json',        'stock_data'],
+      ['vendor.json',       'vendor_data'],
+      ['manufacturer.json', 'mfr_data'],
+      ['spec.json',         'spec_data'],
+      ['testlog.json',      'testlog_data'],
+      ['meetings.json',     'meeting_history'],
+    ];
+    const results = await Promise.all(files.map(([f, k]) => GHSync.pull(f, k)));
+    const count = results.filter(r => r !== null).length;
+    setDot(count > 0 ? 'ok' : 'error');
+    st.style.color = count > 0 ? '#30d158' : '#ff453a';
+    st.textContent = count > 0 ? `✓ Synced ${count} tool${count>1?'s':''} from GitHub` : '✗ No data found — have you used the tools yet?';
+    if (count > 0) renderStats();
   }
 
-  const alerts = [...outP.map(p=>({...p,_t:'out'})),...lowP.map(p=>({...p,_t:'low'}))];
-  const sEl = document.getElementById('stock-list');
-  if (!alerts.length) {
-    sEl.innerHTML = '<div class="empty">All stock levels OK ✓</div>';
-  } else {
-    sEl.innerHTML = alerts.slice(0,6).map(p=>`
-      <div class="row">
-        <div class="row-dot" style="background:${p._t==='out'?'#ff453a':'#ff9f0a'}"></div>
-        <div class="row-name">${p.name}<div class="row-sub">${p.supplier||''}</div></div>
-        <span class="pill ${p._t==='out'?'pill-out':'pill-low'}">${p._t==='out'?'OUT':'LOW'} · ${p.qty}</span>
-      </div>`).join('') + (alerts.length > 6 ? `<div class="empty" style="padding-top:6px">+${alerts.length-6} more</div>` : '');
-  }
+  // Close modal on overlay click
+  document.getElementById('settingsOverlay').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeSettings();
+  });
 </script>
 </body>
 </html>

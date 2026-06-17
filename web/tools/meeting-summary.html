@@ -126,6 +126,7 @@ textarea:focus{border-color:var(--accent);}
     <button class="btn btn-secondary btn-sm" onclick="window.print()">🖨 Print</button>
     <button class="btn btn-secondary btn-sm" onclick="exportTxt()">⬇ Export .txt</button>
     <button class="btn btn-secondary btn-sm" onclick="clearAll()">🗑 Clear</button>
+    <div id="sync-dot" style="width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,0.2);flex-shrink:0;transition:background 0.4s;cursor:default;" title="GitHub sync"></div>
   </div>
 </div>
 
@@ -212,6 +213,7 @@ Example:
   </div>
 </div>
 
+<script src="../js/sync.js"></script>
 <script>
 const today=new Date().toISOString().split('T')[0];
 document.getElementById('meeting-date').value=today;
@@ -378,6 +380,10 @@ function saveToHistory(s,title,date,attendees,notes){
   h.unshift({id:Date.now(),title,date,attendees,notes,summary:s});
   if(h.length>20)h.pop();
   localStorage.setItem('meeting_history',JSON.stringify(h));
+  GHSync.push('meetings.json','meeting_history',s=>{
+    const dot=document.getElementById('sync-dot');
+    if(dot)dot.style.background={syncing:'#ffd60a',ok:'#30d158',error:'#ff453a',none:'rgba(255,255,255,0.2)'}[s]||'rgba(255,255,255,0.2)';
+  });
 }
 
 // ── COPY / EXPORT ──
@@ -430,6 +436,16 @@ function setLoading(on){
 
 function showError(msg){const b=document.getElementById('error-box');b.textContent=msg;b.classList.add('show');}
 function hideError(){document.getElementById('error-box').classList.remove('show');}
+
+(async () => {
+  const d = document.getElementById('sync-dot');
+  const setDot = s => { if(d) d.style.background={syncing:'#ffd60a',ok:'#30d158',error:'#ff453a',none:'rgba(255,255,255,0.2)'}[s]||'rgba(255,255,255,0.2)'; };
+  if (!GHSync.token()) { setDot('none'); return; }
+  setDot('syncing');
+  const data = await GHSync.pull('meetings.json', 'meeting_history');
+  setDot(data !== null ? 'ok' : 'none');
+  if (data !== null && typeof renderHistory === 'function') renderHistory();
+})();
 </script>
 </body>
 </html>

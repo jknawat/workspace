@@ -186,6 +186,7 @@ body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--dark);m
     <button class="btn btn-secondary" onclick="window.print()">🖨 Print</button>
     <button class="btn btn-secondary" onclick="openNewTaskModal()">+ New Task</button>
     <button class="btn btn-primary" style="padding:10px 24px;font-size:0.9rem;" onclick="openProjectModal()">+ New Project</button>
+    <div id="sync-dot" style="width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,0.2);flex-shrink:0;transition:background 0.4s;cursor:default;" title="GitHub sync"></div>
   </div>
 </div>
 
@@ -309,6 +310,7 @@ body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--dark);m
   <img class="viewer-img" id="viewer-img" src="" alt=""/>
 </div>
 
+<script src="../js/sync.js"></script>
 <script>
 // ── INDEXEDDB ──
 const DB_NAME='pm-files',DB_VER=1;
@@ -346,7 +348,13 @@ function deleteFileFromDB(id){
 
 // ── DATA ──
 function load(){return JSON.parse(localStorage.getItem('pm_v2')||'{"projects":[]}')}
-function save(d){localStorage.setItem('pm_v2',JSON.stringify(d))}
+function save(d){
+  localStorage.setItem('pm_v2',JSON.stringify(d));
+  GHSync.push('pm.json','pm_v2',s=>{
+    const dot=document.getElementById('sync-dot');
+    if(dot)dot.style.background={syncing:'#ffd60a',ok:'#30d158',error:'#ff453a',none:'rgba(255,255,255,0.2)'}[s]||'rgba(255,255,255,0.2)';
+  });
+}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
 const today=new Date().toISOString().split('T')[0];
 const SL={planning:'Planning','in-progress':'In Progress','on-hold':'On Hold',done:'Done',todo:'To Do','on-hold':'On Hold'};
@@ -787,6 +795,16 @@ function closeModal(id){document.getElementById(id).classList.remove('open');};
 document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');}));
 
 dbReady.then(()=>render()).catch(()=>render());
+
+(async () => {
+  const d = document.getElementById('sync-dot');
+  const setDot = s => { if(d) d.style.background={syncing:'#ffd60a',ok:'#30d158',error:'#ff453a',none:'rgba(255,255,255,0.2)'}[s]||'rgba(255,255,255,0.2)'; };
+  if (!GHSync.token()) { setDot('none'); return; }
+  setDot('syncing');
+  const data = await GHSync.pull('pm.json', 'pm_v2');
+  setDot(data !== null ? 'ok' : 'none');
+  if (data !== null && typeof render === 'function') render();
+})();
 </script>
 </body>
 </html>

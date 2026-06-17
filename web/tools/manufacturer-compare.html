@@ -253,6 +253,7 @@ thead th.best-col { border-left: 4px solid var(--green) !important; }
     <button class="btn btn-secondary" onclick="exportCSV()">&#8659; Export CSV</button>
     <button class="btn btn-secondary" onclick="window.print()">&#128438; Print</button>
   </div>
+  <div id="sync-dot" style="width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,0.2);flex-shrink:0;transition:background 0.4s;cursor:default;" title="GitHub sync"></div>
 </div>
 
 <div class="main">
@@ -328,6 +329,7 @@ thead th.best-col { border-left: 4px solid var(--green) !important; }
   </div>
 </div>
 
+<script src="../js/sync.js"></script>
 <script>
 const STORAGE_KEY = 'mfr_data';
 let manufacturers = [];
@@ -351,6 +353,10 @@ function load() {
 }
 function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(manufacturers));
+  GHSync.push('manufacturer.json', 'mfr_data', s => {
+    const d = document.getElementById('sync-dot');
+    if (d) d.style.background = {syncing:'#ffd60a',ok:'#30d158',error:'#ff453a',none:'rgba(255,255,255,0.2)'}[s]||'rgba(255,255,255,0.2)';
+  });
 }
 
 // ── HELPERS ──────────────────────────────────────────────────────────────────
@@ -594,6 +600,16 @@ document.getElementById('modalOverlay').addEventListener('click', function(e) {
 // ── INIT ──────────────────────────────────────────────────────────────────────
 load();
 render();
+
+(async () => {
+  const d = document.getElementById('sync-dot');
+  const setDot = s => { if(d) d.style.background={syncing:'#ffd60a',ok:'#30d158',error:'#ff453a',none:'rgba(255,255,255,0.2)'}[s]||'rgba(255,255,255,0.2)'; };
+  if (!GHSync.token()) { setDot('none'); return; }
+  setDot('syncing');
+  const data = await GHSync.pull('manufacturer.json', 'mfr_data');
+  setDot(data !== null ? 'ok' : 'none');
+  if (data !== null && typeof render === 'function') render();
+})();
 </script>
 </body>
 </html>
