@@ -293,6 +293,82 @@
       font-weight: 700;
     }
 
+    /* TOOLS GRID */
+    .tools-section-label {
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: var(--text-light);
+      margin: 28px 0 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .tools-section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+    .tools-section-label:first-child { margin-top: 0; }
+
+    .tools-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+      margin-bottom: 8px;
+    }
+
+    .tool-card {
+      background: var(--card-bg);
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      padding: 1.2rem 1.3rem 1.1rem;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      transition: transform 0.18s, box-shadow 0.18s, border-color 0.18s;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 2px 8px var(--shadow);
+    }
+    .tool-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      border-radius: 14px 14px 0 0;
+      background: var(--tc, var(--accent));
+    }
+    .tool-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 24px var(--shadow);
+      border-color: var(--tc, var(--accent));
+    }
+    .tc-top { display: flex; align-items: center; gap: 10px; }
+    .tc-icon {
+      width: 40px; height: 40px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem;
+      background: var(--warm);
+      flex-shrink: 0;
+    }
+    .tc-name { font-size: 0.95rem; font-weight: 800; color: var(--text-dark); }
+    .tc-cat { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: var(--tc, var(--accent)); margin-top: 1px; }
+    .tc-desc { font-size: 0.82rem; color: var(--text-light); line-height: 1.5; font-weight: 600; }
+    .tc-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+    .tc-tag {
+      background: var(--warm);
+      border: 1px solid var(--border);
+      color: var(--text-light);
+      font-size: 0.68rem; font-weight: 700;
+      padding: 2px 8px; border-radius: 20px;
+    }
+
     /* PROJECTS TABLE */
     .project-header {
       display: flex;
@@ -496,13 +572,73 @@
 <nav>
   <div class="tab active" data-tab="agents">Team</div>
   <div class="tab" data-tab="projects">Projects</div>
-  <a href="tools/index.html" class="tab" style="text-decoration:none;">🔧 Tools</a>
+  <div class="tab" data-tab="tools">🔧 Tools</div>
 </nav>
 
 <main>
   <section id="section-agents" class="section active">
     <div class="section-title">Meet the Team</div>
     <div class="agent-grid" id="agent-grid"></div>
+  </section>
+
+  <section id="section-tools" class="section">
+    <div class="section-title">Tools</div>
+
+    <div class="tools-section-label">Project & Tasks</div>
+    <div class="tools-grid">
+      <a href="tools/project-manager.html" class="tool-card" style="--tc:#e8956d;">
+        <div class="tc-top"><div class="tc-icon">📋</div><div><div class="tc-name">Project Manager</div><div class="tc-cat">Planning</div></div></div>
+        <div class="tc-desc">Kanban board for projects and tasks. Track status, drag tasks, manage purchases.</div>
+        <div class="tc-tags"><span class="tc-tag">Kanban</span><span class="tc-tag">Tasks</span><span class="tc-tag">Purchases</span></div>
+      </a>
+      <a href="tools/meeting-summary.html" class="tool-card" style="--tc:#9b59b6;">
+        <div class="tc-top"><div class="tc-icon">🤖</div><div><div class="tc-name">Meeting Summary</div><div class="tc-cat">AI-Powered</div></div></div>
+        <div class="tc-desc">Paste raw notes → AI turns them into structured summary with decisions and action items.</div>
+        <div class="tc-tags"><span class="tc-tag">AI</span><span class="tc-tag">Claude Haiku</span><span class="tc-tag">Thai/EN</span></div>
+      </a>
+    </div>
+
+    <div class="tools-section-label">Parts & Inventory</div>
+    <div class="tools-grid">
+      <a href="tools/bom-manager.html" class="tool-card" style="--tc:#4a90d9;">
+        <div class="tc-top"><div class="tc-icon">🔩</div><div><div class="tc-name">BOM Manager</div><div class="tc-cat">Engineering</div></div></div>
+        <div class="tc-desc">Bill of Materials tracker. Add parts with cost, supplier, lead time. Auto-calculates total.</div>
+        <div class="tc-tags"><span class="tc-tag">BOM</span><span class="tc-tag">Cost Calc</span><span class="tc-tag">CSV</span></div>
+      </a>
+      <a href="tools/stock-tracker.html" class="tool-card" style="--tc:#1abc9c;">
+        <div class="tc-top"><div class="tc-icon">📦</div><div><div class="tc-name">Stock Tracker</div><div class="tc-cat">Inventory</div></div></div>
+        <div class="tc-desc">Stock in/out management with low-stock alerts and full transaction log.</div>
+        <div class="tc-tags"><span class="tc-tag">Inventory</span><span class="tc-tag">Stock In/Out</span><span class="tc-tag">Alerts</span></div>
+      </a>
+    </div>
+
+    <div class="tools-section-label">Vendors & Manufacturers</div>
+    <div class="tools-grid">
+      <a href="tools/vendor-log.html" class="tool-card" style="--tc:#e67e22;">
+        <div class="tc-top"><div class="tc-icon">🏭</div><div><div class="tc-name">Vendor Log</div><div class="tc-cat">Suppliers</div></div></div>
+        <div class="tc-desc">Supplier directory with contact info, star rating, and follow-up reminders.</div>
+        <div class="tc-tags"><span class="tc-tag">Suppliers</span><span class="tc-tag">Rating</span><span class="tc-tag">Reminders</span></div>
+      </a>
+      <a href="tools/manufacturer-compare.html" class="tool-card" style="--tc:#e74c3c;">
+        <div class="tc-top"><div class="tc-icon">⚖️</div><div><div class="tc-name">Manufacturer Compare</div><div class="tc-cat">Analysis</div></div></div>
+        <div class="tc-desc">Compare manufacturers side-by-side. Auto-highlights best price and shortest lead time.</div>
+        <div class="tc-tags"><span class="tc-tag">Compare</span><span class="tc-tag">Best Value</span><span class="tc-tag">CSV</span></div>
+      </a>
+    </div>
+
+    <div class="tools-section-label">Documentation & Testing</div>
+    <div class="tools-grid">
+      <a href="tools/spec-generator.html" class="tool-card" style="--tc:#5cb85c;">
+        <div class="tc-top"><div class="tc-icon">📄</div><div><div class="tc-name">Spec Generator</div><div class="tc-cat">Documentation</div></div></div>
+        <div class="tc-desc">Engineering spec document builder with live preview. Fill form, see document update live.</div>
+        <div class="tc-tags"><span class="tc-tag">Spec Sheet</span><span class="tc-tag">Live Preview</span><span class="tc-tag">PDF</span></div>
+      </a>
+      <a href="tools/hardware-test-log.html" class="tool-card" style="--tc:#34495e;">
+        <div class="tc-top"><div class="tc-icon">🧪</div><div><div class="tc-name">Hardware Test Log</div><div class="tc-cat">QA / Testing</div></div></div>
+        <div class="tc-desc">Log hardware test sessions with pass/fail results and pass rate per session.</div>
+        <div class="tc-tags"><span class="tc-tag">Test Sessions</span><span class="tc-tag">Pass/Fail</span><span class="tc-tag">PDF</span></div>
+      </a>
+    </div>
   </section>
 
   <section id="section-projects" class="section">
