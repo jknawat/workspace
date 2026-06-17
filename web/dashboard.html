@@ -1,874 +1,411 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>JK Central Center</title>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
-
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    :root {
-      --cream: #fdf6ec;
-      --warm: #f5e6cc;
-      --card-bg: #fffaf3;
-      --accent: #e8956d;
-      --accent2: #d4755a;
-      --text-dark: #3a2a1a;
-      --text-mid: #6b4c30;
-      --text-light: #a07850;
-      --border: #e8d5b5;
-      --shadow: rgba(180, 120, 60, 0.15);
-      --tag-bg: #f0dfc0;
-    }
-
-    body {
-      font-family: 'Nunito', sans-serif;
-      background: var(--cream);
-      color: var(--text-dark);
-      min-height: 100vh;
-    }
-
-    /* HEADER */
-    header {
-      background: linear-gradient(135deg, #f5e0c0 0%, #eecfa0 100%);
-      border-bottom: 2px solid var(--border);
-      padding: 24px 40px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      box-shadow: 0 2px 12px var(--shadow);
-    }
-
-    .header-left h1 {
-      font-size: 2rem;
-      font-weight: 900;
-      color: var(--text-dark);
-      letter-spacing: -0.5px;
-    }
-
-    .header-left h1 span { color: var(--accent); }
-
-    .header-left p {
-      font-size: 0.85rem;
-      color: var(--text-light);
-      margin-top: 2px;
-    }
-
-    .header-right { display: flex; gap: 16px; }
-
-    .stat-pill {
-      background: white;
-      border: 1.5px solid var(--border);
-      border-radius: 20px;
-      padding: 8px 18px;
-      text-align: center;
-      box-shadow: 0 2px 6px var(--shadow);
-    }
-
-    .stat-pill .num {
-      font-size: 1.4rem;
-      font-weight: 900;
-      color: var(--accent);
-      display: block;
-    }
-
-    .stat-pill .lbl {
-      font-size: 0.7rem;
-      color: var(--text-light);
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    /* NAV */
-    nav {
-      background: var(--warm);
-      border-bottom: 1.5px solid var(--border);
-      padding: 0 40px;
-      display: flex;
-      gap: 4px;
-    }
-
-    .tab {
-      padding: 14px 22px;
-      font-size: 0.88rem;
-      font-weight: 700;
-      color: var(--text-light);
-      cursor: pointer;
-      border-bottom: 3px solid transparent;
-      transition: all 0.2s;
-    }
-
-    .tab:hover { color: var(--accent); }
-    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-
-    /* MAIN */
-    main {
-      padding: 36px 40px;
-      max-width: 1400px;
-      margin: 0 auto;
-    }
-
-    .section { display: none; }
-    .section.active { display: block; }
-
-    .section-title {
-      font-size: 1.3rem;
-      font-weight: 900;
-      color: var(--text-dark);
-      margin-bottom: 24px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .section-title::after {
-      content: '';
-      flex: 1;
-      height: 2px;
-      background: var(--border);
-      border-radius: 2px;
-    }
-
-    /* AGENT CARD GRID */
-    .agent-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 24px;
-      margin-bottom: 48px;
-    }
-
-    .card-wrap {
-      perspective: 1000px;
-      height: 340px;
-      cursor: pointer;
-    }
-
-    .card-inner {
-      position: relative;
-      width: 100%;
-      height: 100%;
-      transform-style: preserve-3d;
-      transition: transform 0.55s cubic-bezier(0.4, 0.2, 0.2, 1);
-    }
-
-    .card-wrap:hover .card-inner {
-      transform: rotateY(180deg);
-    }
-
-    .card-front,
-    .card-back {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      backface-visibility: hidden;
-      -webkit-backface-visibility: hidden;
-      border-radius: 20px;
-      overflow: hidden;
-      border: 2px solid var(--border);
-      box-shadow: 0 6px 24px var(--shadow);
-    }
-
-    /* FRONT */
-    .card-front {
-      background: var(--card-bg);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    .card-portrait {
-      width: 100%;
-      height: 220px;
-      object-fit: cover;
-      object-position: top center;
-    }
-
-    .card-nameplate {
-      padding: 14px 16px 16px;
-      width: 100%;
-      text-align: center;
-    }
-
-    .card-name {
-      font-size: 1.25rem;
-      font-weight: 900;
-      color: var(--text-dark);
-    }
-
-    .card-codename {
-      font-size: 0.72rem;
-      font-weight: 700;
-      color: var(--accent);
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-top: 2px;
-    }
-
-    .card-role {
-      font-size: 0.8rem;
-      color: var(--text-light);
-      margin-top: 6px;
-      display: inline-block;
-      background: var(--tag-bg);
-      padding: 3px 12px;
-      border-radius: 20px;
-      font-weight: 600;
-    }
-
-    /* BACK */
-    .card-back {
-      background: linear-gradient(160deg, #fff8ee 0%, #fdefd8 100%);
-      transform: rotateY(180deg);
-      display: flex;
-      flex-direction: column;
-      padding: 20px 18px;
-      justify-content: space-between;
-    }
-
-    .back-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 10px;
-    }
-
-    .back-avatar {
-      width: 50px;
-      height: 50px;
-      border-radius: 50%;
-      object-fit: cover;
-      object-position: top;
-      border: 2.5px solid var(--accent);
-      flex-shrink: 0;
-    }
-
-    .back-names .name { font-size: 1rem; font-weight: 900; color: var(--text-dark); }
-    .back-names .codename { font-size: 0.7rem; color: var(--accent); font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; }
-
-    .back-section { margin-bottom: 8px; }
-
-    .back-label {
-      font-size: 0.63rem;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: var(--accent);
-      margin-bottom: 2px;
-    }
-
-    .back-text {
-      font-size: 0.76rem;
-      color: var(--text-mid);
-      line-height: 1.45;
-      font-weight: 600;
-    }
-
-    .tag-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
-      margin-top: 3px;
-    }
-
-    .tag {
-      background: var(--accent);
-      color: white;
-      font-size: 0.63rem;
-      padding: 2px 8px;
-      border-radius: 20px;
-      font-weight: 700;
-    }
-
-    .back-motto {
-      background: var(--tag-bg);
-      border-left: 3px solid var(--accent);
-      padding: 7px 11px;
-      border-radius: 0 8px 8px 0;
-      font-size: 0.73rem;
-      font-style: italic;
-      color: var(--text-mid);
-      font-weight: 700;
-    }
-
-    /* TOOLS GRID */
-    .tools-section-label {
-      font-size: 0.72rem;
-      font-weight: 800;
-      letter-spacing: 1.2px;
-      text-transform: uppercase;
-      color: var(--text-light);
-      margin: 28px 0 10px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .tools-section-label::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: var(--border);
-    }
-    .tools-section-label:first-child { margin-top: 0; }
-
-    .tools-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 16px;
-      margin-bottom: 8px;
-    }
-
-    .tool-card {
-      background: var(--card-bg);
-      border: 1.5px solid var(--border);
-      border-radius: 14px;
-      padding: 1.2rem 1.3rem 1.1rem;
-      text-decoration: none;
-      color: inherit;
-      display: flex;
-      flex-direction: column;
-      gap: 0.6rem;
-      transition: transform 0.18s, box-shadow 0.18s, border-color 0.18s;
-      position: relative;
-      overflow: hidden;
-      box-shadow: 0 2px 8px var(--shadow);
-    }
-    .tool-card::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 3px;
-      border-radius: 14px 14px 0 0;
-      background: var(--tc, var(--accent));
-    }
-    .tool-card:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 8px 24px var(--shadow);
-      border-color: var(--tc, var(--accent));
-    }
-    .tc-top { display: flex; align-items: center; gap: 10px; }
-    .tc-icon {
-      width: 40px; height: 40px;
-      border-radius: 10px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 1.2rem;
-      background: var(--warm);
-      flex-shrink: 0;
-    }
-    .tc-name { font-size: 0.95rem; font-weight: 800; color: var(--text-dark); }
-    .tc-cat { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: var(--tc, var(--accent)); margin-top: 1px; }
-    .tc-desc { font-size: 0.82rem; color: var(--text-light); line-height: 1.5; font-weight: 600; }
-    .tc-tags { display: flex; flex-wrap: wrap; gap: 5px; }
-    .tc-tag {
-      background: var(--warm);
-      border: 1px solid var(--border);
-      color: var(--text-light);
-      font-size: 0.68rem; font-weight: 700;
-      padding: 2px 8px; border-radius: 20px;
-    }
-
-    /* PROJECTS TABLE */
-    .project-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
-    }
-
-    .btn-add {
-      background: var(--accent);
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      border-radius: 10px;
-      font-size: 0.85rem;
-      font-weight: 700;
-      cursor: pointer;
-      font-family: 'Nunito', sans-serif;
-      transition: background 0.2s;
-    }
-
-    .btn-add:hover { background: var(--accent2); }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: var(--card-bg);
-      border-radius: 16px;
-      overflow: hidden;
-      box-shadow: 0 4px 16px var(--shadow);
-      border: 1.5px solid var(--border);
-    }
-
-    thead { background: linear-gradient(135deg, #f5e0c0, #eecfa0); }
-
-    th {
-      padding: 14px 18px;
-      text-align: left;
-      font-size: 0.75rem;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      color: var(--text-mid);
-    }
-
-    td {
-      padding: 14px 18px;
-      font-size: 0.85rem;
-      color: var(--text-dark);
-      border-top: 1px solid var(--border);
-      font-weight: 600;
-    }
-
-    tr:hover td { background: #fdf0de; }
-
-    .status-badge {
-      display: inline-block;
-      padding: 3px 12px;
-      border-radius: 20px;
-      font-size: 0.72rem;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .status-done { background: #d4f5d4; color: #2a7a2a; }
-    .status-progress { background: #fff0d0; color: #a06010; }
-    .status-todo { background: #f0f0f0; color: #606060; }
-
-    .priority-high { color: #c0392b; font-weight: 800; }
-    .priority-medium { color: #e67e22; font-weight: 800; }
-    .priority-low { color: #27ae60; font-weight: 800; }
-
-    /* MODAL */
-    .modal-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(80, 40, 10, 0.4);
-      z-index: 100;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .modal-overlay.open { display: flex; }
-
-    .modal {
-      background: var(--card-bg);
-      border-radius: 20px;
-      padding: 32px;
-      width: 440px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.2);
-      border: 2px solid var(--border);
-    }
-
-    .modal h3 {
-      font-size: 1.2rem;
-      font-weight: 900;
-      margin-bottom: 20px;
-      color: var(--text-dark);
-    }
-
-    .form-group { margin-bottom: 16px; }
-
-    .form-group label {
-      display: block;
-      font-size: 0.78rem;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-      color: var(--text-light);
-      margin-bottom: 6px;
-    }
-
-    .form-group input,
-    .form-group select,
-    .form-group textarea {
-      width: 100%;
-      padding: 10px 14px;
-      border: 1.5px solid var(--border);
-      border-radius: 10px;
-      font-size: 0.88rem;
-      font-family: 'Nunito', sans-serif;
-      background: white;
-      color: var(--text-dark);
-      font-weight: 600;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-
-    .form-group input:focus,
-    .form-group select:focus,
-    .form-group textarea:focus { border-color: var(--accent); }
-
-    .modal-actions {
-      display: flex;
-      gap: 10px;
-      justify-content: flex-end;
-      margin-top: 20px;
-    }
-
-    .btn-cancel {
-      background: var(--tag-bg);
-      color: var(--text-mid);
-      border: none;
-      padding: 10px 20px;
-      border-radius: 10px;
-      font-size: 0.85rem;
-      font-weight: 700;
-      cursor: pointer;
-      font-family: 'Nunito', sans-serif;
-    }
-
-    .btn-save {
-      background: var(--accent);
-      color: white;
-      border: none;
-      padding: 10px 24px;
-      border-radius: 10px;
-      font-size: 0.85rem;
-      font-weight: 700;
-      cursor: pointer;
-      font-family: 'Nunito', sans-serif;
-    }
-
-    .btn-save:hover { background: var(--accent2); }
-
-    @media (max-width: 1100px) { .agent-grid { grid-template-columns: repeat(3, 1fr); } }
-    @media (max-width: 800px) {
-      header { padding: 18px 20px; flex-direction: column; gap: 16px; }
-      nav { padding: 0 20px; overflow-x: auto; }
-      main { padding: 24px 20px; }
-      .agent-grid { grid-template-columns: repeat(2, 1fr); }
-    }
-    @media (max-width: 500px) { .agent-grid { grid-template-columns: 1fr; } }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JK Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #08080f;
+    --glass:    rgba(255,255,255,0.055);
+    --glass-h:  rgba(255,255,255,0.09);
+    --border:   rgba(255,255,255,0.09);
+    --border-h: rgba(255,255,255,0.18);
+    --text:     rgba(255,255,255,0.92);
+    --sub:      rgba(255,255,255,0.45);
+    --muted:    rgba(255,255,255,0.28);
+    --blur:     blur(24px) saturate(180%);
+
+    /* Apple dark palette */
+    --orange:  #ff9f0a;
+    --blue:    #0a84ff;
+    --green:   #30d158;
+    --red:     #ff453a;
+    --purple:  #bf5af2;
+    --teal:    #5ac8fa;
+    --yellow:  #ffd60a;
+    --gray:    #98989d;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ambient glow bg */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 900px 700px at 15% 10%,  rgba(255,159,10,0.07)  0%, transparent 65%),
+      radial-gradient(ellipse 700px 500px at 85% 85%,  rgba(10,132,255,0.055) 0%, transparent 65%),
+      radial-gradient(ellipse 500px 400px at 60% 30%,  rgba(191,90,242,0.04)  0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 0 1.5rem 3rem; }
+
+  /* ── TOPBAR ── */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(8,8,15,0.7);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 1.5rem;
+    height: 52px;
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+  .logo {
+    font-size: 1rem;
+    font-weight: 800;
+    letter-spacing: -0.3px;
+    color: var(--text);
+  }
+  .logo span { color: var(--orange); }
+  .tb-sep { color: var(--muted); font-size: 0.9rem; }
+  .greeting { font-size: 0.8rem; font-weight: 500; color: var(--sub); }
+  .topbar-spacer { flex: 1; }
+  .top-date { font-size: 0.75rem; font-weight: 500; color: var(--muted); }
+
+  /* ── STATS ISLAND ── */
+  .stats-island {
+    background: var(--glass);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    display: flex;
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+  .stat {
+    flex: 1;
+    padding: 1.2rem 1.4rem;
+    border-right: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: background 0.2s;
+    cursor: default;
+  }
+  .stat:last-child { border-right: none; }
+  .stat:hover { background: var(--glass-h); }
+  .stat-icon { font-size: 1.2rem; }
+  .stat-num  {
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    line-height: 1;
+    color: var(--text);
+  }
+  .stat-lbl  { font-size: 0.68rem; font-weight: 500; color: var(--sub); margin-top: 2px; letter-spacing: 0.2px; }
+  .orange { color: var(--orange); }
+  .red    { color: var(--red); }
+  .green  { color: var(--green); }
+
+  /* ── SECTION LABEL ── */
+  .sec-lbl {
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--sub);
+    margin-bottom: 0.8rem;
+  }
+
+  /* ── TOOL GRID ── */
+  .tool-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .tool-card {
+    background: var(--glass);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.1rem;
+    text-decoration: none;
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    position: relative;
+    overflow: hidden;
+    transition: background 0.2s, border-color 0.2s, transform 0.18s, box-shadow 0.18s;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+  .tool-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--c, var(--orange));
+    opacity: 0.8;
+  }
+  .tool-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 16px;
+    background: radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.05) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+  }
+  .tool-card:hover {
+    background: var(--glass-h);
+    border-color: var(--border-h);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.1);
+  }
+  .tool-card:hover::after { opacity: 1; }
+
+  .tc-icon { font-size: 1.3rem; }
+  .tc-name { font-size: 0.85rem; font-weight: 700; }
+  .tc-desc { font-size: 0.72rem; font-weight: 400; color: var(--sub); line-height: 1.5; }
+
+  /* ── BOTTOM PANELS ── */
+  .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+
+  .panel {
+    background: var(--glass);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 1.3rem 1.4rem;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+  .panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+  }
+  .panel-title { font-size: 0.82rem; font-weight: 700; }
+  .panel-link  { font-size: 0.7rem; font-weight: 600; color: var(--blue); text-decoration: none; }
+  .panel-link:hover { text-decoration: underline; }
+
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-size: 0.78rem;
+    font-weight: 500;
+  }
+  .row:last-child { border-bottom: none; }
+  .row-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .row-name { flex: 1; }
+  .row-sub  { font-size: 0.66rem; color: var(--muted); margin-top: 1px; }
+
+  .pill {
+    font-size: 0.64rem;
+    font-weight: 600;
+    padding: 2px 9px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+  .pill-prog { background: rgba(10,132,255,0.18); color: var(--blue); }
+  .pill-todo { background: rgba(255,214,10,0.15); color: var(--yellow); }
+  .pill-plan { background: rgba(90,200,250,0.15); color: var(--teal); }
+  .pill-out  { background: rgba(255,69,58,0.18);  color: var(--red); }
+  .pill-low  { background: rgba(255,159,10,0.18); color: var(--orange); }
+
+  .empty { font-size: 0.75rem; color: var(--muted); padding: 12px 0; text-align: center; }
+</style>
 </head>
 <body>
 
-<header>
-  <div class="header-left">
-    <h1>JK <span>Central Center</span></h1>
-    <p>AI Agent Team Dashboard &mdash; May 2026</p>
+<div class="topbar">
+  <div class="logo">JK <span>Dashboard</span></div>
+  <div class="tb-sep">/</div>
+  <div class="greeting" id="greeting">Good morning, JK</div>
+  <div class="topbar-spacer"></div>
+  <div class="top-date" id="topDate"></div>
+</div>
+
+<div class="wrap">
+
+  <!-- STATS ISLAND -->
+  <div class="stats-island">
+    <div class="stat">
+      <div class="stat-icon">📋</div>
+      <div>
+        <div class="stat-num" id="s-projects">—</div>
+        <div class="stat-lbl">Projects</div>
+      </div>
+    </div>
+    <div class="stat">
+      <div class="stat-icon">✅</div>
+      <div>
+        <div class="stat-num" id="s-tasks">—</div>
+        <div class="stat-lbl">Active Tasks</div>
+      </div>
+    </div>
+    <div class="stat">
+      <div class="stat-icon">📦</div>
+      <div>
+        <div class="stat-num orange" id="s-stock">—</div>
+        <div class="stat-lbl">Stock Alerts</div>
+      </div>
+    </div>
+    <div class="stat">
+      <div class="stat-icon">💸</div>
+      <div>
+        <div class="stat-num red" id="s-pending">—</div>
+        <div class="stat-lbl">Pending ฿</div>
+      </div>
+    </div>
+    <div class="stat">
+      <div class="stat-icon">🔩</div>
+      <div>
+        <div class="stat-num" id="s-parts">—</div>
+        <div class="stat-lbl">BOM Parts</div>
+      </div>
+    </div>
   </div>
-  <div class="header-right">
-    <div class="stat-pill">
-      <span class="num">8</span>
-      <span class="lbl">Agents</span>
-    </div>
-    <div class="stat-pill">
-      <span class="num" id="stat-projects">4</span>
-      <span class="lbl">Projects</span>
-    </div>
-    <div class="stat-pill">
-      <span class="num" id="stat-done">0</span>
-      <span class="lbl">Done</span>
-    </div>
+
+  <!-- TOOLS -->
+  <div class="sec-lbl">Tools</div>
+  <div class="tool-grid">
+    <a href="tools/project-manager.html" class="tool-card" style="--c:var(--orange);">
+      <div class="tc-icon">📋</div>
+      <div class="tc-name">Project Manager</div>
+      <div class="tc-desc">Kanban, tasks, purchases, drag & drop</div>
+    </a>
+    <a href="tools/bom-manager.html" class="tool-card" style="--c:var(--blue);">
+      <div class="tc-icon">🔩</div>
+      <div class="tc-name">BOM Manager</div>
+      <div class="tc-desc">Parts list, cost calc, CSV import/export</div>
+    </a>
+    <a href="tools/stock-tracker.html" class="tool-card" style="--c:var(--green);">
+      <div class="tc-icon">📦</div>
+      <div class="tc-name">Stock Tracker</div>
+      <div class="tc-desc">Inventory in/out, low-stock alerts</div>
+    </a>
+    <a href="tools/vendor-log.html" class="tool-card" style="--c:var(--yellow);">
+      <div class="tc-icon">🏭</div>
+      <div class="tc-name">Vendor Log</div>
+      <div class="tc-desc">Supplier directory, ratings, reminders</div>
+    </a>
+    <a href="tools/manufacturer-compare.html" class="tool-card" style="--c:var(--red);">
+      <div class="tc-icon">⚖️</div>
+      <div class="tc-name">Manufacturer Compare</div>
+      <div class="tc-desc">Side-by-side compare, best value</div>
+    </a>
+    <a href="tools/spec-generator.html" class="tool-card" style="--c:var(--green);">
+      <div class="tc-icon">📄</div>
+      <div class="tc-name">Spec Generator</div>
+      <div class="tc-desc">Engineering spec doc, live preview, PDF</div>
+    </a>
+    <a href="tools/hardware-test-log.html" class="tool-card" style="--c:var(--gray);">
+      <div class="tc-icon">🧪</div>
+      <div class="tc-name">Hardware Test Log</div>
+      <div class="tc-desc">Test sessions, pass/fail, PDF</div>
+    </a>
+    <a href="tools/meeting-summary.html" class="tool-card" style="--c:var(--purple);">
+      <div class="tc-icon">🤖</div>
+      <div class="tc-name">Meeting Summary</div>
+      <div class="tc-desc">AI notes → decisions & action items</div>
+    </a>
   </div>
-</header>
 
-<nav>
-  <div class="tab active" data-tab="agents">Team</div>
-  <div class="tab" data-tab="projects">Projects</div>
-  <div class="tab" data-tab="tools">🔧 Tools</div>
-</nav>
+  <!-- BOTTOM PANELS -->
+  <div class="panels">
 
-<main>
-  <section id="section-agents" class="section active">
-    <div class="section-title">Meet the Team</div>
-    <div class="agent-grid" id="agent-grid"></div>
-  </section>
-
-  <section id="section-tools" class="section">
-    <div class="section-title">Tools</div>
-
-    <div class="tools-section-label">Project & Tasks</div>
-    <div class="tools-grid">
-      <a href="tools/project-manager.html" class="tool-card" style="--tc:#e8956d;">
-        <div class="tc-top"><div class="tc-icon">📋</div><div><div class="tc-name">Project Manager</div><div class="tc-cat">Planning</div></div></div>
-        <div class="tc-desc">Kanban board for projects and tasks. Track status, drag tasks, manage purchases.</div>
-        <div class="tc-tags"><span class="tc-tag">Kanban</span><span class="tc-tag">Tasks</span><span class="tc-tag">Purchases</span></div>
-      </a>
-      <a href="tools/meeting-summary.html" class="tool-card" style="--tc:#9b59b6;">
-        <div class="tc-top"><div class="tc-icon">🤖</div><div><div class="tc-name">Meeting Summary</div><div class="tc-cat">AI-Powered</div></div></div>
-        <div class="tc-desc">Paste raw notes → AI turns them into structured summary with decisions and action items.</div>
-        <div class="tc-tags"><span class="tc-tag">AI</span><span class="tc-tag">Claude Haiku</span><span class="tc-tag">Thai/EN</span></div>
-      </a>
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">Active Tasks</div>
+        <a class="panel-link" href="tools/project-manager.html">Open →</a>
+      </div>
+      <div id="task-list"><div class="empty">No data — open Project Manager first</div></div>
     </div>
 
-    <div class="tools-section-label">Parts & Inventory</div>
-    <div class="tools-grid">
-      <a href="tools/bom-manager.html" class="tool-card" style="--tc:#4a90d9;">
-        <div class="tc-top"><div class="tc-icon">🔩</div><div><div class="tc-name">BOM Manager</div><div class="tc-cat">Engineering</div></div></div>
-        <div class="tc-desc">Bill of Materials tracker. Add parts with cost, supplier, lead time. Auto-calculates total.</div>
-        <div class="tc-tags"><span class="tc-tag">BOM</span><span class="tc-tag">Cost Calc</span><span class="tc-tag">CSV</span></div>
-      </a>
-      <a href="tools/stock-tracker.html" class="tool-card" style="--tc:#1abc9c;">
-        <div class="tc-top"><div class="tc-icon">📦</div><div><div class="tc-name">Stock Tracker</div><div class="tc-cat">Inventory</div></div></div>
-        <div class="tc-desc">Stock in/out management with low-stock alerts and full transaction log.</div>
-        <div class="tc-tags"><span class="tc-tag">Inventory</span><span class="tc-tag">Stock In/Out</span><span class="tc-tag">Alerts</span></div>
-      </a>
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">Stock Alerts</div>
+        <a class="panel-link" href="tools/stock-tracker.html">Open →</a>
+      </div>
+      <div id="stock-list"><div class="empty">No data — open Stock Tracker first</div></div>
     </div>
 
-    <div class="tools-section-label">Vendors & Manufacturers</div>
-    <div class="tools-grid">
-      <a href="tools/vendor-log.html" class="tool-card" style="--tc:#e67e22;">
-        <div class="tc-top"><div class="tc-icon">🏭</div><div><div class="tc-name">Vendor Log</div><div class="tc-cat">Suppliers</div></div></div>
-        <div class="tc-desc">Supplier directory with contact info, star rating, and follow-up reminders.</div>
-        <div class="tc-tags"><span class="tc-tag">Suppliers</span><span class="tc-tag">Rating</span><span class="tc-tag">Reminders</span></div>
-      </a>
-      <a href="tools/manufacturer-compare.html" class="tool-card" style="--tc:#e74c3c;">
-        <div class="tc-top"><div class="tc-icon">⚖️</div><div><div class="tc-name">Manufacturer Compare</div><div class="tc-cat">Analysis</div></div></div>
-        <div class="tc-desc">Compare manufacturers side-by-side. Auto-highlights best price and shortest lead time.</div>
-        <div class="tc-tags"><span class="tc-tag">Compare</span><span class="tc-tag">Best Value</span><span class="tc-tag">CSV</span></div>
-      </a>
-    </div>
-
-    <div class="tools-section-label">Documentation & Testing</div>
-    <div class="tools-grid">
-      <a href="tools/spec-generator.html" class="tool-card" style="--tc:#5cb85c;">
-        <div class="tc-top"><div class="tc-icon">📄</div><div><div class="tc-name">Spec Generator</div><div class="tc-cat">Documentation</div></div></div>
-        <div class="tc-desc">Engineering spec document builder with live preview. Fill form, see document update live.</div>
-        <div class="tc-tags"><span class="tc-tag">Spec Sheet</span><span class="tc-tag">Live Preview</span><span class="tc-tag">PDF</span></div>
-      </a>
-      <a href="tools/hardware-test-log.html" class="tool-card" style="--tc:#34495e;">
-        <div class="tc-top"><div class="tc-icon">🧪</div><div><div class="tc-name">Hardware Test Log</div><div class="tc-cat">QA / Testing</div></div></div>
-        <div class="tc-desc">Log hardware test sessions with pass/fail results and pass rate per session.</div>
-        <div class="tc-tags"><span class="tc-tag">Test Sessions</span><span class="tc-tag">Pass/Fail</span><span class="tc-tag">PDF</span></div>
-      </a>
-    </div>
-  </section>
-
-  <section id="section-projects" class="section">
-    <div class="section-title">Projects</div>
-    <div class="project-header">
-      <span style="font-size:0.85rem;color:var(--text-light);font-weight:600;" id="project-count"></span>
-      <button class="btn-add" onclick="openModal()">+ New Project</button>
-    </div>
-    <table>
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Project</th>
-          <th>Description</th>
-          <th>Status</th>
-          <th>Agent</th>
-          <th>Priority</th>
-          <th>Updated</th>
-        </tr>
-      </thead>
-      <tbody id="project-table"></tbody>
-    </table>
-  </section>
-</main>
-
-<div class="modal-overlay" id="modal">
-  <div class="modal">
-    <h3>New Project</h3>
-    <div class="form-group">
-      <label>Project Name</label>
-      <input type="text" id="inp-name" placeholder="e.g. STL Shop Landing Page" />
-    </div>
-    <div class="form-group">
-      <label>Description</label>
-      <textarea id="inp-desc" rows="2" placeholder="What is this project about?"></textarea>
-    </div>
-    <div class="form-group">
-      <label>Agent</label>
-      <select id="inp-agent">
-        <option>Claudy</option><option>Rex</option><option>Mia</option><option>Cole</option>
-        <option>Iris</option><option>Max</option><option>Kay</option><option>Sam</option><option>All</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label>Priority</label>
-      <select id="inp-priority">
-        <option value="high">High</option>
-        <option value="medium" selected>Medium</option>
-        <option value="low">Low</option>
-      </select>
-    </div>
-    <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
-      <button class="btn-save" onclick="saveProject()">Save</button>
-    </div>
   </div>
 </div>
 
 <script>
-const agents = [
-  {
-    id: "claudy", name: "Claudy", codename: "Orchestrator", role: "Chief of Staff",
-    personality: "Calm, strategic, always in control. The glue that holds the team together.",
-    does: "Coordinates all agents, talks to JK, compiles results into clear answers.",
-    skills: ["Coordination", "Routing", "Summarizing"],
-    motto: "I make sure the right person handles the right job."
-  },
-  {
-    id: "rex", name: "Rex", codename: "Scout", role: "Research Agent",
-    personality: "Curious and fast. Always digging for the latest info online.",
-    does: "Web search, market trends, competitor analysis, prices.",
-    skills: ["Research", "Trends", "Market Intel"],
-    motto: "If it's out there, I'll find it."
-  },
-  {
-    id: "mia", name: "Mia", codename: "Spark", role: "Thinking Agent",
-    personality: "Creative and analytical. Loves breaking down big problems into clear steps.",
-    does: "Brainstorming, planning, analysis, and decision support.",
-    skills: ["Strategy", "Planning", "Ideation"],
-    motto: "Every problem has a smarter solution."
-  },
-  {
-    id: "cole", name: "Cole", codename: "Byte", role: "Coding Agent",
-    personality: "Precise and methodical. Gets the code right.",
-    does: "Writing Python & C code, fixing bugs, explaining how code works.",
-    skills: ["Python", "C", "Debugging"],
-    motto: "Clean code, no excuses."
-  },
-  {
-    id: "iris", name: "Iris", codename: "Pixel", role: "Design Agent",
-    personality: "Artistic and detail-oriented. Makes everything look beautiful.",
-    does: "Generating images, product mockups, social media graphics.",
-    skills: ["Image Gen", "Mockups", "Visual Design"],
-    motto: "A picture is worth a thousand words."
-  },
-  {
-    id: "max", name: "Max", codename: "Boss", role: "Business Agent",
-    personality: "Sharp and goal-focused. Always thinking about money and strategy.",
-    does: "Business advice, pricing, sales strategy, and marketing plans.",
-    skills: ["Strategy", "Pricing", "Marketing"],
-    motto: "Every decision should make money."
-  },
-  {
-    id: "kay", name: "Kay", codename: "Reel", role: "Content Agent",
-    personality: "Energetic and creative. Knows what makes people stop scrolling.",
-    does: "TikTok & YouTube scripts, product descriptions, captions and hashtags.",
-    skills: ["Scripting", "Copywriting", "Hashtags"],
-    motto: "Hook them in 3 seconds."
-  },
-  {
-    id: "sam", name: "Sam", codename: "Webb", role: "Web App Agent",
-    personality: "Clean and practical. Builds things that just work.",
-    does: "Landing pages, dashboards, and web tools in HTML/CSS/JS.",
-    skills: ["HTML", "CSS", "JavaScript"],
-    motto: "Build it clean, build it fast."
+  const now = new Date();
+  const h = now.getHours();
+  document.getElementById('greeting').textContent = (h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening') + ', JK';
+  document.getElementById('topDate').textContent = now.toLocaleDateString('en-US', {weekday:'short', day:'numeric', month:'short', year:'numeric'});
+
+  const pm = JSON.parse(localStorage.getItem('pm_v2') || '{"projects":[]}');
+  const projects = pm.projects || [];
+  const allTasks = projects.flatMap(p => (p.tasks || []).map(t => ({...t, proj: p.name})));
+  const active   = allTasks.filter(t => ['in-progress','todo','planning'].includes(t.status));
+  const pending  = projects.flatMap(p => (p.purchases || []).filter(x => x.status === 'pending'));
+  const pendingTotal = pending.reduce((s,x) => s + (parseFloat(x.amount)||0), 0);
+
+  document.getElementById('s-projects').textContent = projects.length;
+  document.getElementById('s-tasks').textContent    = active.length;
+  document.getElementById('s-pending').textContent  = pendingTotal > 0 ? '฿' + pendingTotal.toLocaleString() : '฿0';
+
+  const sd    = JSON.parse(localStorage.getItem('stock_data') || '{"parts":[]}');
+  const parts = sd.parts || [];
+  const outP  = parts.filter(p => p.qty === 0);
+  const lowP  = parts.filter(p => p.qty > 0 && p.qty <= (p.minLevel || 0));
+  document.getElementById('s-stock').textContent = outP.length + lowP.length;
+
+  const bom = JSON.parse(localStorage.getItem('bom_data') || '[]');
+  document.getElementById('s-parts').textContent = bom.length;
+
+  const statusColor = {'in-progress':'#0a84ff','todo':'#ffd60a','planning':'#5ac8fa','on-hold':'#98989d'};
+  const statusPill  = {'in-progress':'pill-prog','todo':'pill-todo','planning':'pill-plan','on-hold':''};
+  const statusLabel = {'in-progress':'In Progress','todo':'To Do','planning':'Planning','on-hold':'On Hold'};
+  const tEl = document.getElementById('task-list');
+  if (!active.length) {
+    tEl.innerHTML = '<div class="empty">No active tasks</div>';
+  } else {
+    tEl.innerHTML = active.slice(0,6).map(t=>`
+      <div class="row">
+        <div class="row-dot" style="background:${statusColor[t.status]||'#98989d'}"></div>
+        <div class="row-name">${t.title||t.name||'Untitled'}<div class="row-sub">${t.proj}</div></div>
+        <span class="pill ${statusPill[t.status]||''}">${statusLabel[t.status]||t.status}</span>
+      </div>`).join('') + (active.length > 6 ? `<div class="empty" style="padding-top:6px">+${active.length-6} more</div>` : '');
   }
-];
 
-function renderAgents() {
-  document.getElementById('agent-grid').innerHTML = agents.map(a => `
-    <div class="card-wrap">
-      <div class="card-inner">
-        <div class="card-front">
-          <img class="card-portrait" src="agents/${a.id}.jpg" alt="${a.name}"
-               onerror="this.style.background='#f0dfc0';this.style.height='220px'">
-          <div class="card-nameplate">
-            <div class="card-name">${a.name}</div>
-            <div class="card-codename">${a.codename}</div>
-            <div class="card-role">${a.role}</div>
-          </div>
-        </div>
-        <div class="card-back">
-          <div>
-            <div class="back-header">
-              <img class="back-avatar" src="agents/${a.id}.jpg" alt="${a.name}">
-              <div class="back-names">
-                <div class="name">${a.name}</div>
-                <div class="codename">${a.codename}</div>
-              </div>
-            </div>
-            <div class="back-section">
-              <div class="back-label">Personality</div>
-              <div class="back-text">${a.personality}</div>
-            </div>
-            <div class="back-section">
-              <div class="back-label">What I Do</div>
-              <div class="back-text">${a.does}</div>
-            </div>
-            <div class="back-section">
-              <div class="back-label">Skills</div>
-              <div class="tag-list">${a.skills.map(s=>`<span class="tag">${s}</span>`).join('')}</div>
-            </div>
-          </div>
-          <div class="back-motto">"${a.motto}"</div>
-        </div>
-      </div>
-    </div>
-  `).join('');
-}
-
-let projects = [];
-
-async function loadProjects() {
-  try {
-    const r = await fetch('projects.json');
-    projects = await r.json();
-  } catch { projects = []; }
-  renderProjects();
-  updateStats();
-}
-
-function renderProjects() {
-  const sc = { done:'status-done', 'in-progress':'status-progress', todo:'status-todo' };
-  const sl = { done:'Done', 'in-progress':'In Progress', todo:'To Do' };
-  document.getElementById('project-table').innerHTML = projects.map(p => `
-    <tr>
-      <td style="color:var(--text-light);font-weight:800;">#${p.id}</td>
-      <td style="font-weight:800;">${p.name}</td>
-      <td style="color:var(--text-mid);">${p.description}</td>
-      <td><span class="status-badge ${sc[p.status]||'status-todo'}">${sl[p.status]||p.status}</span></td>
-      <td>${p.agent}</td>
-      <td class="priority-${p.priority}">${p.priority.charAt(0).toUpperCase()+p.priority.slice(1)}</td>
-      <td style="color:var(--text-light);">${p.updated}</td>
-    </tr>
-  `).join('');
-  document.getElementById('project-count').textContent = `${projects.length} project${projects.length!==1?'s':''}`;
-}
-
-function updateStats() {
-  document.getElementById('stat-projects').textContent = projects.length;
-  document.getElementById('stat-done').textContent = projects.filter(p=>p.status==='done').length;
-}
-
-function openModal() { document.getElementById('modal').classList.add('open'); }
-function closeModal() {
-  document.getElementById('modal').classList.remove('open');
-  document.getElementById('inp-name').value = '';
-  document.getElementById('inp-desc').value = '';
-}
-
-function saveProject() {
-  const name = document.getElementById('inp-name').value.trim();
-  if (!name) return;
-  const today = new Date().toISOString().split('T')[0];
-  projects.push({
-    id: projects.length + 1,
-    name,
-    description: document.getElementById('inp-desc').value.trim(),
-    status: 'todo',
-    agent: document.getElementById('inp-agent').value,
-    priority: document.getElementById('inp-priority').value,
-    created: today,
-    updated: today
-  });
-  renderProjects();
-  updateStats();
-  closeModal();
-}
-
-document.querySelectorAll('.tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-    tab.classList.add('active');
-    document.getElementById('section-' + tab.dataset.tab).classList.add('active');
-  });
-});
-
-renderAgents();
-loadProjects();
+  const alerts = [...outP.map(p=>({...p,_t:'out'})),...lowP.map(p=>({...p,_t:'low'}))];
+  const sEl = document.getElementById('stock-list');
+  if (!alerts.length) {
+    sEl.innerHTML = '<div class="empty">All stock levels OK ✓</div>';
+  } else {
+    sEl.innerHTML = alerts.slice(0,6).map(p=>`
+      <div class="row">
+        <div class="row-dot" style="background:${p._t==='out'?'#ff453a':'#ff9f0a'}"></div>
+        <div class="row-name">${p.name}<div class="row-sub">${p.supplier||''}</div></div>
+        <span class="pill ${p._t==='out'?'pill-out':'pill-low'}">${p._t==='out'?'OUT':'LOW'} · ${p.qty}</span>
+      </div>`).join('') + (alerts.length > 6 ? `<div class="empty" style="padding-top:6px">+${alerts.length-6} more</div>` : '');
+  }
 </script>
 </body>
 </html>
