@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, ApiError } from "../../lib/api";
+import { formatThb } from "../../lib/currency";
 import type { Customer } from "../../lib/types";
 import { Card } from "../../components/ui/Card";
 import { ErrorState } from "../../components/ui/ErrorState";
@@ -50,7 +51,7 @@ export function Customers() {
                   <td className="px-5 py-3 text-ink-secondary">{c.email}</td>
                   <td className="px-5 py-3 font-mono-num text-ink-secondary">{c.orderCount}</td>
                   <td className="px-5 py-3 font-mono-num text-ink-secondary">
-                    ${c.totalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    {formatThb(c.totalValue)}
                   </td>
                   <td className="px-5 py-3 text-ink-secondary">
                     {new Date(c.createdAt).toLocaleDateString()}

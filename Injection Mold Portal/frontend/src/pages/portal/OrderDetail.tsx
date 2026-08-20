@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { api, ApiError } from "../../lib/api";
+import { useI18n } from "../../lib/i18n";
+import { formatThb, formatThbPrecise } from "../../lib/currency";
 import type { Order, OrderStatus } from "../../lib/types";
 import { ORDER_STATUS_LABEL } from "../../lib/types";
 import { Card } from "../../components/ui/Card";
@@ -19,6 +21,7 @@ const PIPELINE: OrderStatus[] = [
 
 export function OrderDetail() {
   const { id } = useParams<{ id: string }>();
+  const { t } = useI18n();
   const [searchParams] = useSearchParams();
   const paymentParam = searchParams.get("payment"); // "success" | "cancelled" | null
   const [order, setOrder] = useState<Order | null>(null);
@@ -67,14 +70,14 @@ export function OrderDetail() {
       <div>
         <p className="text-sm text-status-critical">{error}</p>
         <Link to="/portal/orders" className="mt-4 inline-block text-sm text-brand-blue">
-          Back to orders
+          {t("portal.backToOrders")}
         </Link>
       </div>
     );
   }
 
   if (!order) {
-    return <p className="text-ink-muted">Loading…</p>;
+    return <p className="text-ink-muted">{t("portal.loading")}</p>;
   }
 
   const stepIndex = PIPELINE.indexOf(order.status);
@@ -82,7 +85,7 @@ export function OrderDetail() {
   return (
     <div>
       <Link to="/portal/orders" className="text-sm text-ink-secondary hover:text-ink-primary">
-        ← Orders
+        {t("portal.backToOrders")}
       </Link>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-4">
         <div>
@@ -94,17 +97,17 @@ export function OrderDetail() {
 
       {paymentParam === "success" && order.paymentStatus === "paid" && (
         <div className="mt-4 rounded-lg border border-status-good/30 bg-status-good/10 px-4 py-3 text-sm text-ink-primary">
-          Payment received — thank you.
+          {t("portal.paymentReceived")}
         </div>
       )}
       {paymentParam === "cancelled" && (
         <div className="mt-4 rounded-lg border border-border bg-surface-raised px-4 py-3 text-sm text-ink-secondary">
-          Checkout was cancelled. You can pay whenever you're ready.
+          {t("portal.checkoutCancelled")}
         </div>
       )}
 
       <Card className="mt-6">
-        <h2 className="font-display text-sm font-semibold text-ink-primary">Production pipeline</h2>
+        <h2 className="font-display text-sm font-semibold text-ink-primary">{t("portal.productionPipeline")}</h2>
         <ol className="mt-4 flex flex-wrap gap-x-1 gap-y-3">
           {PIPELINE.map((step, i) => (
             <li key={step} className="flex items-center">
@@ -125,33 +128,39 @@ export function OrderDetail() {
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <Card>
-          <h2 className="font-display text-sm font-semibold text-ink-primary">Part specification</h2>
+          <h2 className="font-display text-sm font-semibold text-ink-primary">{t("portal.partSpecification")}</h2>
           <dl className="mt-4 space-y-2 text-sm">
-            <Row label="Material" value={order.input.materialId.toUpperCase()} />
-            <Row label="Part weight" value={`${order.input.partWeightG} g`} />
-            <Row label="Wall thickness" value={`${order.input.wallThicknessMm} mm`} />
-            <Row label="Quantity" value={order.result.quantity.toLocaleString()} />
-            <Row label="Cavities" value={String(order.input.cavities)} />
-            <Row label="Tolerance" value={order.input.tolerance} />
-            <Row label="Finish" value={order.input.finish} />
-            <Row label="Color" value={order.input.color} />
-            <Row label="Cycle time" value={`${order.result.estimatedCycleTimeSec.toFixed(1)}s`} />
-            <Row label="Lead time" value={`~${order.result.estimatedLeadTimeDays} days`} />
+            <Row label={t("common.material")} value={order.input.materialId.toUpperCase()} />
+            <Row label={t("common.partWeight")} value={`${order.input.partWeightG} g`} />
+            <Row label={t("common.wallThickness")} value={`${order.input.wallThicknessMm} mm`} />
+            <Row label={t("common.quantity")} value={order.result.quantity.toLocaleString()} />
+            <Row label={t("common.cavities")} value={String(order.input.cavities)} />
+            <Row label={t("common.tolerance")} value={order.input.tolerance} />
+            <Row label={t("common.finish")} value={order.input.finish} />
+            <Row label={t("common.color")} value={order.input.color} />
+            <Row label={t("common.cycleTime")} value={`${order.result.estimatedCycleTimeSec.toFixed(1)}s`} />
+            <Row label={t("common.leadTime")} value={t("quote.days", { n: order.result.estimatedLeadTimeDays })} />
           </dl>
 
           {order.cadFile && (
             <div className="mt-5 border-t border-border pt-4">
               <p className="text-xs font-medium uppercase tracking-wide text-ink-muted">
-                CAD file — {order.cadFile.filename}
+                {t("quote.detected")} — {order.cadFile.filename}
               </p>
               <dl className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
-                <Row label="Volume" value={`${order.cadFile.volumeCm3.toFixed(2)} cm³`} />
-                <Row label="Surface area" value={`${order.cadFile.surfaceAreaCm2.toFixed(1)} cm²`} />
+                <Row label={t("quote.volume")} value={`${order.cadFile.volumeCm3.toFixed(2)} cm³`} />
+                <Row label={t("quote.surfaceArea")} value={`${order.cadFile.surfaceAreaCm2.toFixed(1)} cm²`} />
                 <Row
-                  label="Bounding box"
+                  label={t("quote.boundingBox")}
                   value={`${order.cadFile.bboxXMm.toFixed(0)}×${order.cadFile.bboxYMm.toFixed(0)}×${order.cadFile.bboxZMm.toFixed(0)} mm`}
                 />
-                <Row label="Triangles" value={order.cadFile.triangleCount.toLocaleString()} />
+                <Row label={t("quote.triangles")} value={order.cadFile.triangleCount.toLocaleString()} />
+                {order.cadFile.estimatedWallThicknessMm != null && (
+                  <Row
+                    label={t("quote.wallThickness")}
+                    value={`${order.cadFile.estimatedWallThicknessMm.toFixed(2)} mm`}
+                  />
+                )}
               </dl>
             </div>
           )}
@@ -159,7 +168,7 @@ export function OrderDetail() {
 
         <div className="flex flex-col gap-6">
           <Card>
-            <h2 className="font-display text-sm font-semibold text-ink-primary">Cost breakdown</h2>
+            <h2 className="font-display text-sm font-semibold text-ink-primary">{t("portal.costBreakdown")}</h2>
             <dl className="mt-4 space-y-2 text-sm">
               {order.result.breakdown.map((line) => (
                 <div key={line.label} className="flex items-start justify-between gap-4">
@@ -168,41 +177,40 @@ export function OrderDetail() {
                     {line.detail && <p className="text-xs text-ink-muted">{line.detail}</p>}
                   </div>
                   <dd className="font-mono-num shrink-0 text-ink-primary">
-                    ${line.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    {formatThbPrecise(line.amount, 2)}
                   </dd>
                 </div>
               ))}
             </dl>
             <div className="mt-4 flex items-baseline justify-between border-t border-border pt-4">
-              <span className="text-sm font-medium text-ink-primary">Total</span>
+              <span className="text-sm font-medium text-ink-primary">{t("portal.total")}</span>
               <span className="font-mono-num text-lg font-bold text-ink-primary">
-                ${order.result.grandTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                {formatThb(order.result.grandTotal)}
               </span>
             </div>
           </Card>
 
           <Card>
             <div className="flex items-center justify-between">
-              <h2 className="font-display text-sm font-semibold text-ink-primary">Payment</h2>
+              <h2 className="font-display text-sm font-semibold text-ink-primary">{t("portal.payment")}</h2>
               <span
                 className={`text-xs font-medium ${order.paymentStatus === "paid" ? "text-status-good" : "text-ink-muted"}`}
               >
-                {order.paymentStatus === "paid" ? "Paid" : "Unpaid"}
+                {order.paymentStatus === "paid" ? t("portal.paid") : t("portal.unpaid")}
               </span>
             </div>
             {order.paymentStatus === "paid" ? (
               <p className="mt-3 text-sm text-ink-secondary">
-                Paid in full{order.stripePaymentIntentId ? ` · ${order.stripePaymentIntentId}` : ""}.
+                {t("portal.paidInFull")}{order.stripePaymentIntentId ? ` · ${order.stripePaymentIntentId}` : ""}
               </p>
             ) : (
               <>
                 <p className="mt-2 text-sm text-ink-secondary">
-                  Pay ${order.result.grandTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })} to move
-                  this order into production.
+                  {t("portal.payToMove", { amount: formatThb(order.result.grandTotal) })}
                 </p>
                 {payError && <p className="mt-2 text-sm text-status-critical">{payError}</p>}
                 <Button onClick={payNow} disabled={checkingOut} className="mt-4 w-full">
-                  {checkingOut ? "Redirecting to checkout…" : "Pay now"}
+                  {checkingOut ? t("portal.redirecting") : t("portal.payNow")}
                 </Button>
               </>
             )}

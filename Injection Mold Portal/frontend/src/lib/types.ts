@@ -7,6 +7,7 @@ export interface Material {
   pricePerKg: number;
   coolingFactor: number;
   notes: string;
+  notesTh: string;
 }
 
 export type ToleranceClass = "standard" | "precision" | "high-precision";
@@ -40,7 +41,7 @@ export interface QuoteResult {
   toolingCost: number;
   toolingAmortized: boolean;
   grandTotal: number;
-  currency: "USD";
+  currency: "THB";
   estimatedCycleTimeSec: number;
   estimatedLeadTimeDays: number;
   breakdown: QuoteLine[];
@@ -65,6 +66,7 @@ export interface CadFileSummary {
   bboxYMm: number;
   bboxZMm: number;
   triangleCount: number;
+  estimatedWallThicknessMm: number | null;
 }
 
 export interface Order {

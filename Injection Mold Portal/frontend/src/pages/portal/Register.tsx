@@ -1,12 +1,14 @@
 import { useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../../lib/auth-context";
+import { useI18n } from "../../lib/i18n";
 import { ApiError } from "../../lib/api";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 
 export function Register() {
   const { user, register } = useAuth();
+  const { t } = useI18n();
   const navigate = useNavigate();
   const [companyName, setCompanyName] = useState("");
   const [email, setEmail] = useState("");
@@ -33,10 +35,10 @@ export function Register() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-page px-6">
       <Card className="w-full max-w-sm">
-        <h1 className="font-display text-xl font-bold text-ink-primary">Create your account</h1>
+        <h1 className="font-display text-xl font-bold text-ink-primary">{t("auth.registerTitle")}</h1>
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <label className="block">
-            <span className="mb-1.5 block text-sm font-medium text-ink-secondary">Company name</span>
+            <span className="mb-1.5 block text-sm font-medium text-ink-secondary">{t("auth.companyName")}</span>
             <input
               required
               value={companyName}
@@ -45,7 +47,7 @@ export function Register() {
             />
           </label>
           <label className="block">
-            <span className="mb-1.5 block text-sm font-medium text-ink-secondary">Email</span>
+            <span className="mb-1.5 block text-sm font-medium text-ink-secondary">{t("auth.email")}</span>
             <input
               type="email"
               required
@@ -55,7 +57,7 @@ export function Register() {
             />
           </label>
           <label className="block">
-            <span className="mb-1.5 block text-sm font-medium text-ink-secondary">Password</span>
+            <span className="mb-1.5 block text-sm font-medium text-ink-secondary">{t("auth.password")}</span>
             <input
               type="password"
               required
@@ -67,13 +69,13 @@ export function Register() {
           </label>
           {error && <p className="text-sm text-status-critical">{error}</p>}
           <Button type="submit" disabled={loading} className="w-full">
-            {loading ? "Creating account…" : "Create account"}
+            {loading ? t("auth.creatingAccount") : t("auth.createAccount")}
           </Button>
         </form>
         <p className="mt-6 text-center text-sm text-ink-secondary">
-          Already registered?{" "}
+          {t("auth.alreadyRegistered")}{" "}
           <Link to="/portal/login" className="font-medium text-brand-blue">
-            Log in
+            {t("auth.loginButton")}
           </Link>
         </p>
       </Card>

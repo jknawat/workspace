@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, ApiError } from "../../lib/api";
+import { formatThb } from "../../lib/currency";
 import type { AdminStats, Order } from "../../lib/types";
 import { Card } from "../../components/ui/Card";
 import { StatTile } from "../../components/ui/StatTile";
@@ -43,14 +44,8 @@ export function Dashboard() {
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatTile label="Total orders" value={String(stats.orderCount)} />
         <StatTile label="Customers" value={String(stats.customerCount)} />
-        <StatTile
-          label="Revenue (paid)"
-          value={`$${stats.revenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
-        />
-        <StatTile
-          label="Pipeline value"
-          value={`$${stats.pipelineValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
-        />
+        <StatTile label="Revenue (paid)" value={formatThb(stats.revenue)} />
+        <StatTile label="Pipeline value" value={formatThb(stats.pipelineValue)} />
         <StatTile label="In tooling / production" value={String(stats.activeProduction)} />
       </div>
 

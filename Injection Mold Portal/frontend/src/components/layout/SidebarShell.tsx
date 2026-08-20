@@ -15,7 +15,9 @@ interface SidebarShellProps {
   navItems: SidebarNavItem[];
   userEmail: string;
   onLogout: () => void;
+  logoutLabel?: string;
   maxWidth: string;
+  headerExtra?: ReactNode;
 }
 
 /** Shared sidebar-with-mobile-drawer chrome for the customer portal and admin console. */
@@ -27,7 +29,9 @@ export function SidebarShell({
   navItems,
   userEmail,
   onLogout,
+  logoutLabel = "Log out",
   maxWidth,
+  headerExtra,
 }: SidebarShellProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
@@ -70,8 +74,9 @@ export function SidebarShell({
     <div className="mt-10 border-t border-border pt-4">
       <div className="truncate text-xs text-ink-muted">{userEmail}</div>
       <button onClick={onLogout} className="mt-2 text-sm font-medium text-ink-secondary hover:text-ink-primary">
-        Log out
+        {logoutLabel}
       </button>
+      {headerExtra && <div className="mt-4">{headerExtra}</div>}
     </div>
   );
 

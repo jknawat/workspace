@@ -28,8 +28,8 @@ describe("computeQuote", () => {
 
   it("is a known-value regression check (fails loudly if the formula changes)", () => {
     const result = computeQuote(BASE);
-    expect(result.unitPrice).toBeCloseTo(2.1, 2);
-    expect(result.grandTotal).toBeCloseTo(2100.95, 1);
+    expect(result.unitPrice).toBeCloseTo(73.43, 2);
+    expect(result.grandTotal).toBeCloseTo(73429.16, 1);
     expect(result.estimatedCycleTimeSec).toBeCloseTo(14, 1);
   });
 

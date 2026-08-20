@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../lib/auth-context";
+import { useI18n } from "../../lib/i18n";
 import { ApiError } from "../../lib/api";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
@@ -13,6 +14,7 @@ function defaultDestination(role: string, location: ReturnType<typeof useLocatio
 
 export function Login() {
   const { user, login } = useAuth();
+  const { t } = useI18n();
   const navigate = useNavigate();
   const location = useLocation();
   const [email, setEmail] = useState("demo@injectionmoldportal.com");
@@ -41,15 +43,13 @@ export function Login() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-page px-6">
       <Card className="w-full max-w-sm">
-        <h1 className="font-display text-xl font-bold text-ink-primary">Log in to your portal</h1>
+        <h1 className="font-display text-xl font-bold text-ink-primary">{t("auth.loginTitle")}</h1>
         <p className="mt-1 text-sm text-ink-secondary">
-          Demo customer pre-filled — hit log in, or try{" "}
-          <code className="font-mono-num text-ink-primary">admin@injectionmoldportal.com</code> /{" "}
-          <code className="font-mono-num text-ink-primary">admin1234</code> for the ops console.
+          {t("auth.loginHint", { email: "admin@injectionmoldportal.com", password: "admin1234" })}
         </p>
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <label className="block">
-            <span className="mb-1.5 block text-sm font-medium text-ink-secondary">Email</span>
+            <span className="mb-1.5 block text-sm font-medium text-ink-secondary">{t("auth.email")}</span>
             <input
               type="email"
               required
@@ -59,7 +59,7 @@ export function Login() {
             />
           </label>
           <label className="block">
-            <span className="mb-1.5 block text-sm font-medium text-ink-secondary">Password</span>
+            <span className="mb-1.5 block text-sm font-medium text-ink-secondary">{t("auth.password")}</span>
             <input
               type="password"
               required
@@ -70,13 +70,13 @@ export function Login() {
           </label>
           {error && <p className="text-sm text-status-critical">{error}</p>}
           <Button type="submit" disabled={loading} className="w-full">
-            {loading ? "Logging in…" : "Log in"}
+            {loading ? t("auth.loggingIn") : t("auth.loginButton")}
           </Button>
         </form>
         <p className="mt-6 text-center text-sm text-ink-secondary">
-          No account?{" "}
+          {t("auth.noAccount")}{" "}
           <Link to="/portal/register" className="font-medium text-brand-blue">
-            Register
+            {t("auth.register")}
           </Link>
         </p>
       </Card>

@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./lib/auth-context";
+import { I18nProvider } from "./lib/i18n";
 import { PublicLayout } from "./components/layout/PublicLayout";
 import { PortalLayout } from "./components/layout/PortalLayout";
 import { AdminLayout } from "./components/layout/AdminLayout";
@@ -25,6 +26,7 @@ import { Customers as AdminCustomers } from "./pages/admin/Customers";
 export default function App() {
   return (
     <BrowserRouter>
+      <I18nProvider>
       <AuthProvider>
         <Routes>
           <Route element={<PublicLayout />}>
@@ -56,6 +58,7 @@ export default function App() {
           </Route>
         </Routes>
       </AuthProvider>
+      </I18nProvider>
     </BrowserRouter>
   );
 }

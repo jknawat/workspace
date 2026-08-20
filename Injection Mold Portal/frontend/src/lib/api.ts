@@ -9,6 +9,11 @@ import type {
   User,
 } from "./types";
 
+// In dev, Vite proxies /api to the local backend (see vite.config.ts), so a
+// relative path works. In production the frontend and backend are deployed
+// separately — VITE_API_URL must point at the backend's public origin.
+const API_BASE = import.meta.env.VITE_API_URL ?? "";
+
 const TOKEN_KEY = "imp_token";
 
 export function getToken(): string | null {
@@ -32,7 +37,7 @@ class ApiError extends Error {
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
   const isFormData = options.body instanceof FormData;
-  const res = await fetch(`/api${path}`, {
+  const res = await fetch(`${API_BASE}/api${path}`, {
     ...options,
     headers: {
       ...(isFormData ? {} : { "Content-Type": "application/json" }),
@@ -54,6 +59,7 @@ export interface CadGeometry {
   bboxXMm: number;
   bboxYMm: number;
   bboxZMm: number;
+  estimatedWallThicknessMm: number | null;
 }
 
 export const api = {

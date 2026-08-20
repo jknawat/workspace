@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useI18n } from "../lib/i18n";
 import { Card } from "../components/ui/Card";
 
 interface ShrinkMaterial {
@@ -24,6 +25,7 @@ const MATERIALS: ShrinkMaterial[] = [
 type Direction = "cavity-to-part" | "part-to-cavity";
 
 export function ShrinkageCalculator() {
+  const { t } = useI18n();
   const [materialId, setMaterialId] = useState(MATERIALS[0].id);
   const [direction, setDirection] = useState<Direction>("part-to-cavity");
   const [dimension, setDimension] = useState(100);
@@ -38,14 +40,10 @@ export function ShrinkageCalculator() {
   return (
     <div className="mx-auto max-w-3xl px-6 py-14">
       <Link to="/resources" className="text-sm text-ink-secondary hover:text-ink-primary">
-        ← Resources
+        {t("shrinkage.back")}
       </Link>
-      <h1 className="mt-2 font-display text-3xl font-bold text-ink-primary">Shrinkage calculator</h1>
-      <p className="mt-2 text-ink-secondary">
-        Plastic shrinks as it cools from melt temperature to room temperature. A steel mold cavity
-        is always cut larger than the finished part to compensate — this tool converts between the
-        two using each resin's typical mold-shrinkage rate.
-      </p>
+      <h1 className="mt-2 font-display text-3xl font-bold text-ink-primary">{t("shrinkage.title")}</h1>
+      <p className="mt-2 text-ink-secondary">{t("shrinkage.subtitle")}</p>
 
       <Card className="mt-8 space-y-6">
         <div className="flex rounded-lg border border-border-strong bg-surface-raised p-1 text-sm">
@@ -55,7 +53,7 @@ export function ShrinkageCalculator() {
               direction === "part-to-cavity" ? "bg-brand-blue text-white" : "text-ink-secondary"
             }`}
           >
-            I know the part size → cavity size
+            {t("shrinkage.partToCavity")}
           </button>
           <button
             onClick={() => setDirection("cavity-to-part")}
@@ -63,12 +61,14 @@ export function ShrinkageCalculator() {
               direction === "cavity-to-part" ? "bg-brand-blue text-white" : "text-ink-secondary"
             }`}
           >
-            I know the cavity size → part size
+            {t("shrinkage.cavityToPart")}
           </button>
         </div>
 
         <label className="block">
-          <span className="mb-1.5 block text-sm font-medium text-ink-secondary">Material</span>
+          <span className="mb-1.5 block text-sm font-medium text-ink-secondary">
+            {t("shrinkage.materialLabel")}
+          </span>
           <select
             value={materialId}
             onChange={(e) => setMaterialId(e.target.value)}
@@ -76,7 +76,7 @@ export function ShrinkageCalculator() {
           >
             {MATERIALS.map((m) => (
               <option key={m.id} value={m.id}>
-                {m.name} — shrinkage {m.range}
+                {m.name} — {m.range}
               </option>
             ))}
           </select>
@@ -84,7 +84,7 @@ export function ShrinkageCalculator() {
 
         <label className="block">
           <span className="mb-1.5 block text-sm font-medium text-ink-secondary">
-            {direction === "cavity-to-part" ? "Cavity dimension (mm)" : "Target finished part dimension (mm)"}
+            {direction === "cavity-to-part" ? t("shrinkage.cavityDimLabel") : t("shrinkage.partDimLabel")}
           </span>
           <input
             type="number"
@@ -98,16 +98,17 @@ export function ShrinkageCalculator() {
 
         <div className="rounded-lg border border-border bg-surface-raised p-5">
           <p className="text-xs font-medium uppercase tracking-wide text-ink-muted">
-            {direction === "cavity-to-part" ? "Expected finished part size" : "Cut the cavity at"}
+            {direction === "cavity-to-part" ? t("shrinkage.resultPart") : t("shrinkage.resultCavity")}
           </p>
           <p className="mt-1 font-mono-num text-3xl font-bold text-ink-primary">
             {result.toFixed(3)} mm
           </p>
           <p className="mt-2 text-xs text-ink-muted">
-            Using {material.name}'s midpoint shrinkage rate of {(material.shrinkRate * 100).toFixed(2)}%
-            (typical range {material.range}). Actual shrinkage varies with wall thickness, fill
-            pressure, and cooling time — confirm against your resin's datasheet for tight-tolerance
-            features.
+            {t("shrinkage.note", {
+              material: material.name,
+              rate: (material.shrinkRate * 100).toFixed(2),
+              range: material.range,
+            })}
           </p>
         </div>
       </Card>

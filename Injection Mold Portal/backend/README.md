@@ -12,9 +12,16 @@ npm run dev           # tsx watch, http://localhost:4000
 ```
 
 ```bash
-npm run build   # tsc -> dist/
-npm start       # run the built dist/server.js
+npm run build   # tsc --noEmit — type-check only, not a build artifact
+npm start       # prisma db push + seed + tsx src/server.ts — same as prod
 ```
+
+`npm start` runs the TypeScript source directly via `tsx`, not a compiled
+`dist/`. Prisma's generated client (`generator client { provider =
+"prisma-client" }`) uses extensionless internal imports that Node's ESM loader
+rejects once `tsc` has compiled them 1:1 — `tsx`'s resolver tolerates it, plain
+`node dist/server.js` does not. `npm run build` stays as a type-check-only
+step (CI/pre-deploy safety net), deliberately not the thing that runs.
 
 Copy `.env.example` to `.env` first. `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`
 are optional — payment endpoints return a clear 501 until they're set. See

@@ -43,7 +43,7 @@ model Order {
   toolingCost           Float
   toolingAmortized      Boolean
   grandTotal            Float
-  currency              String @default("USD")
+  currency              String @default("THB")
   estimatedCycleTimeSec Float
   estimatedLeadTimeDays Int
   breakdownJson         String // JSON-encoded QuoteLine[]
@@ -64,14 +64,15 @@ model CadFile {
   orderId String @unique
   order   Order  @relation(fields: [orderId], references: [id])
 
-  filename       String
-  storedPath     String
-  volumeCm3      Float
-  surfaceAreaCm2 Float
-  bboxXMm        Float
-  bboxYMm        Float
-  bboxZMm        Float
-  triangleCount  Int
+  filename                String
+  storedPath              String
+  volumeCm3               Float
+  surfaceAreaCm2          Float
+  bboxXMm                 Float
+  bboxYMm                 Float
+  bboxZMm                 Float
+  triangleCount           Int
+  estimatedWallThicknessMm Float?
 
   uploadedAt DateTime @default(now())
 }

@@ -1,20 +1,17 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../../lib/auth-context";
+import { useI18n } from "../../lib/i18n";
 import { SidebarShell, type SidebarNavItem } from "./SidebarShell";
-
-const NAV_ITEMS: SidebarNavItem[] = [
-  { to: "/portal", label: "Dashboard", end: true },
-  { to: "/portal/orders", label: "Orders", end: false },
-  { to: "/portal/account", label: "Account", end: false },
-];
+import { LanguageToggle } from "../ui/LanguageToggle";
 
 export function PortalLayout() {
   const { user, loading, logout } = useAuth();
+  const { t } = useI18n();
 
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-page text-ink-muted">
-        Loading…
+        {t("portal.loading")}
       </div>
     );
   }
@@ -29,15 +26,23 @@ export function PortalLayout() {
     return <Navigate to="/portal/login" replace />;
   }
 
+  const navItems: SidebarNavItem[] = [
+    { to: "/portal", label: t("nav.dashboard"), end: true },
+    { to: "/portal/orders", label: t("portal.ordersTitle"), end: false },
+    { to: "/portal/account", label: t("portal.accountTitle"), end: false },
+  ];
+
   return (
     <SidebarShell
       brandHref="/"
       brandAccent="blue"
       brandSuffix="Portal"
-      navItems={NAV_ITEMS}
+      navItems={navItems}
       userEmail={user.email}
       onLogout={logout}
+      logoutLabel={t("portal.logOut")}
       maxWidth="max-w-5xl"
+      headerExtra={<LanguageToggle />}
     />
   );
 }

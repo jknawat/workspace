@@ -1,17 +1,20 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../lib/auth-context";
+import { useI18n } from "../../lib/i18n";
 import { Button } from "../ui/Button";
-
-const NAV_LINKS = [
-  { to: "/quote", label: "Get a Quote" },
-  { to: "/resources", label: "Resources" },
-];
+import { LanguageToggle } from "../ui/LanguageToggle";
 
 export function PublicLayout() {
   const { user } = useAuth();
+  const { t } = useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
+
+  const NAV_LINKS = [
+    { to: "/quote", label: t("nav.quote") },
+    { to: "/resources", label: t("nav.resources") },
+  ];
 
   useEffect(() => {
     setMenuOpen(false);
@@ -40,17 +43,20 @@ export function PublicLayout() {
             ))}
           </nav>
           <div className="flex items-center gap-3">
+            <div className="hidden sm:block">
+              <LanguageToggle />
+            </div>
             {user ? (
               <Link to="/portal" className="hidden sm:inline-block">
-                <Button variant="ghost">Dashboard</Button>
+                <Button variant="ghost">{t("nav.dashboard")}</Button>
               </Link>
             ) : (
               <Link to="/portal/login" className="hidden text-sm font-medium text-ink-secondary hover:text-ink-primary sm:inline">
-                Log in
+                {t("nav.login")}
               </Link>
             )}
             <Link to="/quote" className="hidden sm:inline-block">
-              <Button>Get instant quote</Button>
+              <Button>{t("nav.getInstantQuote")}</Button>
             </Link>
             <button
               onClick={() => setMenuOpen((v) => !v)}
@@ -88,16 +94,19 @@ export function PublicLayout() {
             ))}
             {user ? (
               <Link to="/portal" className="rounded-lg px-3 py-2 text-sm font-medium text-ink-secondary hover:bg-surface hover:text-ink-primary">
-                Dashboard
+                {t("nav.dashboard")}
               </Link>
             ) : (
               <Link to="/portal/login" className="rounded-lg px-3 py-2 text-sm font-medium text-ink-secondary hover:bg-surface hover:text-ink-primary">
-                Log in
+                {t("nav.login")}
               </Link>
             )}
             <Link to="/quote" className="mt-1">
-              <Button className="w-full">Get instant quote</Button>
+              <Button className="w-full">{t("nav.getInstantQuote")}</Button>
             </Link>
+            <div className="mt-2 flex justify-center">
+              <LanguageToggle />
+            </div>
           </nav>
         )}
       </header>
@@ -108,16 +117,16 @@ export function PublicLayout() {
 
       <footer className="border-t border-border">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-10 text-sm text-ink-muted sm:flex-row sm:items-center sm:justify-between">
-          <div>© {new Date().getFullYear()} Injection Mold Portal. All rights reserved.</div>
+          <div>© {new Date().getFullYear()} Injection Mold Portal. {t("footer.rights")}</div>
           <div className="flex gap-6">
             <Link to="/resources" className="hover:text-ink-secondary">
-              Resources
+              {t("footer.resources")}
             </Link>
             <Link to="/terms" className="hover:text-ink-secondary">
-              Terms
+              {t("footer.terms")}
             </Link>
             <Link to="/privacy" className="hover:text-ink-secondary">
-              Privacy
+              {t("footer.privacy")}
             </Link>
           </div>
         </div>

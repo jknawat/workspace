@@ -35,7 +35,7 @@ export interface QuoteResult {
   toolingCost: number;
   toolingAmortized: boolean;
   grandTotal: number;
-  currency: "USD";
+  currency: "THB";
   estimatedCycleTimeSec: number;
   estimatedLeadTimeDays: number;
   breakdown: QuoteLine[];
@@ -54,20 +54,21 @@ const TOLERANCE_TOOL_MULTIPLIER: Record<ToleranceClass, number> = {
   precision: 1.4,
   "high-precision": 1.9,
 };
+// THB per part
 const FINISH_PER_PART: Record<SurfaceFinish, number> = {
   "as-molded": 0,
-  textured: 0.06,
-  polished: 0.18,
+  textured: 2,
+  polished: 6,
 };
 const COLOR_PER_PART: Record<ColorOption, number> = {
   natural: 0,
-  black: 0.01,
-  custom: 0.04,
+  black: 0.5,
+  custom: 1.5,
 };
-const BASE_TOOL_COST = 1800; // simple single-cavity tool, standard tolerance
-const MACHINE_BASE_RATE_PER_HOUR = 32; // small press
-const MACHINE_RATE_PER_CAVITY = 2.5; // larger press needed for more cavities
-const LABOR_OVERHEAD_PER_PART = 0.04;
+const BASE_TOOL_COST = 63_000; // THB — simple single-cavity tool, standard tolerance
+const MACHINE_BASE_RATE_PER_HOUR = 1_100; // THB/hr — small press
+const MACHINE_RATE_PER_CAVITY = 90; // THB/hr — larger press needed for more cavities
+const LABOR_OVERHEAD_PER_PART = 1.4; // THB
 const MARGIN = 0.28;
 const LEAD_TIME_BASE_DAYS = 3;
 const LEAD_TIME_TOOLING_DAYS = 12;
@@ -122,7 +123,7 @@ export function computeQuote(input: QuoteInput): QuoteResult {
     {
       label: "Machine time",
       amount: round(machineCostPerPart * input.quantity),
-      detail: `${cycleTimeS.toFixed(1)}s cycle · ${input.cavities}-cavity tool · $${machineRatePerHour.toFixed(0)}/hr press`,
+      detail: `${cycleTimeS.toFixed(1)}s cycle · ${input.cavities}-cavity tool · ฿${machineRatePerHour.toFixed(0)}/hr press`,
     },
     {
       label: "Labor & overhead",
@@ -158,7 +159,7 @@ export function computeQuote(input: QuoteInput): QuoteResult {
       breakdown.push({
         label: "Tooling (amortized into unit price)",
         amount: round(toolingCost),
-        detail: `$${toolingPerPart.toFixed(3)}/part across ${input.quantity} units`,
+        detail: `฿${toolingPerPart.toFixed(2)}/part across ${input.quantity} units`,
       });
     } else {
       breakdown.push({
@@ -182,7 +183,7 @@ export function computeQuote(input: QuoteInput): QuoteResult {
     toolingCost: round(toolingCost),
     toolingAmortized,
     grandTotal,
-    currency: "USD",
+    currency: "THB",
     estimatedCycleTimeSec: round(cycleTimeS),
     estimatedLeadTimeDays,
     breakdown,

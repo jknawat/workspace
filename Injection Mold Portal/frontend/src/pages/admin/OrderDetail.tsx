@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, ApiError } from "../../lib/api";
+import { formatThb, formatThbPrecise } from "../../lib/currency";
 import type { Order, OrderStatus } from "../../lib/types";
 import { ORDER_STATUS_LABEL, ORDER_STATUS_LIST } from "../../lib/types";
 import { Card } from "../../components/ui/Card";
@@ -111,6 +112,9 @@ export function OrderDetail() {
                   value={`${order.cadFile.bboxXMm.toFixed(0)}×${order.cadFile.bboxYMm.toFixed(0)}×${order.cadFile.bboxZMm.toFixed(0)} mm`}
                 />
                 <Row label="Triangles" value={order.cadFile.triangleCount.toLocaleString()} />
+                {order.cadFile.estimatedWallThicknessMm != null && (
+                  <Row label="Wall thickness" value={`${order.cadFile.estimatedWallThicknessMm.toFixed(2)} mm`} />
+                )}
               </dl>
             </div>
           )}
@@ -127,7 +131,7 @@ export function OrderDetail() {
                     {line.detail && <p className="text-xs text-ink-muted">{line.detail}</p>}
                   </div>
                   <dd className="font-mono-num shrink-0 text-ink-primary">
-                    ${line.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    {formatThbPrecise(line.amount, 2)}
                   </dd>
                 </div>
               ))}
@@ -135,7 +139,7 @@ export function OrderDetail() {
             <div className="mt-4 flex items-baseline justify-between border-t border-border pt-4">
               <span className="text-sm font-medium text-ink-primary">Total</span>
               <span className="font-mono-num text-lg font-bold text-ink-primary">
-                ${order.result.grandTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                {formatThb(order.result.grandTotal)}
               </span>
             </div>
           </Card>

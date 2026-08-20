@@ -42,6 +42,7 @@ export function toOrderDTO(order: {
     bboxYMm: number;
     bboxZMm: number;
     triangleCount: number;
+    estimatedWallThicknessMm: number | null;
   } | null;
 }) {
   const breakdown: QuoteLine[] = JSON.parse(order.breakdownJson);

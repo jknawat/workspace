@@ -14,7 +14,9 @@ import { requireAuth, type AuthedRequest } from "../middleware/requireAuth.js";
 export const ordersRouter = Router();
 ordersRouter.use(requireAuth);
 
-const UPLOAD_DIR = path.resolve(process.cwd(), "uploads");
+const UPLOAD_DIR = process.env.UPLOAD_DIR
+  ? path.resolve(process.env.UPLOAD_DIR)
+  : path.resolve(process.cwd(), "uploads");
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
 
 ordersRouter.get("/", async (req: AuthedRequest, res) => {
@@ -114,6 +116,7 @@ ordersRouter.post("/", upload.single("cadFile"), async (req: AuthedRequest, res)
           bboxYMm: geometry.bboxYMm,
           bboxZMm: geometry.bboxZMm,
           triangleCount: geometry.triangleCount,
+          estimatedWallThicknessMm: geometry.estimatedWallThicknessMm,
         },
       });
     } catch (err) {

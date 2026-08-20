@@ -6,8 +6,9 @@
   "scripts": {
     "test": "vitest run",
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
-    "start": "node dist/server.js",
+    "build": "tsc --noEmit",
+    "postinstall": "prisma generate",
+    "start": "prisma db push --accept-data-loss && tsx prisma/seed.ts && tsx src/server.ts",
     "db:seed": "tsx prisma/seed.ts",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio"
@@ -28,6 +29,7 @@
     "multer": "^2.2.0",
     "prisma": "^7.9.1",
     "stripe": "^22.5.0",
+    "tsx": "^4.23.12",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -37,7 +39,6 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^2.2.0",
     "@types/node": "^26.2.0",
-    "tsx": "^4.23.12",
     "typescript": "^7.0.2",
     "vitest": "^4.1.11"
   },

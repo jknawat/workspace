@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useI18n } from "../lib/i18n";
 import { Card } from "../components/ui/Card";
 
 const SECTIONS = [
@@ -37,19 +38,14 @@ const SECTIONS = [
 ];
 
 export function FeatureGuide() {
+  const { t } = useI18n();
   return (
     <div className="mx-auto max-w-3xl px-6 py-14">
       <Link to="/resources" className="text-sm text-ink-secondary hover:text-ink-primary">
-        ← Resources
+        {t("features.back")}
       </Link>
-      <h1 className="mt-2 font-display text-3xl font-bold text-ink-primary">
-        Ribs, bosses, snap fits & living hinges
-      </h1>
-      <p className="mt-2 text-ink-secondary">
-        Design guidance for the structural features that show up in almost every injection molded
-        part. Typical starting points — always validate against your specific material and load
-        case.
-      </p>
+      <h1 className="mt-2 font-display text-3xl font-bold text-ink-primary">{t("features.title")}</h1>
+      <p className="mt-2 text-ink-secondary">{t("features.subtitle")}</p>
 
       <div className="mt-8 space-y-8">
         {SECTIONS.map((section) => (

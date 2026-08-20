@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, ApiError } from "../../lib/api";
+import { formatThb } from "../../lib/currency";
 import type { Order } from "../../lib/types";
 import { Card } from "../../components/ui/Card";
 import { StatusBadge } from "../../components/ui/Badge";
@@ -62,7 +63,7 @@ export function Orders() {
                     {order.result.quantity.toLocaleString()}
                   </td>
                   <td className="px-5 py-3 font-mono-num text-ink-secondary">
-                    ${order.result.grandTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    {formatThb(order.result.grandTotal)}
                   </td>
                   <td className="px-5 py-3">
                     <span className={order.paymentStatus === "paid" ? "text-status-good" : "text-ink-muted"}>
