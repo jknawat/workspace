@@ -1,0 +1,66 @@
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { api } from "../../lib/api";
+import type { Order } from "../../lib/types";
+import { Card } from "../../components/ui/Card";
+import { StatusBadge } from "../../components/ui/Badge";
+
+export function Orders() {
+  const [orders, setOrders] = useState<Order[] | null>(null);
+
+  useEffect(() => {
+    api.orders().then(({ orders }) => setOrders(orders));
+  }, []);
+
+  return (
+    <div>
+      <h1 className="font-display text-2xl font-bold text-ink-primary">Orders</h1>
+      <p className="mt-1 text-sm text-ink-secondary">All quotes and production orders on your account.</p>
+
+      <Card className="mt-6 overflow-x-auto p-0">
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr className="border-b border-border text-xs uppercase tracking-wide text-ink-muted">
+              <th className="px-5 py-3 font-medium">Order</th>
+              <th className="px-5 py-3 font-medium">Material</th>
+              <th className="px-5 py-3 font-medium">Qty</th>
+              <th className="px-5 py-3 font-medium">Total</th>
+              <th className="px-5 py-3 font-medium">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {orders?.map((order, i) => (
+              <tr key={order.id} className={i > 0 ? "border-t border-border" : ""}>
+                <td className="px-5 py-3">
+                  <Link to={`/portal/orders/${order.id}`} className="font-medium text-ink-primary hover:text-brand-blue">
+                    {order.input.partName}
+                  </Link>
+                  <p className="text-xs text-ink-muted">{order.id}</p>
+                </td>
+                <td className="px-5 py-3 text-ink-secondary">{order.input.materialId.toUpperCase()}</td>
+                <td className="px-5 py-3 font-mono-num text-ink-secondary">
+                  {order.result.quantity.toLocaleString()}
+                </td>
+                <td className="px-5 py-3 font-mono-num text-ink-secondary">
+                  ${order.result.grandTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                </td>
+                <td className="px-5 py-3">
+                  <StatusBadge status={order.status} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {orders?.length === 0 && (
+          <p className="px-5 py-8 text-center text-sm text-ink-muted">
+            No orders yet.{" "}
+            <Link to="/quote" className="text-brand-blue">
+              Get your first quote
+            </Link>
+            .
+          </p>
+        )}
+      </Card>
+    </div>
+  );
+}

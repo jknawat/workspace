@@ -1,0 +1,18 @@
+node_modules
+# Keep environment variables out of version control
+.env
+
+/src/generated/prisma
+/dev.db
+/dev.db-journal
+/prisma/dev.db
+/prisma/dev.db-journal
+/uploads
+
+# Auto-installed by `prisma init` / `prisma generate` — reference docs for
+# editor agents, duplicated per-tool. Not project code; regenerate with
+# `npx prisma generate` if wanted.
+/.agents
+/.claude
+/.windsurf
+/skills-lock.json

@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Sora", var(--font-sans);
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* page + surfaces (dark-first industrial theme) */
+  --color-page: #0d0d0d;
+  --color-surface: #1a1a19;
+  --color-surface-raised: #202020;
+  --color-border: rgba(255, 255, 255, 0.1);
+  --color-border-strong: rgba(255, 255, 255, 0.18);
+
+  /* ink */
+  --color-ink-primary: #ffffff;
+  --color-ink-secondary: #c3c2b7;
+  --color-ink-muted: #898781;
+
+  /* brand (validated categorical slots 1 & 2) */
+  --color-brand-blue: #3987e5;
+  --color-brand-blue-dim: #1c5cab;
+  --color-brand-orange: #d95926;
+
+  /* status (fixed, never themed) */
+  --color-status-good: #0ca30c;
+  --color-status-warning: #fab219;
+  --color-status-serious: #ec835a;
+  --color-status-critical: #e66767;
+
+  /* categorical series (dark steps) */
+  --color-series-1: #3987e5;
+  --color-series-2: #d95926;
+  --color-series-3: #199e70;
+  --color-series-4: #c98500;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-page);
+  color: var(--color-ink-primary);
+  font-family: var(--font-sans);
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-mono-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}

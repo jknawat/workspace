@@ -1,0 +1,77 @@
+// Prisma schema — SQLite. Enum-like fields (role, status, tolerance, ...) are
+// plain strings validated at the application layer (Zod + TS unions in
+// src/lib/*), since SQLite has no native enum type for Prisma to map to.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  companyName  String
+  role         String   @default("customer") // "customer" | "admin"
+  createdAt    DateTime @default(now())
+  orders       Order[]
+}
+
+model Order {
+  id      String @id @default(cuid())
+  userId  String
+  user    User   @relation(fields: [userId], references: [id])
+
+  partName        String
+  materialId      String
+  partWeightG     Float
+  wallThicknessMm Float
+  quantity        Int
+  cavities        Int
+  tolerance       String // "standard" | "precision" | "high-precision"
+  finish          String // "as-molded" | "textured" | "polished"
+  color           String // "natural" | "black" | "custom"
+  newTool         Boolean
+  amortizeTooling Boolean
+
+  unitPrice             Float
+  partsSubtotal         Float
+  toolingCost           Float
+  toolingAmortized      Boolean
+  grandTotal            Float
+  currency              String @default("USD")
+  estimatedCycleTimeSec Float
+  estimatedLeadTimeDays Int
+  breakdownJson         String // JSON-encoded QuoteLine[]
+
+  status        String @default("quote_requested")
+  paymentStatus String @default("unpaid") // "unpaid" | "paid"
+  stripeSessionId       String?
+  stripePaymentIntentId String?
+
+  cadFile CadFile?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CadFile {
+  id      String @id @default(cuid())
+  orderId String @unique
+  order   Order  @relation(fields: [orderId], references: [id])
+
+  filename       String
+  storedPath     String
+  volumeCm3      Float
+  surfaceAreaCm2 Float
+  bboxXMm        Float
+  bboxYMm        Float
+  bboxZMm        Float
+  triangleCount  Int
+
+  uploadedAt DateTime @default(now())
+}
