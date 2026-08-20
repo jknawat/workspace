@@ -35,10 +35,16 @@ export function Quote() {
   const [cadGeometry, setCadGeometry] = useState<CadGeometry | null>(null);
   const [cadError, setCadError] = useState<string | null>(null);
   const [cadParsing, setCadParsing] = useState(false);
+  const [materialsError, setMaterialsError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    api.materials().then(({ materials }) => setMaterials(materials));
+    api
+      .materials()
+      .then(({ materials }) => setMaterials(materials))
+      .catch((err) =>
+        setMaterialsError(err instanceof ApiError ? err.message : "Could not load materials"),
+      );
   }, []);
 
   async function handleCadUpload(file: File) {
@@ -183,6 +189,9 @@ export function Quote() {
               <p className="mt-1.5 text-xs text-ink-muted">
                 {materials.find((m) => m.id === input.materialId)!.notes}
               </p>
+            )}
+            {materialsError && (
+              <p className="mt-1.5 text-xs text-status-critical">{materialsError}</p>
             )}
           </Field>
 

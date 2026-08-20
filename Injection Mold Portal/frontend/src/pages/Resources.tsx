@@ -1,4 +1,18 @@
+import { Link } from "react-router-dom";
 import { Card } from "../components/ui/Card";
+
+const TOOLS = [
+  {
+    to: "/resources/shrinkage",
+    title: "Shrinkage calculator",
+    body: "Convert between cavity dimension and finished part dimension for any resin's mold-shrinkage rate.",
+  },
+  {
+    to: "/resources/features",
+    title: "Ribs, bosses, snap fits & living hinges",
+    body: "Sizing rules and tolerances for the structural features that show up in almost every molded part.",
+  },
+];
 
 const MATERIAL_GUIDE = [
   { material: "ABS", wall: "1.5 – 4.0 mm", draft: "1.0° – 2.0°", shrink: "0.4 – 0.7%" },
@@ -44,6 +58,20 @@ export function Resources() {
       </p>
 
       <section className="mt-10">
+        <h2 className="font-display text-xl font-semibold text-ink-primary">Tools</h2>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          {TOOLS.map((tool) => (
+            <Link key={tool.to} to={tool.to}>
+              <Card className="h-full transition-colors hover:border-border-strong">
+                <h3 className="font-display text-sm font-semibold text-ink-primary">{tool.title}</h3>
+                <p className="mt-2 text-sm text-ink-secondary">{tool.body}</p>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section className="mt-14">
         <h2 className="font-display text-xl font-semibold text-ink-primary">
           Material guide: wall thickness, draft angle & shrinkage
         </h2>

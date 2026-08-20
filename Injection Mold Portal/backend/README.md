@@ -73,3 +73,16 @@ cost (amortized into the unit price or billed upfront). See
 (signed-tetrahedron sum), surface area, and bounding box — verified against a
 known-answer 20mm test cube (8 cm³ / 24 cm² exactly). No CAD-kernel dependency;
 STEP/IGES would need one (see architecture doc).
+
+## Tests
+
+```bash
+npm test   # vitest, run once
+```
+
+Covers the pricing engine (breakdown lines sum to the total, tooling amortized
+vs. upfront, tolerance/finish/cavity effects, input validation) and the STL
+parser (exact volume/area/bbox against a known cube, ASCII parsing, malformed
+input). Writing these caught a real bug: the cost breakdown didn't include a
+line for the margin, so it silently undercounted the displayed total —
+`src/lib/pricing.ts`'s `"Shop margin"` line fixes that.

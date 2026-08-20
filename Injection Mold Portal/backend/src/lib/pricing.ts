@@ -143,6 +143,11 @@ export function computeQuote(input: QuoteInput): QuoteResult {
       detail: input.color,
     });
   }
+  breakdown.push({
+    label: "Shop margin",
+    amount: round(preMarginUnitCost * MARGIN * input.quantity),
+    detail: `${Math.round(MARGIN * 100)}% on material, machine time, labor & finish`,
+  });
 
   let toolingAmortized = false;
   if (input.newTool && toolingCost > 0) {

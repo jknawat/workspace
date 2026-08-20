@@ -1,4 +1,5 @@
-import { NavLink, Outlet, Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { NavLink, Outlet, Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../lib/auth-context";
 import { Button } from "../ui/Button";
 
@@ -9,6 +10,12 @@ const NAV_LINKS = [
 
 export function PublicLayout() {
   const { user } = useAuth();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const location = useLocation();
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location.pathname]);
 
   return (
     <div className="flex min-h-screen flex-col bg-page">
@@ -34,21 +41,65 @@ export function PublicLayout() {
           </nav>
           <div className="flex items-center gap-3">
             {user ? (
-              <Link to="/portal">
+              <Link to="/portal" className="hidden sm:inline-block">
                 <Button variant="ghost">Dashboard</Button>
               </Link>
             ) : (
-              <>
-                <Link to="/portal/login" className="hidden text-sm font-medium text-ink-secondary hover:text-ink-primary sm:inline">
-                  Log in
-                </Link>
-                <Link to="/quote">
-                  <Button>Get instant quote</Button>
-                </Link>
-              </>
+              <Link to="/portal/login" className="hidden text-sm font-medium text-ink-secondary hover:text-ink-primary sm:inline">
+                Log in
+              </Link>
             )}
+            <Link to="/quote" className="hidden sm:inline-block">
+              <Button>Get instant quote</Button>
+            </Link>
+            <button
+              onClick={() => setMenuOpen((v) => !v)}
+              aria-label={menuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={menuOpen}
+              className="rounded-lg p-2 text-ink-secondary hover:bg-surface hover:text-ink-primary md:hidden"
+            >
+              {menuOpen ? (
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                  <path d="M5 5L15 15M15 5L5 15" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                </svg>
+              ) : (
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                  <path d="M3 6H17M3 10H17M3 14H17" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                </svg>
+              )}
+            </button>
           </div>
         </div>
+
+        {menuOpen && (
+          <nav className="flex flex-col gap-1 border-t border-border px-6 py-4 md:hidden">
+            {NAV_LINKS.map((link) => (
+              <NavLink
+                key={link.to}
+                to={link.to}
+                className={({ isActive }) =>
+                  `rounded-lg px-3 py-2 text-sm font-medium ${
+                    isActive ? "bg-surface text-ink-primary" : "text-ink-secondary hover:bg-surface hover:text-ink-primary"
+                  }`
+                }
+              >
+                {link.label}
+              </NavLink>
+            ))}
+            {user ? (
+              <Link to="/portal" className="rounded-lg px-3 py-2 text-sm font-medium text-ink-secondary hover:bg-surface hover:text-ink-primary">
+                Dashboard
+              </Link>
+            ) : (
+              <Link to="/portal/login" className="rounded-lg px-3 py-2 text-sm font-medium text-ink-secondary hover:bg-surface hover:text-ink-primary">
+                Log in
+              </Link>
+            )}
+            <Link to="/quote" className="mt-1">
+              <Button className="w-full">Get instant quote</Button>
+            </Link>
+          </nav>
+        )}
       </header>
 
       <main className="flex-1">

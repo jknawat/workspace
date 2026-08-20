@@ -1,20 +1,34 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../../lib/api";
+import { api, ApiError } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import type { Order } from "../../lib/types";
 import { Card } from "../../components/ui/Card";
 import { StatTile } from "../../components/ui/StatTile";
 import { StatusBadge } from "../../components/ui/Badge";
+import { ErrorState } from "../../components/ui/ErrorState";
 import { OrdersStatusChart } from "../../components/charts/OrdersStatusChart";
 
 export function Dashboard() {
   const { user } = useAuth();
   const [orders, setOrders] = useState<Order[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    setError(null);
+    api
+      .orders()
+      .then(({ orders }) => setOrders(orders))
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Could not load your dashboard"));
+  }, []);
 
   useEffect(() => {
-    api.orders().then(({ orders }) => setOrders(orders));
-  }, []);
+    load();
+  }, [load]);
+
+  if (error) {
+    return <ErrorState message={error} onRetry={load} />;
+  }
 
   if (!orders) {
     return <p className="text-ink-muted">Loading dashboard…</p>;
