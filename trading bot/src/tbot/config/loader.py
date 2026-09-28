@@ -11,7 +11,15 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
-from .models import BotConfig, ConfigError, EngineConfig, RiskConfig, SymbolConfig, _reject_unknown
+from .models import (
+    BotConfig,
+    ConfigError,
+    EngineConfig,
+    RiskConfig,
+    SnapshotConfig,
+    SymbolConfig,
+    _reject_unknown,
+)
 
 ENV_PREFIX = "TBOT_"
 
@@ -46,10 +54,11 @@ def _apply_env_overrides(engine: dict[str, Any]) -> dict[str, Any]:
 def load_config(path: str | Path) -> BotConfig:
     root = Path(path)
     raw = _read_toml(root)
-    _reject_unknown(raw, {"engine", "risk", "log", "symbols"}, str(root))
+    _reject_unknown(raw, {"engine", "risk", "log", "symbols", "snapshot"}, str(root))
 
     engine = EngineConfig.from_dict(_apply_env_overrides(raw.get("engine", {})))
     risk = RiskConfig.from_dict(raw.get("risk", {}))
+    snapshot = SnapshotConfig.from_dict(raw.get("snapshot", {}))
 
     log = raw.get("log", {})
     _reject_unknown(log, {"level", "file"}, "[log]")
@@ -63,6 +72,7 @@ def load_config(path: str | Path) -> BotConfig:
         engine=engine,
         risk=risk,
         symbols=symbols,
+        snapshot=snapshot,
         log_level=str(log.get("level", "INFO")).upper(),
         log_file=log.get("file", "logs/tbot.jsonl"),
     )

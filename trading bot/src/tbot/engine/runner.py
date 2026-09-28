@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 from ..broker.base import Broker
 from ..config.models import BotConfig
 from ..data.feed import BarFeed
+from ..data.snapshot_store import SnapshotStore
 from ..journal import Journal
 from ..obs import log as obs_log
 from ..risk import RiskManager
@@ -48,13 +49,16 @@ class Runner:
         broker: Broker,
         feed: BarFeed,
         journal: Journal | None = None,
+        snapshots: SnapshotStore | None = None,
         max_iterations: int = 0,
     ) -> None:
         self.config = config
         self.broker = broker
         self.feed = feed
         self.journal = journal
-        self.engine = TradeEngine(config, broker, journal=journal, risk=RiskManager(config))
+        self.engine = TradeEngine(
+            config, broker, journal=journal, risk=RiskManager(config), snapshots=snapshots
+        )
         self.log = obs_log.get("runner")
         self.stats = RunnerStats()
         self.max_iterations = max_iterations

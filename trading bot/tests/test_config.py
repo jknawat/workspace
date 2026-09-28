@@ -158,3 +158,51 @@ def test_session_window_can_wrap_midnight():
 def test_env_override_changes_the_timeframe(config_dir, monkeypatch):
     monkeypatch.setenv("TBOT_TIMEFRAME", "H1")
     assert load_config(config_dir / "bot.toml").engine.timeframe == "H1"
+
+
+# --------------------------------------------------------------------------- #
+# [snapshot] — MT5 structure export
+# --------------------------------------------------------------------------- #
+
+
+def test_snapshot_defaults_to_disabled(config_dir):
+    cfg = load_config(config_dir / "bot.toml")
+    assert cfg.snapshot.enabled is False
+    assert cfg.snapshot.folder == "SMC_Export"
+    assert cfg.snapshot.timeframe == ""  # follows [engine].timeframe
+
+
+def test_snapshot_section_is_loaded(config_dir):
+    path = config_dir / "bot.toml"
+    path.write_text(
+        BOT_TOML
+        + '\n[snapshot]\nenabled = true\nfolder = "Exports"\n'
+          'timeframe = "M15"\nmax_age_minutes = 45.0\n',
+        encoding="utf-8",
+    )
+    cfg = load_config(path)
+    assert cfg.snapshot.enabled is True
+    assert cfg.snapshot.folder == "Exports"
+    assert cfg.snapshot.timeframe == "M15"
+    assert cfg.snapshot.max_age_minutes == 45.0
+
+
+def test_unknown_snapshot_key_is_rejected():
+    from tbot.config.models import SnapshotConfig
+
+    with pytest.raises(ConfigError, match="unknown key"):
+        SnapshotConfig.from_dict({"enabled": True, "foldr": "x"})
+
+
+def test_enabled_snapshot_needs_a_folder():
+    from tbot.config.models import SnapshotConfig
+
+    with pytest.raises(ConfigError, match="folder"):
+        SnapshotConfig.from_dict({"enabled": True, "folder": ""})
+
+
+def test_negative_snapshot_age_is_rejected():
+    from tbot.config.models import SnapshotConfig
+
+    with pytest.raises(ConfigError, match="max_age_minutes"):
+        SnapshotConfig.from_dict({"max_age_minutes": -1.0})

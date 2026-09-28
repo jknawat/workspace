@@ -63,6 +63,7 @@ Use a demo account first. Then use it for longer than feels necessary.
 | `tbot paper` | simulated fills on live or CSV bars |
 | `tbot live` | real orders through MetaTrader 5 (requires `--yes`) |
 | `tbot specs` | read contract specs from the broker, optionally save them as TOML |
+| `tbot snapshot` | inspect the SMC/ICT structure snapshots MT5 is publishing |
 | `tbot report` | summarise a journal: trades, PnL, and why signals were declined |
 | `tbot simspecs` | show the built-in simulated specs |
 
@@ -129,7 +130,7 @@ src/tbot/
                donchian (second strategy, proves the engine is generic)
   risk/        sizing from broker ticks, portfolio budgets and caps
   broker/      Broker port; paper simulator; MT5 adapter (lazy import)
-  data/        bar feeds: CSV, broker, in-memory
+  data/        bar feeds (CSV, broker, in-memory) and MT5 SMC/ICT snapshots
   engine/      the one pipeline (core.py), replay (backtest.py), loop (runner.py)
   journal/     SQLite: every signal, trade, rejection reason, equity point
   obs/         JSONL structured logs + a readable console stream
@@ -141,6 +142,40 @@ scripts/       synthetic data generator
 
 Layers only import downward. `core/` imports nothing; `strategy/` never touches
 a broker; only `broker/mt5.py` knows MetaTrader exists.
+
+---
+
+## Letting MetaTrader 5 do the analysis
+
+`tbot` does not re-implement Smart Money Concepts in Python. The MIT-licensed
+[SMC/ICT library](https://github.com/xxvw/ICT_Library_MQ5) runs *inside* MT5,
+detects structure on closed candles — order blocks, FVGs, BOS/CHoCH, liquidity,
+killzones, displacement, MSS, SMT, PO3 — and publishes a schema-versioned JSON
+snapshot. `tbot` reads that file, so the bot trades exactly what your chart
+draws, with no second implementation to drift out of agreement.
+
+```toml
+[snapshot]
+enabled = true
+folder = "SMC_Export"      # must match the export EA's InpFolder
+```
+
+```bash
+tbot snapshot -c config/bot.toml                    # health of every symbol
+tbot snapshot -c config/bot.toml --symbol EURUSD    # modules and every record
+```
+
+Snapshot timestamps are broker wall-clock with no timezone; they are converted
+to UTC with the same `broker_utc_offset_hours` used for bars. A snapshot that is
+missing, degraded or older than `max_age_minutes` is dropped with a warning —
+stale structure is worse than none, because it looks authoritative while
+describing a market that has moved.
+
+Setup, troubleshooting and the timezone trap: **[docs/MT5_SNAPSHOT_SETUP.md](docs/MT5_SNAPSHOT_SETUP.md)**.
+
+Strategies receive it as `ctx.snapshot` (`None` when unavailable — gates that
+depend on it must fail closed). No built-in strategy trades on it yet; the ICT
+entry model is the next stage.
 
 ---
 

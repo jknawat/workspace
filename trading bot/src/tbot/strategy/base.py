@@ -16,6 +16,7 @@ from typing import Any, Callable, ClassVar
 from ..config.models import ConfigError, SymbolConfig
 from ..core.indicators import Series
 from ..core.types import Bar, Side, Signal, SymbolSpec
+from ..data.snapshot import Snapshot
 
 
 @dataclass(slots=True)
@@ -28,6 +29,10 @@ class BarContext:
     i: int
     ind: dict[str, Series]
     spread_points: float = 0.0
+    #: MT5's SMC/ICT structure snapshot for this symbol, when one is fresh.
+    #: ``None`` means unavailable, stale or not configured -- gates that depend
+    #: on it must fail closed rather than assume agreement.
+    snapshot: "Snapshot | None" = None
     notes: list[str] = field(default_factory=list)
 
     @property

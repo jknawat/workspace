@@ -11,12 +11,14 @@ broken in the others. Here, changing the pipeline changes every mode at once.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime, timezone
 
 from ..broker.base import Broker, ClosedTrade
 from ..config.models import BotConfig, SymbolConfig
 from ..core.indicators import Series
 from ..core.types import Bar, Decision, OrderRequest, OrderResult, Position, Signal, SymbolSpec
+from ..data.snapshot import Snapshot
+from ..data.snapshot_store import SnapshotStore
 from ..journal import Journal
 from ..obs import log as obs_log
 from ..risk import RiskManager
@@ -36,10 +38,12 @@ class SymbolRuntime:
         self.bars = bars
         self.ind = self.strategy.compute(bars) if bars else {}
 
-    def context(self, i: int, spread_points: float = 0.0) -> BarContext:
+    def context(
+        self, i: int, spread_points: float = 0.0, snapshot: Snapshot | None = None
+    ) -> BarContext:
         return BarContext(
             cfg=self.cfg, spec=self.spec, bars=self.bars, i=i, ind=self.ind,
-            spread_points=spread_points,
+            spread_points=spread_points, snapshot=snapshot,
         )
 
 
@@ -52,6 +56,7 @@ class StepResult:
     order: OrderRequest | None = None
     order_result: OrderResult | None = None
     closed: list[ClosedTrade] = field(default_factory=list)
+    snapshot: Snapshot | None = None
 
     @property
     def entered(self) -> bool:
@@ -65,11 +70,13 @@ class TradeEngine:
         broker: Broker,
         journal: Journal | None = None,
         risk: RiskManager | None = None,
+        snapshots: SnapshotStore | None = None,
     ) -> None:
         self.config = config
         self.broker = broker
         self.journal = journal
         self.risk = risk or RiskManager(config)
+        self.snapshots = snapshots
         self.log = obs_log.get("engine")
         self.runtimes: dict[str, SymbolRuntime] = {}
         self._known_tickets: set[int] = set()
@@ -86,7 +93,8 @@ class TradeEngine:
         self.runtimes[scfg.symbol] = rt
         self.log.info(
             "registered %s via %s (%d filters, warmup %d)",
-            scfg.symbol, scfg.strategy, len(getattr(strategy, "filters", []) or []), strategy.warmup,
+            scfg.symbol, scfg.strategy,
+            len(getattr(strategy, "filters", []) or []), strategy.warmup,
             extra={"symbol": scfg.symbol, "strategy": scfg.strategy},
         )
         return rt
@@ -115,9 +123,11 @@ class TradeEngine:
             for trade in out.closed:
                 self._on_closed(trade)
 
-        # 2. Strategy decision.
+        # 2. Strategy decision, with MT5's structure snapshot when one is fresh.
         spread = self.broker.spread_points(rt.cfg.symbol) if self._live_quotes() else 0.0
-        signal = rt.strategy.on_bar(rt.context(idx, spread))
+        snapshot = self.snapshot_for(rt.cfg.symbol, bar.ts)
+        out.snapshot = snapshot
+        signal = rt.strategy.on_bar(rt.context(idx, spread, snapshot))
         if signal is None:
             return out
         out.signal = signal
@@ -197,5 +207,50 @@ class TradeEngine:
     def _live_quotes(self) -> bool:
         return self.config.engine.mode != "backtest"
 
+    # ------------------------------------------------------------------ #
+    # MT5 structure snapshots
+    # ------------------------------------------------------------------ #
+
+    def snapshot_for(self, symbol: str, now: datetime | None = None) -> Snapshot | None:
+        """The symbol's SMC/ICT snapshot, only if present, usable and fresh.
+
+        ``None`` is returned for every failure mode -- not configured, no file,
+        terminal stopped, structure stale. Callers must treat that as "no
+        evidence", never as "no objection".
+        """
+        if self.snapshots is None:
+            return None
+        return self.snapshots.fresh(symbol, now)
+
+    def snapshot_state(self) -> dict[str, dict[str, object]]:
+        """Per-symbol snapshot health, for status output and diagnostics."""
+        if self.snapshots is None:
+            return {}
+        out: dict[str, dict[str, object]] = {}
+        for symbol in self.runtimes:
+            snap = self.snapshots.get(symbol)
+            if snap is None:
+                out[symbol] = {"available": False, "path": str(self.snapshots.path_for(symbol))}
+                continue
+            age = snap.age(datetime.now(timezone.utc))
+            out[symbol] = {
+                "available": True,
+                "status": snap.status,
+                "timeframe": snap.timeframe,
+                "as_of": snap.as_of.isoformat() if snap.as_of else None,
+                "age_seconds": None if age is None else round(age.total_seconds()),
+                "bias": snap.bias(),
+                "records": snap.counts(),
+                "problems": snap.problems(),
+            }
+        return out
+
     def state(self) -> dict[str, dict[str, object]]:
-        return {sym: rt.strategy.state_summary() for sym, rt in self.runtimes.items()}
+        snapshots = self.snapshot_state()
+        out: dict[str, dict[str, object]] = {}
+        for sym, rt in self.runtimes.items():
+            summary = dict(rt.strategy.state_summary())
+            if sym in snapshots:
+                summary["snapshot"] = snapshots[sym]
+            out[sym] = summary
+        return out

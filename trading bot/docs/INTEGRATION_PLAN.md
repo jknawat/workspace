@@ -1,6 +1,6 @@
 # Integration plan — combining six repositories into one local bot
 
-**Status: planning. Nothing in this document is built yet.**
+**Status: stage 2 built; stages 3-7 planned.**
 Last updated: 2026-09-28.
 
 Working notes for the next phase of `tbot`: what was analysed, what was decided,
@@ -230,7 +230,7 @@ Each stage is independently useful and independently testable.
 |---|---|---|---|
 | 0 | **Bring-up** | Python 3.11/3.12 installed, `pytest` green, `tbot backtest` runs on synthetic data | — |
 | 1 | **MT5 live link** | `tbot specs` captures real contract specs; paper mode on live MT5 bars | 0, MT5 installed |
-| 2 | **ICT snapshot feed** | `SMC_Snapshot_Export` EA installed; `data/snapshot.py` reads and validates the JSON contract; snapshot visible in `tbot status` | 1 |
+| 2 | **ICT snapshot feed** — DONE | `data/snapshot.py` + `data/snapshot_store.py` read and validate the JSON contract; `tbot snapshot` shows health and records; every strategy receives `ctx.snapshot`; `docs/MT5_SNAPSHOT_SETUP.md` covers EA install | 1 |
 | 3 | **ICT strategy + filters** | `ict_confluence` strategy; filters for killzone, order-block containment, unfilled FVG, HTF bias, liquidity sweep | 2, strategy decision |
 | 4 | **Guard chain** | composable risk guards: daily DD, total DD (equity-based), correlation, spread, news blackout, restart-safe state | 1, account decision |
 | 5 | **Exit policies** | trailing stop, move-to-break-even, partial take-profit — simulated in backtest *and* executed live through the same interface | 1 |

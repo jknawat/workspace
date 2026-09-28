@@ -6,6 +6,7 @@
     tbot paper        live/replay bars, simulated fills
     tbot live         real orders (requires an explicit acknowledgement flag)
     tbot specs        capture broker contract specs into a TOML file
+    tbot snapshot     inspect the SMC/ICT structure snapshots MT5 is publishing
     tbot report       summarise a journal database
 
 Design choice: the CLI is the only entry point, and a GUI -- if one is ever
@@ -19,6 +20,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 from . import __version__
@@ -28,6 +30,8 @@ from .config import ConfigError, load_config, load_credentials
 from .config.models import BotConfig
 from .core.types import SymbolSpec
 from .data.feed import BarFeed, BrokerFeed, CsvFeed
+from .data.snapshot import SnapshotError
+from .data.snapshot_store import SnapshotStore
 from .engine import Runner, run_backtest
 from .journal import Journal
 from .obs import log as obs_log
@@ -56,6 +60,19 @@ def _load_specs(path: str | None) -> dict[str, SymbolSpec] | None:
     with Path(path).open("rb") as fh:
         raw = tomllib.load(fh)
     return {k.upper(): SymbolSpec(name=k.upper(), **v) for k, v in raw.get("symbols", {}).items()}
+
+
+def _build_snapshots(cfg: BotConfig) -> SnapshotStore | None:
+    """Build the MT5 structure-snapshot store, or ``None`` when disabled."""
+    if not cfg.snapshot.enabled:
+        return None
+    return SnapshotStore.from_settings(
+        folder=cfg.snapshot.folder,
+        common_path=cfg.snapshot.common_path,
+        timeframe=cfg.snapshot.timeframe or cfg.engine.timeframe,
+        max_age_minutes=cfg.snapshot.max_age_minutes,
+        broker_utc_offset_hours=cfg.engine.broker_utc_offset_hours,
+    )
 
 
 def _build_runtime(
@@ -187,7 +204,10 @@ def cmd_paper(args: argparse.Namespace) -> int:
     broker, feed, extra = _build_runtime(cfg, args.config, args.data)
     journal = Journal(cfg.engine.journal_path)
     journal.start_run("paper", broker.name)
-    runner = Runner(cfg, broker, feed, journal=journal, max_iterations=args.iterations)
+    runner = Runner(
+        cfg, broker, feed, journal=journal, snapshots=_build_snapshots(cfg),
+        max_iterations=args.iterations,
+    )
     runner.install_signal_handlers()
     try:
         runner.run()
@@ -214,7 +234,10 @@ def cmd_live(args: argparse.Namespace) -> int:
     broker, feed, extra = _build_runtime(cfg, args.config, None)
     journal = Journal(cfg.engine.journal_path)
     journal.start_run("live", broker.name)
-    runner = Runner(cfg, broker, feed, journal=journal, max_iterations=args.iterations)
+    runner = Runner(
+        cfg, broker, feed, journal=journal, snapshots=_build_snapshots(cfg),
+        max_iterations=args.iterations,
+    )
     runner.install_signal_handlers()
     try:
         runner.run()
@@ -258,6 +281,90 @@ def cmd_specs(args: argparse.Namespace) -> int:
     if args.save:
         Path(args.save).write_text("\n".join(lines), encoding="utf-8")
         print(f"\nwrote {args.save}")
+    return 0
+
+
+def cmd_snapshot(args: argparse.Namespace) -> int:
+    """Inspect what MetaTrader 5 is currently publishing about market structure."""
+    cfg = _load(args)
+    if not cfg.snapshot.enabled and not args.force:
+        print(
+            "[snapshot].enabled is false in the config. Set it to true, or pass "
+            "--force to inspect anyway.",
+            file=sys.stderr,
+        )
+        return 2
+
+    store = SnapshotStore.from_settings(
+        folder=cfg.snapshot.folder,
+        common_path=cfg.snapshot.common_path,
+        timeframe=cfg.snapshot.timeframe or cfg.engine.timeframe,
+        max_age_minutes=cfg.snapshot.max_age_minutes,
+        broker_utc_offset_hours=cfg.engine.broker_utc_offset_hours,
+    )
+    now = datetime.now(timezone.utc)
+    print(f"folder      {store.directory}")
+    print(f"timeframe   {store.timeframe}")
+    print(f"max age     {store.max_age}")
+    print(f"broker UTC  {cfg.engine.broker_utc_offset_hours:+.1f}h")
+    if not store.directory.is_dir():
+        print(
+            "\nfolder does not exist. In MT5: File -> Open Data Folder is the *terminal* "
+            "folder;\nthe export writes to the shared Common folder instead. Attach "
+            "SMC_Snapshot_Export.mq5\nto a chart and check its Experts log for the path "
+            "it prints.",
+            file=sys.stderr,
+        )
+        return 1
+
+    found = store.discover()
+    print(f"files       {len(found)} snapshot(s) present")
+    print()
+
+    for scfg in cfg.active_symbols:
+        print(store.status_line(scfg.symbol, now))
+
+    if not args.symbol:
+        if found:
+            print("\npublished files:")
+            for p in found:
+                print(f"  {p.name}")
+        return 0
+
+    # Detailed view of one symbol.
+    snapshot = store.get(args.symbol)
+    if snapshot is None:
+        print(f"\nno readable snapshot for {args.symbol}", file=sys.stderr)
+        return 1
+
+    print(f"\n{snapshot.symbol} {snapshot.timeframe} — {snapshot.status}")
+    print(f"  library     {snapshot.library_version} (schema {snapshot.schema_version})")
+    print(f"  as of       {snapshot.as_of_broker} broker = {snapshot.as_of} UTC")
+    print(f"  bias        {snapshot.bias()}")
+    for problem in snapshot.problems():
+        print(f"  ! {problem}")
+
+    print("\n  modules:")
+    for module in snapshot.modules:
+        flag = " truncated" if module.truncated else ""
+        note = f"  {module.message}" if module.message else ""
+        print(f"    {module.concept:<20} {module.status:<10}{flag}{note}")
+
+    records = snapshot.records
+    if args.concept:
+        wanted = args.concept.upper()
+        records = tuple(r for r in records if r.concept == wanted)
+    if args.active:
+        records = tuple(r for r in records if r.active)
+
+    print(f"\n  records ({len(records)} shown of {len(snapshot.records)}):")
+    print(f"    {'id':<22} {'concept':<18} {'dir':<8} {'state':<12} "
+          f"{'lower':>12} {'upper':>12}  act")
+    for r in sorted(records, key=lambda r: (r.concept, r.id))[: args.limit]:
+        print(
+            f"    {r.id[:22]:<22} {r.concept:<18} {r.direction:<8} {r.state[:12]:<12} "
+            f"{r.lower:>12.5f} {r.upper:>12.5f}  {'y' if r.active else 'n'}"
+        )
     return 0
 
 
@@ -333,6 +440,14 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--save", help="write the specs to this TOML file")
     sp.set_defaults(func=cmd_specs)
 
+    sn = with_config(sub.add_parser("snapshot", help="inspect MT5's SMC/ICT snapshots"))
+    sn.add_argument("--symbol", help="show full detail for one symbol")
+    sn.add_argument("--concept", help="restrict detail to one concept, e.g. ORDER_BLOCK")
+    sn.add_argument("--active", action="store_true", help="only active records")
+    sn.add_argument("--limit", type=int, default=40, help="max records to print")
+    sn.add_argument("--force", action="store_true", help="inspect even when disabled")
+    sn.set_defaults(func=cmd_snapshot)
+
     rp = sub.add_parser("report", help="summarise a journal database")
     rp.add_argument("--journal", default="data/journal.sqlite")
     rp.add_argument("--run", type=int, help="restrict to one run id")
@@ -348,7 +463,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         return int(args.func(args))
-    except (ConfigError, BrokerError, FileNotFoundError, ValueError) as exc:
+    except (ConfigError, BrokerError, SnapshotError, FileNotFoundError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     except KeyboardInterrupt:  # pragma: no cover

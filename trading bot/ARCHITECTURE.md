@@ -9,11 +9,11 @@ this list, never below.
 |---|---|---|---|
 | domain core | `core/` | numbers, bars, signals | files, brokers, config |
 | configuration | `config/` | TOML, dataclasses | strategies, brokers |
-| strategy | `strategy/` | bars, indicators, filters | orders, brokers, money |
+| data | `data/` | bar sourcing, MT5 structure snapshots | order routing, strategies |
+| strategy | `strategy/` | bars, indicators, snapshots, filters | orders, brokers, money |
 | risk | `risk/` | specs, signals, account | strategies, data sources |
 | broker port | `broker/base.py` | orders, positions, specs | which broker is in use |
 | adapters | `broker/paper.py`, `broker/mt5.py` | one venue each | strategies, config |
-| data | `data/` | bar sourcing | order routing |
 | engine | `engine/` | all of the above | UI |
 | persistence | `journal/`, `obs/` | rows and log lines | decisions |
 | entry point | `cli.py` | wiring | trading rules |
@@ -24,14 +24,14 @@ indicator and state-machine tests instant and hermetic.
 ## 2. The pipeline
 
 ```
-          ┌─ data/feed.py ────────────────┐
-          │ CsvFeed | BrokerFeed | List   │
-          └──────────────┬────────────────┘
-                         │ list[Bar]
-                 ┌───────▼─────────┐
+          ┌─ data/feed.py ────────────────┐   ┌─ data/snapshot_store.py ─────┐
+          │ CsvFeed | BrokerFeed | List   │   │ MT5 SMC/ICT JSON snapshots   │
+          └──────────────┬────────────────┘   └──────────────┬───────────────┘
+                         │ list[Bar]                         │ Snapshot (fresh only)
+                 ┌───────▼─────────┐                         │
                  │ SymbolRuntime   │  strategy.compute(bars) → named series
-                 └───────┬─────────┘
-                         │ BarContext(i)
+                 └───────┬─────────┘                         │
+                         │ BarContext(i) ◄───────────────────┘
                  ┌───────▼─────────┐
                  │ Strategy        │  FilterChain → Phase machine → Signal | None
                  └───────┬─────────┘

@@ -137,6 +137,45 @@ class EngineConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class SnapshotConfig:
+    """Where to read MT5's SMC/ICT structure snapshots from.
+
+    Detection runs inside MetaTrader 5 (the ``SMC_Snapshot_Export`` expert
+    advisor); this only says where to find its output. Leaving ``common_path``
+    empty auto-detects MT5's shared folder, which is right on a normal Windows
+    install.
+    """
+
+    enabled: bool = False
+    folder: str = "SMC_Export"
+    common_path: str = ""
+    timeframe: str = ""          # empty: follow [engine].timeframe
+    max_age_minutes: float = 0.0  # 0: three bars of the snapshot timeframe
+    require_fresh: bool = True    # no fresh snapshot -> ICT gates fail closed
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "SnapshotConfig":
+        _reject_unknown(
+            d,
+            {
+                "enabled",
+                "folder",
+                "common_path",
+                "timeframe",
+                "max_age_minutes",
+                "require_fresh",
+            },
+            "[snapshot]",
+        )
+        cfg = cls(**d)
+        if cfg.max_age_minutes < 0:
+            raise ConfigError("[snapshot].max_age_minutes must be >= 0")
+        if cfg.enabled and not cfg.folder:
+            raise ConfigError("[snapshot].folder must not be empty when enabled")
+        return cfg
+
+
+@dataclass(frozen=True, slots=True)
 class SymbolConfig:
     symbol: str
     strategy: str
@@ -176,6 +215,7 @@ class BotConfig:
     engine: EngineConfig
     risk: RiskConfig
     symbols: tuple[SymbolConfig, ...]
+    snapshot: SnapshotConfig = field(default_factory=SnapshotConfig)
     log_level: str = "INFO"
     log_file: str | None = "logs/tbot.jsonl"
 

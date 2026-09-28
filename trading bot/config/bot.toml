@@ -26,3 +26,19 @@ file = "logs/tbot.jsonl"
 
 [symbols]
 dir = "symbols"                 # relative to this file
+
+# --------------------------------------------------------------------------- #
+# MT5 structure snapshots (SMC/ICT)
+# --------------------------------------------------------------------------- #
+# MetaTrader 5 does the pattern detection: attach SMC_Snapshot_Export.mq5 to a
+# chart per symbol and it writes a JSON snapshot to MT5's shared Common folder
+# on every bar close. See docs/MT5_SNAPSHOT_SETUP.md. Check it with:
+#   tbot snapshot -c config/bot.toml --symbol EURUSD
+
+[snapshot]
+enabled = false            # set true once the EA is attached and exporting
+folder = "SMC_Export"      # must match the EA's InpFolder input
+common_path = ""           # blank auto-detects %APPDATA%\MetaQuotes\Terminal\Common\Files
+timeframe = ""             # blank follows [engine].timeframe
+max_age_minutes = 0.0      # 0 = three bars of the snapshot timeframe
+require_fresh = true       # stale or missing structure blocks ICT gates

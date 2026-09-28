@@ -124,6 +124,86 @@ def test_engine_state_exposes_each_strategy_phase(bot_cfg):
     assert state["EURUSD"]["phase"] == "SCANNING"
 
 
+# --------------------------------------------------------------------------- #
+# MT5 structure snapshots reaching the strategy
+# --------------------------------------------------------------------------- #
+
+
+def _store_with_fixture(tmp_path, *, symbol: str = "EURUSD"):
+    from pathlib import Path as _Path
+
+    from tbot.data.snapshot_store import SnapshotStore
+
+    fixture = _Path(__file__).parent / "fixtures" / "snapshot_eurusd_m5.json"
+    (tmp_path / f"{symbol}_M5.json").write_text(
+        fixture.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    return SnapshotStore(directory=tmp_path, timeframe="M5")
+
+
+def test_engine_hands_a_fresh_snapshot_to_the_strategy(bot_cfg, tmp_path):
+    from datetime import datetime, timedelta, timezone
+
+    from tbot.broker.paper import PaperBroker
+
+    broker = PaperBroker(balance=1_000.0)
+    broker.connect()
+    engine = TradeEngine(bot_cfg, broker, snapshots=_store_with_fixture(tmp_path))
+    engine.register_all()
+
+    as_of = datetime(2026, 9, 18, 12, 0, tzinfo=timezone.utc)
+    snapshot = engine.snapshot_for("EURUSD", as_of + timedelta(minutes=5))
+    assert snapshot is not None and snapshot.bias() == "bullish"
+
+    rt = engine.runtimes["EURUSD"]
+    rt.ingest(bars_from_closes(v_shape()))
+    ctx = rt.context(50, 0.0, snapshot)
+    assert ctx.snapshot is snapshot
+
+
+def test_engine_reports_no_snapshot_as_none_not_an_error(bot_cfg, tmp_path):
+    from tbot.broker.paper import PaperBroker
+
+    broker = PaperBroker(balance=1_000.0)
+    broker.connect()
+    engine = TradeEngine(bot_cfg, broker, snapshots=_store_with_fixture(tmp_path, symbol="OTHER"))
+    engine.register_all()
+    assert engine.snapshot_for("EURUSD") is None
+
+
+def test_engine_without_a_store_never_looks_for_snapshots(bot_cfg):
+    from tbot.broker.paper import PaperBroker
+
+    broker = PaperBroker(balance=1_000.0)
+    broker.connect()
+    engine = TradeEngine(bot_cfg, broker)
+    engine.register_all()
+    assert engine.snapshot_for("EURUSD") is None
+    assert engine.snapshot_state() == {}
+    assert "snapshot" not in engine.state()["EURUSD"]
+
+
+def test_engine_state_exposes_snapshot_health(bot_cfg, tmp_path):
+    from tbot.broker.paper import PaperBroker
+
+    broker = PaperBroker(balance=1_000.0)
+    broker.connect()
+    engine = TradeEngine(bot_cfg, broker, snapshots=_store_with_fixture(tmp_path))
+    engine.register_all()
+    health = engine.state()["EURUSD"]["snapshot"]
+    assert health["available"] is True
+    assert health["status"] == "READY"
+    assert health["bias"] == "bullish"
+    assert health["records"]["ORDER_BLOCK"] == 1
+    assert any("truncated" in p for p in health["problems"])
+
+
+def test_backtest_runs_without_any_snapshot_configured(bot_cfg, feed):
+    """Stage 2 must not make snapshots a requirement: CSV backtests still work."""
+    report = run_backtest(bot_cfg, feed)
+    assert report.bars > 0
+
+
 def test_csv_feed_round_trips_bars(tmp_path):
     path = tmp_path / "EURUSD_M5.csv"
     path.write_text(
