@@ -1,6 +1,6 @@
 # Integration plan — combining six repositories into one local bot
 
-**Status: stage 2 built; stages 3-7 planned.**
+**Status: stages 2 and 3 built; stages 4-7 planned.**
 Last updated: 2026-09-28.
 
 Working notes for the next phase of `tbot`: what was analysed, what was decided,
@@ -231,13 +231,16 @@ Each stage is independently useful and independently testable.
 | 0 | **Bring-up** | Python 3.11/3.12 installed, `pytest` green, `tbot backtest` runs on synthetic data | — |
 | 1 | **MT5 live link** | `tbot specs` captures real contract specs; paper mode on live MT5 bars | 0, MT5 installed |
 | 2 | **ICT snapshot feed** — DONE | `data/snapshot.py` + `data/snapshot_store.py` read and validate the JSON contract; `tbot snapshot` shows health and records; every strategy receives `ctx.snapshot`; `docs/MT5_SNAPSHOT_SETUP.md` covers EA install | 1 |
-| 3 | **ICT strategy + filters** | `ict_confluence` strategy; filters for killzone, order-block containment, unfilled FVG, HTF bias, liquidity sweep | 2, strategy decision |
+| 3 | **ICT strategy + filters** — DONE | seven `ict_*` filters usable on any strategy, plus the `ict_confluence` strategy (zone entry, structural stop, liquidity target); `docs/ICT_STRATEGY.md`. Built to serve every branch of the open strategy decision rather than waiting on it | 2 |
 | 4 | **Guard chain** | composable risk guards: daily DD, total DD (equity-based), correlation, spread, news blackout, restart-safe state | 1, account decision |
 | 5 | **Exit policies** | trailing stop, move-to-break-even, partial take-profit — simulated in backtest *and* executed live through the same interface | 1 |
 | 6 | **Operator surface** | Telegram alerts + `/status` `/positions` `/closeall` + kill-switch; optional approve-before-entry | 5, control decision |
 | 7 | **ML scoring** | feature engine, triple-barrier labeller over the journal, trained model, score-gated entries and score-scaled sizing | 3–5 plus real journal history |
 
-Stages 3, 4 and 6 are gated on the three open decisions in §2.
+Stages 4 and 6 remain gated on the open decisions in §2. Stage 3 was built to
+serve every branch of the strategy decision -- the ICT gates work as filters on
+any strategy *and* as the basis of `ict_confluence` -- so it did not need to
+wait.
 
 ---
 
@@ -256,8 +259,10 @@ Stages 3, 4 and 6 are gated on the three open decisions in §2.
 
 ## 8. Next actions
 
-- [ ] User answers the three open decisions in §2.
 - [ ] Install Python 3.11/3.12 (64-bit), then `pytest` and fix whatever the
-      first run surfaces.
+      first run surfaces. Nothing has ever been executed.
 - [ ] Confirm MT5 is installed, which broker/server, and which symbols matter.
-- [ ] Begin stage 2 — it is valuable regardless of how the open decisions land.
+- [ ] Attach `SMC_Snapshot_Export` to one chart and check `tbot snapshot`
+      against a real file rather than the test fixture -- this also reveals the
+      actual `state` vocabulary the ICT filters should be configured against.
+- [ ] User answers the open decisions in §2; stages 4 and 6 wait on them.

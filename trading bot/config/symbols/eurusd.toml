@@ -47,3 +47,11 @@ offset = 0
 
 [filters.spread]
 max_points = 25
+
+# ICT as a *filter* on the mechanical crossover entries above: uncomment to
+# require that MT5's structure agrees before any EMA signal is taken. Needs
+# [snapshot].enabled = true, and will block every entry without a fresh export.
+# [filters.ict_snapshot]
+#
+# [filters.ict_bias]
+# concepts = ["BOS", "CHOCH", "MSS"]

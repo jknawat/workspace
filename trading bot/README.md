@@ -127,7 +127,9 @@ src/tbot/
   config/      TOML → validated dataclasses (rejects unknown keys)
   strategy/    Strategy base + registry, composable filters,
                ema_pullback (crossover → pullback → breakout window),
-               donchian (second strategy, proves the engine is generic)
+               ict_confluence (MT5 structure: zone entry, structural stop),
+               ict_filters (bias, killzone, zone, liquidity, premium/discount),
+               donchian (third strategy, proves the engine is generic)
   risk/        sizing from broker ticks, portfolio budgets and caps
   broker/      Broker port; paper simulator; MT5 adapter (lazy import)
   data/        bar feeds (CSV, broker, in-memory) and MT5 SMC/ICT snapshots
@@ -174,8 +176,8 @@ describing a market that has moved.
 Setup, troubleshooting and the timezone trap: **[docs/MT5_SNAPSHOT_SETUP.md](docs/MT5_SNAPSHOT_SETUP.md)**.
 
 Strategies receive it as `ctx.snapshot` (`None` when unavailable — gates that
-depend on it must fail closed). No built-in strategy trades on it yet; the ICT
-entry model is the next stage.
+depend on it fail closed). The `ict_confluence` strategy and the `ict_*` filters
+trade on it: see **[docs/ICT_STRATEGY.md](docs/ICT_STRATEGY.md)**.
 
 ---
 
