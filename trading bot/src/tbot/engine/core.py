@@ -24,6 +24,7 @@ from ..obs import log as obs_log
 from ..risk import RiskManager
 from ..strategy import Strategy, create
 from ..strategy.base import BarContext
+from .events import CLOSED, DECLINED, EXIT, ORDER, SIGNAL, EventBus
 from .exits import AppliedExit, ExitManager
 
 
@@ -80,6 +81,10 @@ class TradeEngine:
         self.journal = journal
         self.risk = risk or RiskManager(config)
         self.snapshots = snapshots
+        self.events = EventBus()
+        # Flipped by the operator (Telegram /pause). Strategies keep advancing
+        # and exits keep managing; only new entries are withheld.
+        self.entries_enabled = True
         self.log = obs_log.get("engine")
         self.runtimes: dict[str, SymbolRuntime] = {}
         self._known_tickets: set[int] = set()
@@ -142,6 +147,16 @@ class TradeEngine:
             live = self.broker.positions()
             rt.exits.forget({p.ticket for p in live})
             out.exits = rt.exits.manage(live, ctx, self.broker)
+            for applied in out.exits:
+                self.events.publish(
+                    EXIT, rt.cfg.symbol,
+                    kind=applied.action.kind,
+                    ticket=applied.action.ticket,
+                    reason=applied.action.reason,
+                    sl=applied.action.sl,
+                    volume=applied.action.volume,
+                    ok=applied.ok,
+                )
             if any(a.ok and a.action.is_close for a in out.exits):
                 self._drain_closes(out)
 
@@ -150,6 +165,25 @@ class TradeEngine:
         if signal is None:
             return out
         out.signal = signal
+        self.events.publish(
+            SIGNAL, signal.symbol,
+            side=signal.side.value, price=signal.price, sl=signal.sl, tp=signal.tp,
+            strategy=signal.strategy, reason=signal.reason, rr=round(signal.rr, 2),
+        )
+
+        if not self.entries_enabled:
+            paused = Decision.no("paused by operator")
+            out.decision = paused
+            if self.journal:
+                self.journal.record_signal(signal, paused, None)
+            self.events.publish(
+                DECLINED, signal.symbol, side=signal.side.value, reason=paused.reason
+            )
+            self.log.info(
+                "signal held: %s %s (paused)", signal.symbol, signal.side.value,
+                extra={"symbol": signal.symbol, "event": "paused"},
+            )
+            return out
 
         # 4. Risk gate.
         account = self.broker.account()
@@ -163,6 +197,10 @@ class TradeEngine:
                 "signal declined %s %s: %s",
                 signal.symbol, signal.side.value, decision.reason,
                 extra={"symbol": signal.symbol, "event": "declined", "reason": decision.reason},
+            )
+            self.events.publish(
+                DECLINED, signal.symbol,
+                side=signal.side.value, reason=decision.reason,
             )
             return out
 
@@ -182,6 +220,12 @@ class TradeEngine:
                 "risk_money": decision.detail.get("risk_money"),
                 "reason": signal.reason,
             },
+        )
+        self.events.publish(
+            ORDER, signal.symbol,
+            side=signal.side.value, volume=order.volume, price=result.price,
+            sl=order.sl, tp=order.tp, ok=result.ok, message=result.message,
+            risk_money=decision.detail.get("risk_money"), reason=signal.reason,
         )
         return out
 
@@ -208,6 +252,12 @@ class TradeEngine:
             trade.symbol, trade.side, trade.volume, trade.pnl, trade.reason,
             extra={"symbol": trade.symbol, "event": "close", "pnl": trade.pnl,
                    "reason": trade.reason},
+        )
+        self.events.publish(
+            CLOSED, trade.symbol,
+            side=trade.side, volume=trade.volume, pnl=round(trade.pnl, 2),
+            entry=trade.entry_price, exit=trade.exit_price, reason=trade.reason,
+            strategy=trade.strategy,
         )
 
     def reconcile_live_positions(self) -> list[int]:

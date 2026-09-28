@@ -42,3 +42,26 @@ common_path = ""           # blank auto-detects %APPDATA%\MetaQuotes\Terminal\Co
 timeframe = ""             # blank follows [engine].timeframe
 max_age_minutes = 0.0      # 0 = three bars of the snapshot timeframe
 require_fresh = true       # stale or missing structure blocks ICT gates
+
+# --------------------------------------------------------------------------- #
+# Watchers: dashboard, Telegram, MT5 chart overlay
+# --------------------------------------------------------------------------- #
+# All three are read-only views of the bot, except Telegram commands, which set
+# flags the trading thread acts on itself. None of them can bypass the risk gate.
+
+[dashboard]
+enabled = false            # local web view of state, positions and activity
+host = "127.0.0.1"         # loopback only; changing this exposes your balance
+port = 8787
+
+[telegram]
+enabled = false
+# Put the token and chat id in config/credentials.toml (gitignored) or in
+# TBOT_TELEGRAM_TOKEN / TBOT_TELEGRAM_CHAT_ID. Run: tbot telegram-setup
+events = ["order", "closed", "error", "started", "stopped"]
+accept_commands = true     # /status /pause /resume /closeall /stop
+
+[overlay]
+enabled = false            # write tbot's own state back to MT5 for TbotOverlay.mq5
+folder = ""                # blank reuses [snapshot].folder
+filename = "tbot_state.json"

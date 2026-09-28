@@ -7,6 +7,7 @@
     tbot live         real orders (requires an explicit acknowledgement flag)
     tbot specs        capture broker contract specs into a TOML file
     tbot snapshot     inspect the SMC/ICT structure snapshots MT5 is publishing
+    tbot telegram-setup  verify a bot token and find your chat id
     tbot report       summarise a journal database
 
 Design choice: the CLI is the only entry point, and a GUI -- if one is ever
@@ -19,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -33,6 +35,8 @@ from .data.feed import BarFeed, BrokerFeed, CsvFeed
 from .data.snapshot import SnapshotError
 from .data.snapshot_store import SnapshotStore
 from .engine import Runner, run_backtest
+from .interfaces import build as build_interfaces
+from .interfaces.telegram import TelegramClient, TelegramError, discover_chat_id
 from .journal import Journal
 from .obs import log as obs_log
 from .strategy import available as available_strategies, get as get_strategy
@@ -208,27 +212,48 @@ def cmd_backtest(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_paper(args: argparse.Namespace) -> int:
-    cfg = _load(args)
-    if cfg.engine.mode == "live":
-        print("config says mode='live'; use `tbot live` for that", file=sys.stderr)
-        return 2
-    broker, feed, extra = _build_runtime(cfg, args.config, args.data)
+def _run_session(args, cfg, mode: str) -> int:
+    """Start the broker, watchers and runner for a paper or live session."""
+    broker, feed, extra = _build_runtime(cfg, args.config, getattr(args, "data", None))
+    snapshots = _build_snapshots(cfg)
+    interfaces = build_interfaces(
+        cfg, snapshot_dir=str(snapshots.directory) if snapshots else None
+    )
     journal = Journal(cfg.engine.journal_path)
-    journal.start_run("paper", broker.name)
+    journal.start_run(mode, broker.name)
+
     runner = Runner(
-        cfg, broker, feed, journal=journal, snapshots=_build_snapshots(cfg),
+        cfg, broker, feed,
+        journal=journal,
+        snapshots=snapshots,
+        control=interfaces.control,
+        status_sinks=interfaces.status_sinks,
         max_iterations=args.iterations,
     )
+    interfaces.attach(runner.engine)
     runner.install_signal_handlers()
+
+    if interfaces.enabled:
+        print("watching via: " + ", ".join(interfaces.enabled))
     try:
+        interfaces.start()
         runner.run()
     finally:
+        # Watchers stop first so the final "stopped" alert is still delivered.
+        interfaces.stop()
         journal.close()
         broker.disconnect()
         if extra:
             extra.disconnect()
     return 0
+
+
+def cmd_paper(args: argparse.Namespace) -> int:
+    cfg = _load(args)
+    if cfg.engine.mode == "live":
+        print("config says mode='live'; use `tbot live` for that", file=sys.stderr)
+        return 2
+    return _run_session(args, cfg, "paper")
 
 
 def cmd_live(args: argparse.Namespace) -> int:
@@ -243,23 +268,39 @@ def cmd_live(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 2
-    broker, feed, extra = _build_runtime(cfg, args.config, None)
-    journal = Journal(cfg.engine.journal_path)
-    journal.start_run("live", broker.name)
-    runner = Runner(
-        cfg, broker, feed, journal=journal, snapshots=_build_snapshots(cfg),
-        max_iterations=args.iterations,
-    )
-    runner.install_signal_handlers()
-    try:
-        runner.run()
-    finally:
-        journal.close()
-        broker.disconnect()
-        if extra:
-            extra.disconnect()
-    return 0
+    return _run_session(args, cfg, "live")
 
+
+def cmd_telegram_setup(args: argparse.Namespace) -> int:
+    """Verify a bot token and discover the chat id to put in the config."""
+    token = args.token or os.environ.get("TBOT_TELEGRAM_TOKEN", "")
+    if not token:
+        print(
+            "No token. Create a bot by messaging @BotFather on Telegram (/newbot),\n"
+            "then pass it here:  tbot telegram-setup --token 123456:ABC-DEF...",
+            file=sys.stderr,
+        )
+        return 2
+    client = TelegramClient(token, timeout=15.0)
+    me = client.me()
+    print(f"bot: @{me.get('username', '?')} ({me.get('first_name', '')})")
+    print(f"\nNow send any message to @{me.get('username', '?')} from Telegram.")
+    print(f"Waiting up to {args.wait:.0f}s…")
+
+    chat_id = discover_chat_id(token, wait_seconds=args.wait)
+    if chat_id is None:
+        print("\nNo message received. Run it again and send the bot a message.",
+              file=sys.stderr)
+        return 1
+
+    print(f"\nchat id: {chat_id}")
+    print("\nPut this in config/credentials.toml (gitignored):\n")
+    print("[telegram]")
+    print(f'token = "{token}"')
+    print(f'chat_id = "{chat_id}"')
+    print("\nand enable it in config/bot.toml:\n")
+    print("[telegram]\nenabled = true")
+    return 0
 
 def cmd_specs(args: argparse.Namespace) -> int:
     cfg = _load(args)
@@ -460,6 +501,11 @@ def build_parser() -> argparse.ArgumentParser:
     sn.add_argument("--force", action="store_true", help="inspect even when disabled")
     sn.set_defaults(func=cmd_snapshot)
 
+    ts = sub.add_parser("telegram-setup", help="verify a bot token, find your chat id")
+    ts.add_argument("--token", help="bot token from @BotFather (or TBOT_TELEGRAM_TOKEN)")
+    ts.add_argument("--wait", type=float, default=60.0, help="seconds to wait for a message")
+    ts.set_defaults(func=cmd_telegram_setup)
+
     rp = sub.add_parser("report", help="summarise a journal database")
     rp.add_argument("--journal", default="data/journal.sqlite")
     rp.add_argument("--run", type=int, help="restrict to one run id")
@@ -475,7 +521,9 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         return int(args.func(args))
-    except (ConfigError, BrokerError, SnapshotError, FileNotFoundError, ValueError) as exc:
+    except (
+        ConfigError, BrokerError, SnapshotError, TelegramError, FileNotFoundError, ValueError
+    ) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     except KeyboardInterrupt:  # pragma: no cover

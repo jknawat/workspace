@@ -228,6 +228,9 @@ class BotConfig:
     risk: RiskConfig
     symbols: tuple[SymbolConfig, ...]
     snapshot: SnapshotConfig = field(default_factory=SnapshotConfig)
+    telegram: "TelegramConfig" = field(default_factory=lambda: TelegramConfig())
+    dashboard: "DashboardConfig" = field(default_factory=lambda: DashboardConfig())
+    overlay: "OverlayConfig" = field(default_factory=lambda: OverlayConfig())
     log_level: str = "INFO"
     log_file: str | None = "logs/tbot.jsonl"
 
@@ -253,3 +256,76 @@ class BotConfig:
         if total <= 0:
             raise ConfigError("sum of symbol weights must be > 0")
         return {s.symbol: s.weight / total for s in active}
+
+
+@dataclass(frozen=True, slots=True)
+class TelegramConfig:
+    """Phone notifications and remote control.
+
+    The token is a credential: prefer ``TBOT_TELEGRAM_TOKEN`` in the
+    environment, or a ``[telegram]`` table in the gitignored
+    ``config/credentials.toml``. Putting it in ``bot.toml`` works but that file
+    is usually committed.
+    """
+
+    enabled: bool = False
+    token: str = ""
+    chat_id: str = ""
+    events: tuple[str, ...] = ("order", "closed", "error", "started", "stopped")
+    accept_commands: bool = True
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "TelegramConfig":
+        _reject_unknown(
+            d, {"enabled", "token", "chat_id", "events", "accept_commands"}, "[telegram]"
+        )
+        data = dict(d)
+        if "events" in data:
+            data["events"] = tuple(str(e).lower() for e in data["events"])
+        if "chat_id" in data:
+            data["chat_id"] = str(data["chat_id"])
+        cfg = cls(**data)
+        if cfg.enabled and not cfg.chat_id:
+            raise ConfigError(
+                "[telegram].chat_id is required when enabled; run `tbot telegram-setup`"
+            )
+        return cfg
+
+
+@dataclass(frozen=True, slots=True)
+class DashboardConfig:
+    """Local read-only web view.
+
+    Binds to loopback by default. Changing ``host`` exposes account balance and
+    open positions to anything that can reach the machine -- only do it behind a
+    network you control.
+    """
+
+    enabled: bool = False
+    host: str = "127.0.0.1"
+    port: int = 8787
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "DashboardConfig":
+        _reject_unknown(d, {"enabled", "host", "port"}, "[dashboard]")
+        cfg = cls(**d)
+        if not 1 <= cfg.port <= 65535:
+            raise ConfigError(f"[dashboard].port {cfg.port} is out of range")
+        return cfg
+
+
+@dataclass(frozen=True, slots=True)
+class OverlayConfig:
+    """Publishes the bot's own state back to MT5 for the chart indicator."""
+
+    enabled: bool = False
+    folder: str = ""  # empty: reuse [snapshot].folder
+    filename: str = "tbot_state.json"
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "OverlayConfig":
+        _reject_unknown(d, {"enabled", "folder", "filename"}, "[overlay]")
+        cfg = cls(**d)
+        if cfg.enabled and not cfg.filename:
+            raise ConfigError("[overlay].filename must not be empty")
+        return cfg

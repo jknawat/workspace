@@ -64,6 +64,7 @@ Use a demo account first. Then use it for longer than feels necessary.
 | `tbot live` | real orders through MetaTrader 5 (requires `--yes`) |
 | `tbot specs` | read contract specs from the broker, optionally save them as TOML |
 | `tbot snapshot` | inspect the SMC/ICT structure snapshots MT5 is publishing |
+| `tbot telegram-setup` | verify a Telegram bot token and find your chat id |
 | `tbot report` | summarise a journal: trades, PnL, and why signals were declined |
 | `tbot simspecs` | show the built-in simulated specs |
 
@@ -133,7 +134,8 @@ src/tbot/
   risk/        sizing from broker ticks, portfolio budgets and caps
   broker/      Broker port; paper simulator; MT5 adapter (lazy import)
   data/        bar feeds (CSV, broker, in-memory) and MT5 SMC/ICT snapshots
-  engine/      the one pipeline (core.py), replay (backtest.py), loop (runner.py)
+  engine/      the one pipeline (core.py), exits, events, replay, loop (runner.py)
+  interfaces/  dashboard, Telegram, MT5 chart overlay -- all read-only watchers
   journal/     SQLite: every signal, trade, rejection reason, equity point
   obs/         JSONL structured logs + a readable console stream
   cli.py       entry points
@@ -181,6 +183,34 @@ trade on it: see **[docs/ICT_STRATEGY.md](docs/ICT_STRATEGY.md)**.
 
 ---
 
+## Watching and controlling it
+
+Three read-only views plus one narrow control path, all on the standard library
+— no FastAPI, no Redis, no Node.
+
+```toml
+[dashboard]                     # http://127.0.0.1:8787 — loopback only
+enabled = true
+
+[telegram]                      # alerts on your phone, plus remote commands
+enabled = true                  # token/chat_id go in credentials.toml
+
+[overlay]                       # draws the bot's trades on your MT5 chart
+enabled = true
+```
+
+Telegram accepts `/status`, `/positions`, `/pause`, `/resume`, `/closeall` and
+`/stop`, restricted to your chat id — anyone else gets no reply at all. Commands
+only set flags; the trading thread reads them and acts on them itself, so there
+is still exactly one thread touching positions. A watcher that fails, hangs or
+cannot be constructed is logged and skipped: losing the dashboard is an
+inconvenience, refusing to trade because of it would be a bug.
+
+Setup, including `tbot telegram-setup` and installing `mql5/TbotOverlay.mq5`:
+**[docs/WATCHING_THE_BOT.md](docs/WATCHING_THE_BOT.md)**.
+
+---
+
 ## Adding a strategy
 
 ```python
@@ -225,12 +255,13 @@ finding either in the code or in a test's expectation.
 
 ## Deliberate omissions
 
-* **No GUI.** The CLI is the application; a UI, if added, should be a *reader*
-  of `TradeEngine.state()` and of the journal. Trading logic living inside a
-  widget callback is untestable and cannot run headless.
-* **No trailing stops / partial exits / break-even moves.** The exit model is
-  ATR stop + ATR target, set at entry. Anything richer belongs behind an
-  explicit exit-policy object rather than bolted onto the entry state machine.
+* **No trading logic in any UI.** The dashboard and the chart overlay are
+  strictly read-only; Telegram commands set flags the trading thread acts on
+  itself. Trading logic living inside a widget callback is untestable and
+  cannot run headless.
+* **No pending orders.** Entries are market orders at bar close. Resting a
+  limit inside a zone -- how ICT setups are usually traded by hand -- needs
+  order-state tracking the engine does not have yet.
 * **Live PnL attribution is approximate.** Closed-position reconciliation diffs
   ticket sets between polls and attributes the balance delta, which keeps the
   daily kill-switch correct but does not read MT5 deal history per trade.

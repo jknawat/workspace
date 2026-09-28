@@ -55,7 +55,9 @@ def bars_from_closes(
     return bars
 
 
-def v_shape(down: int = 60, up: int = 60, base: float = 1.1000, step: float = 0.0008) -> list[float]:
+def v_shape(
+    down: int = 60, up: int = 60, base: float = 1.1000, step: float = 0.0008
+) -> list[float]:
     """A down-leg then an up-leg, each with a retracement every 4th bar.
 
     The retracements are what make the path useful: they generate crossovers in

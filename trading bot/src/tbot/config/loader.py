@@ -14,10 +14,13 @@ from typing import Any
 from .models import (
     BotConfig,
     ConfigError,
+    DashboardConfig,
     EngineConfig,
+    OverlayConfig,
     RiskConfig,
     SnapshotConfig,
     SymbolConfig,
+    TelegramConfig,
     _reject_unknown,
 )
 
@@ -54,11 +57,18 @@ def _apply_env_overrides(engine: dict[str, Any]) -> dict[str, Any]:
 def load_config(path: str | Path) -> BotConfig:
     root = Path(path)
     raw = _read_toml(root)
-    _reject_unknown(raw, {"engine", "risk", "log", "symbols", "snapshot"}, str(root))
+    _reject_unknown(
+        raw,
+        {"engine", "risk", "log", "symbols", "snapshot", "telegram", "dashboard", "overlay"},
+        str(root),
+    )
 
     engine = EngineConfig.from_dict(_apply_env_overrides(raw.get("engine", {})))
     risk = RiskConfig.from_dict(raw.get("risk", {}))
     snapshot = SnapshotConfig.from_dict(raw.get("snapshot", {}))
+    telegram = TelegramConfig.from_dict(_apply_telegram_env(raw.get("telegram", {}), root))
+    dashboard = DashboardConfig.from_dict(raw.get("dashboard", {}))
+    overlay = OverlayConfig.from_dict(raw.get("overlay", {}))
 
     log = raw.get("log", {})
     _reject_unknown(log, {"level", "file"}, "[log]")
@@ -73,6 +83,9 @@ def load_config(path: str | Path) -> BotConfig:
         risk=risk,
         symbols=symbols,
         snapshot=snapshot,
+        telegram=telegram,
+        dashboard=dashboard,
+        overlay=overlay,
         log_level=str(log.get("level", "INFO")).upper(),
         log_file=log.get("file", "logs/tbot.jsonl"),
     )
@@ -109,3 +122,33 @@ def load_credentials(path: str | Path | None = None) -> dict[str, Any]:
     if "login" in creds:
         creds["login"] = int(creds["login"])
     return creds
+
+
+def _apply_telegram_env(raw: dict[str, Any], config_path: Path) -> dict[str, Any]:
+    """Fill the bot token and chat id from the safest source available.
+
+    Precedence: environment, then ``credentials.toml`` beside the config, then
+    whatever ``bot.toml`` says. A token in a committed config file is the worst
+    of the three, so it loses to both others.
+    """
+    out = dict(raw)
+    secrets = load_telegram_credentials(config_path.parent / "credentials.toml")
+    for key in ("token", "chat_id"):
+        if secrets.get(key):
+            out[key] = secrets[key]
+    for key, env_key in (("token", "TELEGRAM_TOKEN"), ("chat_id", "TELEGRAM_CHAT_ID")):
+        value = os.environ.get(f"{ENV_PREFIX}{env_key}")
+        if value:
+            out[key] = value
+    return out
+
+
+def load_telegram_credentials(path: str | Path | None = None) -> dict[str, Any]:
+    """Read a ``[telegram]`` table from a credentials file, if one exists."""
+    if path is None or not Path(path).is_file():
+        return {}
+    table = _read_toml(Path(path)).get("telegram", {})
+    out = {k: v for k, v in table.items() if k in {"token", "chat_id"}}
+    if "chat_id" in out:
+        out["chat_id"] = str(out["chat_id"])
+    return out
