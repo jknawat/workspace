@@ -8,6 +8,7 @@
     tbot specs        capture broker contract specs into a TOML file
     tbot snapshot     inspect the SMC/ICT structure snapshots MT5 is publishing
     tbot telegram-setup  verify a bot token and find your chat id
+    tbot doctor       check python, config, MT5, snapshots, journal and watchers
     tbot report       summarise a journal database
 
 Design choice: the CLI is the only entry point, and a GUI -- if one is ever
@@ -35,11 +36,12 @@ from .data.feed import BarFeed, BrokerFeed, CsvFeed
 from .data.snapshot import SnapshotError
 from .data.snapshot_store import SnapshotStore
 from .engine import Runner, run_backtest
+from .engine.exits import ExitManager
 from .interfaces import build as build_interfaces
 from .interfaces.telegram import TelegramClient, TelegramError, discover_chat_id
 from .journal import Journal
 from .obs import log as obs_log
-from .strategy import available as available_strategies, get as get_strategy
+from .strategy import available as available_strategies, create, get as get_strategy
 from .strategy.filters import available as available_filters
 
 DEFAULT_CONFIG = "config/bot.toml"
@@ -421,6 +423,141 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_doctor(args: argparse.Namespace) -> int:
+    """Check the environment end to end and say exactly what is missing.
+
+    Written for a first run: this project has been developed without a Python
+    interpreter available, so the first thing anyone does with it should be to
+    find out what actually works here.
+    """
+    checks: list[tuple[str, bool, str]] = []
+
+    def check(name: str, ok: bool, detail: str = "") -> None:
+        checks.append((name, ok, detail))
+
+    # --- interpreter -------------------------------------------------- #
+    v = sys.version_info
+    check(
+        "python >= 3.11",
+        v >= (3, 11),
+        f"{v.major}.{v.minor}.{v.micro} ({'64-bit' if sys.maxsize > 2**32 else '32-bit'})",
+    )
+    if v >= (3, 13):
+        check(
+            "python <= 3.12 for MetaTrader5",
+            False,
+            "MetaTrader5 lags new releases; 3.11 or 3.12 is the safe choice",
+        )
+
+    # --- config -------------------------------------------------------- #
+    cfg = None
+    try:
+        cfg = load_config(args.config)
+        check("config loads", True, f"{args.config}: {len(cfg.active_symbols)} symbol(s) enabled")
+    except (ConfigError, FileNotFoundError) as exc:
+        check("config loads", False, str(exc))
+
+    if cfg is not None:
+        try:
+            for scfg in cfg.active_symbols:
+                create(scfg, DEFAULT_SPECS.get(scfg.symbol) or next(iter(DEFAULT_SPECS.values())))
+            check("strategies build", True, ", ".join(s.strategy for s in cfg.active_symbols))
+        except Exception as exc:  # noqa: BLE001 - reporting, not handling
+            check("strategies build", False, str(exc))
+
+        try:
+            for scfg in cfg.active_symbols:
+                ExitManager.from_config(scfg.exits)
+            check("exit policies build", True, "")
+        except ConfigError as exc:
+            check("exit policies build", False, str(exc))
+
+    # --- MetaTrader 5 -------------------------------------------------- #
+    try:
+        import MetaTrader5  # noqa: F401
+
+        check("MetaTrader5 package", True, "installed")
+    except ImportError:
+        needed = cfg is not None and (cfg.engine.mode == "live" or cfg.engine.broker == "mt5")
+        check(
+            "MetaTrader5 package",
+            not needed,
+            "not installed — required for live data/orders (pip install MetaTrader5)",
+        )
+
+    # --- structure snapshots ------------------------------------------- #
+    if cfg is not None and cfg.snapshot.enabled:
+        try:
+            store = _build_snapshots(cfg)
+            assert store is not None
+            found = store.discover()
+            check(
+                "MT5 snapshot folder",
+                store.directory.is_dir(),
+                f"{store.directory} ({len(found)} file(s))",
+            )
+            for scfg in cfg.active_symbols:
+                snap = store.get(scfg.symbol)
+                check(
+                    f"snapshot {scfg.symbol}",
+                    snap is not None,
+                    f"{snap.status}, {sum(snap.counts().values())} active records"
+                    if snap
+                    else f"missing: {store.path_for(scfg.symbol)}",
+                )
+        except SnapshotError as exc:
+            check("MT5 snapshot folder", False, str(exc))
+    elif cfg is not None:
+        check("MT5 snapshots", True, "disabled in config (ICT gates will reject)")
+
+    # --- journal -------------------------------------------------------- #
+    if cfg is not None:
+        try:
+            journal = Journal(cfg.engine.journal_path)
+            journal.conn.execute("SELECT 1")
+            journal.conn.close()
+            check("journal writable", True, cfg.engine.journal_path)
+        except Exception as exc:  # noqa: BLE001 - reporting, not handling
+            check("journal writable", False, str(exc))
+
+    # --- watchers -------------------------------------------------------- #
+    if cfg is not None and cfg.dashboard.enabled:
+        import socket
+
+        with socket.socket() as probe:
+            free = probe.connect_ex((cfg.dashboard.host, cfg.dashboard.port)) != 0
+        check(
+            f"dashboard port {cfg.dashboard.port}",
+            free,
+            "available" if free else "already in use — change [dashboard].port",
+        )
+
+    if cfg is not None and cfg.telegram.enabled:
+        if not cfg.telegram.token:
+            check("telegram token", False, "missing — run `tbot telegram-setup`")
+        else:
+            try:
+                me = TelegramClient(cfg.telegram.token, timeout=10.0).me()
+                check("telegram bot", True, f"@{me.get('username', '?')}")
+            except TelegramError as exc:
+                check("telegram bot", False, str(exc))
+
+    # --- report ---------------------------------------------------------- #
+    width = max(len(name) for name, _, _ in checks)
+    failures = 0
+    for name, ok, detail in checks:
+        mark = "ok  " if ok else "FAIL"
+        if not ok:
+            failures += 1
+        print(f"[{mark}] {name.ljust(width)}  {detail}")
+
+    print()
+    if failures:
+        print(f"{failures} check(s) need attention before running.")
+    else:
+        print("All checks passed. Next: `pytest`, then `tbot backtest`.")
+    return 1 if failures else 0
+
 def cmd_report(args: argparse.Namespace) -> int:
     journal = Journal(args.journal)
     stats = journal.stats(args.run)
@@ -500,6 +637,10 @@ def build_parser() -> argparse.ArgumentParser:
     sn.add_argument("--limit", type=int, default=40, help="max records to print")
     sn.add_argument("--force", action="store_true", help="inspect even when disabled")
     sn.set_defaults(func=cmd_snapshot)
+
+    with_config(sub.add_parser("doctor", help="check the environment end to end")).set_defaults(
+        func=cmd_doctor
+    )
 
     ts = sub.add_parser("telegram-setup", help="verify a bot token, find your chat id")
     ts.add_argument("--token", help="bot token from @BotFather (or TBOT_TELEGRAM_TOKEN)")

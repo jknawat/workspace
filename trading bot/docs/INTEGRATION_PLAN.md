@@ -1,7 +1,8 @@
 # Integration plan — combining six repositories into one local bot
 
-**Status: stages 2 and 3 built; stages 4-7 planned.**
-Last updated: 2026-09-28.
+**Status: stages 2, 3, 5 and 6 built. Stage 4 waits on the account decision;
+stage 7 waits on real journal history.**
+Last updated: 2026-09-29.
 
 Working notes for the next phase of `tbot`: what was analysed, what was decided,
 what is still open, and what blocks progress. `ARCHITECTURE.md` describes what
@@ -29,22 +30,22 @@ Read as three requirements:
 
 | decision | choice | date |
 |---|---|---|
+| Control surface | **All three: local web dashboard, MT5 chart overlay, and Telegram for progress updates plus remote control.** Built in stage 6. | 2026-09-29 |
 | What "AI" means | **Classical ML scoring, trained on the user's own trade journal.** scikit-learn / XGBoost, local. Rule-based signals get a 0–1 quality score; low scores are vetoed, high scores are sized up within the hard risk cap. Not an LLM, not a black-box trader. | 2026-09-28 |
 
 ### Open — these change what gets built
 
 1. **Account type** — prop-firm challenge (FTMO/The5ers…) vs personal live vs
-   demo-only. Prop firm means a much stricter guard set: hard daily drawdown,
+   demo-only. Deferred by the user on 2026-09-29: "I will do it later". Prop firm means a much stricter guard set: hard daily drawdown,
    equity-based total drawdown, news blackout, restart-safe state, consistency
    rules. This is the single biggest branch in the plan.
 2. **Strategy basis** — ICT/SMC confluence from the MQL5 library, or ICT plus
    the existing `ema_pullback`, or ICT as a *filter* on `ema_pullback`, or
    following external signal channels with own risk rules.
-3. **Control surface** — Telegram bot, local web dashboard, CLI only, MT5 chart
-   overlay, or some combination.
+3. ~~Control surface~~ — decided and built, see above.
 
-The user asked to clarify these rather than answer immediately. Discussion was
-paused here.
+Account type was deferred on 2026-09-29; stage 4 waits on it. Strategy basis is
+still open but no longer blocking -- stage 3 was built to serve every branch.
 
 ---
 
@@ -233,14 +234,14 @@ Each stage is independently useful and independently testable.
 | 2 | **ICT snapshot feed** — DONE | `data/snapshot.py` + `data/snapshot_store.py` read and validate the JSON contract; `tbot snapshot` shows health and records; every strategy receives `ctx.snapshot`; `docs/MT5_SNAPSHOT_SETUP.md` covers EA install | 1 |
 | 3 | **ICT strategy + filters** — DONE | seven `ict_*` filters usable on any strategy, plus the `ict_confluence` strategy (zone entry, structural stop, liquidity target); `docs/ICT_STRATEGY.md`. Built to serve every branch of the open strategy decision rather than waiting on it | 2 |
 | 4 | **Guard chain** | composable risk guards: daily DD, total DD (equity-based), correlation, spread, news blackout, restart-safe state | 1, account decision |
-| 5 | **Exit policies** | trailing stop, move-to-break-even, partial take-profit — simulated in backtest *and* executed live through the same interface | 1 |
-| 6 | **Operator surface** | Telegram alerts + `/status` `/positions` `/closeall` + kill-switch; optional approve-before-entry | 5, control decision |
+| 5 | **Exit policies** — DONE | break_even, trailing_atr, trailing_structure, partial_tp, time_stop; Broker port gained modify_position and partial close, implemented by both adapters | 1 |
+| 6 | **Operator surface** — DONE | local dashboard (loopback, read-only), Telegram alerts + commands via flags the trading thread applies, MT5 chart overlay (mql5/TbotOverlay.mq5), `tbot telegram-setup`, `tbot doctor`; `docs/WATCHING_THE_BOT.md` | 5 |
 | 7 | **ML scoring** | feature engine, triple-barrier labeller over the journal, trained model, score-gated entries and score-scaled sizing | 3–5 plus real journal history |
 
-Stages 4 and 6 remain gated on the open decisions in §2. Stage 3 was built to
-serve every branch of the strategy decision -- the ICT gates work as filters on
-any strategy *and* as the basis of `ict_confluence` -- so it did not need to
-wait.
+Only stage 4 is still gated on a decision (account type). Stage 7 is gated on
+data: the model learns from the journal, and the journal is empty until the
+rules-only bot has traded. Stages 0 and 1 are environment work on the user's
+machine, not code -- see `docs/FIRST_RUN.md`.
 
 ---
 
@@ -250,8 +251,9 @@ wait.
    (`WindowsApps/python.exe`). Nothing can run — not the bot, not the test
    suite already written. Needs **Python 3.11 or 3.12, 64-bit, from
    python.org**; not 3.13+, because the `MetaTrader5` package lags new releases.
-2. **The existing test suite has never been executed.** It was written without
-   an interpreter available. Treat the first `pytest` run as part of stage 0.
+2. **The test suite has never been executed.** About 400 tests across six
+   commits, written without an interpreter available. `docs/FIRST_RUN.md` is
+   the step-by-step for changing that.
 3. **MT5 terminal presence unconfirmed** — stages 1+ need MetaTrader 5 installed
    and logged in on this PC, with algorithmic trading enabled.
 
@@ -262,7 +264,9 @@ wait.
 - [ ] Install Python 3.11/3.12 (64-bit), then `pytest` and fix whatever the
       first run surfaces. Nothing has ever been executed.
 - [ ] Confirm MT5 is installed, which broker/server, and which symbols matter.
+- [ ] Run `tbot doctor` -- it checks interpreter, config, strategies, exits,
+      MT5, snapshots, journal and watchers in one pass.
 - [ ] Attach `SMC_Snapshot_Export` to one chart and check `tbot snapshot`
       against a real file rather than the test fixture -- this also reveals the
       actual `state` vocabulary the ICT filters should be configured against.
-- [ ] User answers the open decisions in §2; stages 4 and 6 wait on them.
+- [ ] Decide the account type; stage 4 waits on it.

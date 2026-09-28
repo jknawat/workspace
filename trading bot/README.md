@@ -21,6 +21,9 @@ is a statement about the code that will actually trade.
 ## Quick start
 
 ```bash
+# 0. check the environment first -- nothing here has ever been run
+python -m tbot.cli doctor -c config/bot.toml
+
 # 1. (optional) synthetic data so you can try the backtester straight away
 python scripts/gen_sample_data.py --symbols EURUSD XAUUSD USDJPY --bars 6000
 
@@ -64,6 +67,7 @@ Use a demo account first. Then use it for longer than feels necessary.
 | `tbot live` | real orders through MetaTrader 5 (requires `--yes`) |
 | `tbot specs` | read contract specs from the broker, optionally save them as TOML |
 | `tbot snapshot` | inspect the SMC/ICT structure snapshots MT5 is publishing |
+| `tbot doctor` | check python, config, MT5, snapshots, journal and watchers |
 | `tbot telegram-setup` | verify a Telegram bot token and find your chat id |
 | `tbot report` | summarise a journal: trades, PnL, and why signals were declined |
 | `tbot simspecs` | show the built-in simulated specs |
@@ -246,10 +250,14 @@ pip tables get wrong), the simulator's fill and stop/target rules, the risk
 gate, and two end-to-end backtests through the journal. Nothing in it requires
 MetaTrader 5, so it runs in CI on Linux.
 
-**Status:** the suite has not yet been executed — the machine this was written
-on has no Python interpreter installed. Treat a first `pytest` run as part of
-bring-up; the tests encode the intended behaviour, and any failure is a real
-finding either in the code or in a test's expectation.
+**Status: nothing here has ever been executed.** This was built on a machine
+with no Python interpreter, so ~400 tests exist and none have run. Expect the
+first run to fail somewhere; every failure is a real finding, in the code or in
+a test's expectation.
+
+Start with **[docs/FIRST_RUN.md](docs/FIRST_RUN.md)** and `tbot doctor`, which
+checks the interpreter, config, strategies, exit policies, MetaTrader5, the
+snapshot folder, the journal and the watchers in one pass.
 
 ---
 
