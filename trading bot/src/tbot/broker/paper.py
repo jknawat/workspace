@@ -14,10 +14,19 @@ that loses money live.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 
-from ..core.types import AccountState, Bar, OrderRequest, OrderResult, Position, Side, SymbolSpec
+from ..core.types import (
+    AccountState,
+    Bar,
+    OrderRequest,
+    OrderResult,
+    Position,
+    Side,
+    SymbolSpec,
+    round_to_step,
+)
 from .base import Broker, BrokerError, ClosedTrade
 
 # Representative specs so the simulator runs with zero setup. Real runs should
@@ -44,6 +53,7 @@ class PaperBroker(Broker):
 
     _positions: dict[int, Position] = field(default_factory=dict, init=False)
     _closed: list[ClosedTrade] = field(default_factory=list, init=False)
+    _pending: list[ClosedTrade] = field(default_factory=list, init=False)
     _next_ticket: int = field(default=1, init=False)
     _last_bar: dict[str, Bar] = field(default_factory=dict, init=False)
     _connected: bool = field(default=False, init=False)
@@ -80,7 +90,15 @@ class PaperBroker(Broker):
         )
 
     def positions(self, symbol: str | None = None) -> list[Position]:
-        out = list(self._positions.values())
+        """Copies, deliberately.
+
+        ``positions()`` is a read. Handing out live references let callers
+        mutate broker state by accident -- an exit manager adjusting its local
+        view of a volume would silently double-apply a partial close. The MT5
+        adapter builds fresh objects per call, so copying here also keeps the
+        two adapters behaving identically.
+        """
+        out = [replace(p) for p in self._positions.values()]
         if symbol:
             out = [p for p in out if p.symbol == symbol.upper()]
         return out
@@ -118,13 +136,67 @@ class PaperBroker(Broker):
         )
         return OrderResult(True, ticket=ticket, price=price, volume=req.volume, message="filled")
 
-    def close_position(self, ticket: int, reason: str = "manual") -> OrderResult:
+    def close_position(
+        self, ticket: int, volume: float | None = None, reason: str = "manual"
+    ) -> OrderResult:
         pos = self._positions.get(ticket)
         if pos is None:
             return OrderResult(False, message=f"no such ticket {ticket}")
         bar = self._last_bar.get(pos.symbol)
         price = bar.close if bar else pos.entry_price
-        return self._settle(pos, price, bar.ts if bar else pos.opened_at, reason)
+        when = bar.ts if bar else pos.opened_at
+
+        if volume is None or volume >= pos.volume:
+            self._settle_trade(pos, price, when, reason)
+            return OrderResult(
+                True, ticket=ticket, price=price, volume=pos.volume, message=reason
+            )
+
+        spec = self.symbol_spec(pos.symbol)
+        part = round_to_step(volume, spec)
+        remainder = round_to_step(pos.volume - part, spec)
+        if part < spec.volume_min or remainder < spec.volume_min:
+            # Closing this slice would leave an untradeable remnant behind.
+            return OrderResult(
+                False,
+                message=(
+                    f"partial close {volume} leaves {remainder} on a {spec.volume_min} "
+                    f"minimum; close the whole position instead"
+                ),
+            )
+        self._settle_trade(pos, price, when, reason, volume=part)
+        pos.volume = remainder
+        return OrderResult(True, ticket=ticket, price=price, volume=part, message=reason)
+
+    def modify_position(
+        self, ticket: int, sl: float | None = None, tp: float | None = None
+    ) -> OrderResult:
+        pos = self._positions.get(ticket)
+        if pos is None:
+            return OrderResult(False, message=f"no such ticket {ticket}")
+        spec = self.symbol_spec(pos.symbol)
+        bar = self._last_bar.get(pos.symbol)
+        price = bar.close if bar else pos.entry_price
+
+        if sl is not None:
+            # A stop on the wrong side of the market would fill instantly; a real
+            # broker rejects it, so the simulator must too.
+            if (pos.side is Side.LONG and sl >= price) or (
+                pos.side is Side.SHORT and sl <= price
+            ):
+                return OrderResult(
+                    False, message=f"stop {sl} is on the wrong side of price {price}"
+                )
+            pos.sl = round(sl, spec.digits)
+        if tp is not None:
+            if (pos.side is Side.LONG and tp <= price) or (
+                pos.side is Side.SHORT and tp >= price
+            ):
+                return OrderResult(
+                    False, message=f"target {tp} is on the wrong side of price {price}"
+                )
+            pos.tp = round(tp, spec.digits)
+        return OrderResult(True, ticket=ticket, price=price, volume=pos.volume, message="modified")
 
     # ------------------------------------------------------------------ #
     # Simulation driver
@@ -134,32 +206,39 @@ class PaperBroker(Broker):
         """Advance the simulation; returns trades closed by this bar."""
         sym = symbol.upper()
         self._last_bar[sym] = bar
-        closed: list[ClosedTrade] = []
         for pos in [p for p in self._positions.values() if p.symbol == sym]:
             hit_sl = bar.low <= pos.sl if pos.side is Side.LONG else bar.high >= pos.sl
             hit_tp = bar.high >= pos.tp if pos.side is Side.LONG else bar.low <= pos.tp
             if hit_sl:  # pessimistic ordering: stop wins a same-bar tie
-                closed.append(self._settle_trade(pos, pos.sl, bar.ts, "SL"))
+                self._settle_trade(pos, pos.sl, bar.ts, "SL")
             elif hit_tp:
-                closed.append(self._settle_trade(pos, pos.tp, bar.ts, "TP"))
+                self._settle_trade(pos, pos.tp, bar.ts, "TP")
         self._equity_curve.append((bar.ts, self.account().equity))
-        return closed
+        return self.drain_closed()
 
-    def _settle(self, pos: Position, price: float, when: datetime, reason: str) -> OrderResult:
-        self._settle_trade(pos, price, when, reason)
-        return OrderResult(True, ticket=pos.ticket, price=price, volume=pos.volume, message=reason)
+    def drain_closed(self) -> list[ClosedTrade]:
+        """Trades settled since the last drain, however they were closed.
+
+        Exit policies close positions between bars, so the engine needs a way to
+        learn about those settlements too -- not only the ones a bar triggered.
+        """
+        out, self._pending = self._pending, []
+        return out
 
     def _settle_trade(
-        self, pos: Position, price: float, when: datetime, reason: str
+        self, pos: Position, price: float, when: datetime, reason: str,
+        volume: float | None = None,
     ) -> ClosedTrade:
         spec = self.symbol_spec(pos.symbol)
-        pnl = (price - pos.entry_price) * pos.side.sign * spec.value_per_price_unit * pos.volume
+        closed = pos.volume if volume is None else volume
+        pnl = (price - pos.entry_price) * pos.side.sign * spec.value_per_price_unit * closed
         self.balance += pnl
-        self._positions.pop(pos.ticket, None)
+        if volume is None:
+            self._positions.pop(pos.ticket, None)
         trade = ClosedTrade(
             symbol=pos.symbol,
             side=pos.side.value,
-            volume=pos.volume,
+            volume=closed,
             entry_price=pos.entry_price,
             exit_price=price,
             opened_at=pos.opened_at,
@@ -169,6 +248,7 @@ class PaperBroker(Broker):
             strategy=pos.strategy,
         )
         self._closed.append(trade)
+        self._pending.append(trade)
         return trade
 
     def _mark(self, symbol: str) -> float:

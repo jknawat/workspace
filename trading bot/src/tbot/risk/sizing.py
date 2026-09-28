@@ -13,10 +13,9 @@ doubling risk.
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 
-from ..core.types import SymbolSpec
+from ..core.types import SymbolSpec, round_to_step
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,14 +36,8 @@ class SizingResult:
 
 
 def round_volume(spec: SymbolSpec, volume: float) -> float:
-    """Floor to the broker's volume step, then clamp to its min/max."""
-    if spec.volume_step <= 0:
-        raise ValueError(f"{spec.name}: volume_step must be > 0")
-    steps = math.floor(volume / spec.volume_step + 1e-9)
-    stepped = steps * spec.volume_step
-    decimals = max(0, -int(math.floor(math.log10(spec.volume_step))))
-    stepped = round(stepped, decimals + 2)
-    return min(max(stepped, 0.0), spec.volume_max)
+    """Floor to the broker's volume step, then clamp to its maximum."""
+    return round_to_step(volume, spec)
 
 
 def risk_of_volume(spec: SymbolSpec, volume: float, sl_distance: float) -> float:

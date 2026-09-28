@@ -61,7 +61,16 @@ class Broker(ABC):
     def market_order(self, req: OrderRequest) -> OrderResult: ...
 
     @abstractmethod
-    def close_position(self, ticket: int, reason: str = "manual") -> OrderResult: ...
+    def close_position(
+        self, ticket: int, volume: float | None = None, reason: str = "manual"
+    ) -> OrderResult:
+        """Close a position. ``volume`` closes only part of it (partial exit)."""
+
+    @abstractmethod
+    def modify_position(
+        self, ticket: int, sl: float | None = None, tp: float | None = None
+    ) -> OrderResult:
+        """Move a live position's stop and/or target. ``None`` leaves one unchanged."""
 
     def spread_points(self, symbol: str) -> float:
         """Current spread in points; 0.0 when quotes are unavailable."""

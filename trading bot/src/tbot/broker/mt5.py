@@ -11,7 +11,16 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from ..core.types import AccountState, Bar, OrderRequest, OrderResult, Position, Side, SymbolSpec
+from ..core.types import (
+    AccountState,
+    Bar,
+    OrderRequest,
+    OrderResult,
+    Position,
+    Side,
+    SymbolSpec,
+    round_to_step,
+)
 from .base import Broker, BrokerError
 
 TIMEFRAMES = {
@@ -221,19 +230,37 @@ class MT5Broker(Broker):
             message="filled",
         )
 
-    def close_position(self, ticket: int, reason: str = "manual") -> OrderResult:
+    def close_position(
+        self, ticket: int, volume: float | None = None, reason: str = "manual"
+    ) -> OrderResult:
         mt5 = self.mt5
         raw = mt5.positions_get(ticket=ticket)
         if not raw:
             return OrderResult(False, message=f"position {ticket} not found")
         p = raw[0]
+        spec = self.symbol_spec(p.symbol)
+        closing = float(p.volume) if volume is None else round_to_step(volume, spec)
+        if closing < spec.volume_min:
+            return OrderResult(
+                False, message=f"close volume {closing} below minimum {spec.volume_min}"
+            )
+        if closing < float(p.volume):
+            remainder = round_to_step(float(p.volume) - closing, spec)
+            if remainder < spec.volume_min:
+                return OrderResult(
+                    False,
+                    message=(
+                        f"partial close would leave {remainder} below the "
+                        f"{spec.volume_min} minimum"
+                    ),
+                )
         tick = mt5.symbol_info_tick(p.symbol)
         is_buy = p.type == mt5.POSITION_TYPE_BUY
         request = {
             "action": mt5.TRADE_ACTION_DEAL,
             "position": int(ticket),
             "symbol": p.symbol,
-            "volume": float(p.volume),
+            "volume": closing,
             "type": mt5.ORDER_TYPE_SELL if is_buy else mt5.ORDER_TYPE_BUY,
             "price": float(tick.bid if is_buy else tick.ask),
             "deviation": self.deviation_points,
@@ -246,7 +273,44 @@ class MT5Broker(Broker):
         if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
             code = getattr(result, "retcode", "None")
             return OrderResult(False, message=f"close failed, retcode {code}")
-        return OrderResult(True, ticket=ticket, price=float(result.price), message="closed")
+        return OrderResult(
+            True, ticket=ticket, price=float(result.price), volume=closing, message="closed"
+        )
+
+    def modify_position(
+        self, ticket: int, sl: float | None = None, tp: float | None = None
+    ) -> OrderResult:
+        """Move a live stop or target with ``TRADE_ACTION_SLTP``.
+
+        MT5 replaces both levels on every such request, so the current values
+        are read back and any level not being changed is sent unchanged --
+        omitting one would clear it.
+        """
+        mt5 = self.mt5
+        raw = mt5.positions_get(ticket=ticket)
+        if not raw:
+            return OrderResult(False, message=f"position {ticket} not found")
+        p = raw[0]
+        spec = self.symbol_spec(p.symbol)
+        new_sl = float(p.sl) if sl is None else round(sl, spec.digits)
+        new_tp = float(p.tp) if tp is None else round(tp, spec.digits)
+        if new_sl == float(p.sl) and new_tp == float(p.tp):
+            return OrderResult(True, ticket=ticket, message="no change")
+
+        request = {
+            "action": mt5.TRADE_ACTION_SLTP,
+            "position": int(ticket),
+            "symbol": p.symbol,
+            "sl": new_sl,
+            "tp": new_tp,
+            "magic": self.magic,
+        }
+        result = mt5.order_send(request)
+        if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
+            code = getattr(result, "retcode", "None")
+            comment = getattr(result, "comment", "")
+            return OrderResult(False, message=f"modify failed, retcode {code}: {comment}")
+        return OrderResult(True, ticket=ticket, volume=float(p.volume), message="modified")
 
     # ------------------------------------------------------------------ #
     # Internals

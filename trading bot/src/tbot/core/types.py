@@ -186,3 +186,20 @@ class Decision:
     @classmethod
     def no(cls, reason: str, **detail: Any) -> "Decision":
         return cls(False, reason, detail)
+
+
+def round_to_step(volume: float, spec: SymbolSpec) -> float:
+    """Floor a volume to the broker's step, then clamp to its maximum.
+
+    Lives in ``core`` because both the risk layer (sizing a new order) and the
+    broker adapters (slicing a partial close) need exactly the same arithmetic,
+    and two implementations of it would eventually disagree.
+    """
+    import math
+
+    if spec.volume_step <= 0:
+        raise ValueError(f"{spec.name}: volume_step must be > 0")
+    steps = math.floor(volume / spec.volume_step + 1e-9)
+    stepped = steps * spec.volume_step
+    decimals = max(0, -int(math.floor(math.log10(spec.volume_step))))
+    return min(max(round(stepped, decimals + 2), 0.0), spec.volume_max)

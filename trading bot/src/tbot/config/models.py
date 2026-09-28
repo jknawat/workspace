@@ -184,13 +184,24 @@ class SymbolConfig:
     sides: tuple[str, ...] = ("LONG",)
     params: dict[str, Any] = field(default_factory=dict)
     filters: dict[str, dict[str, Any]] = field(default_factory=dict)
+    exits: dict[str, dict[str, Any]] = field(default_factory=dict)
     session: SessionConfig = field(default_factory=SessionConfig)
 
     @classmethod
     def from_dict(cls, d: dict[str, Any], where: str) -> "SymbolConfig":
         _reject_unknown(
             d,
-            {"symbol", "strategy", "enabled", "weight", "sides", "params", "filters", "session"},
+            {
+                "symbol",
+                "strategy",
+                "enabled",
+                "weight",
+                "sides",
+                "params",
+                "filters",
+                "exits",
+                "session",
+            },
             where,
         )
         symbol = str(_require(d, "symbol", where)).upper()
@@ -206,6 +217,7 @@ class SymbolConfig:
             sides=sides,
             params=dict(d.get("params", {})),
             filters={k: dict(v) for k, v in d.get("filters", {}).items()},
+            exits={k: dict(v) for k, v in d.get("exits", {}).items()},
             session=SessionConfig.from_dict(d.get("session", {}), f"{where}.session"),
         )
 

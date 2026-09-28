@@ -55,3 +55,17 @@ max_points = 25
 #
 # [filters.ict_bias]
 # concepts = ["BOS", "CHOCH", "MSS"]
+
+# Position management after entry. Policies run in the order written, once per
+# closed bar. Stops only ever move in the protective direction.
+[exits.break_even]
+trigger_r = 1.0        # once 1R ahead, move the stop to entry
+offset_r = 0.05        # ...plus a little, so the trade covers its costs
+
+[exits.trailing_atr]
+distance_atr = 2.0
+start_r = 1.5          # don't trail until the trade is properly ahead
+
+[exits.time_stop]
+max_bars = 96          # 8 hours on M5
+min_r = 0.5            # unless it is working, then let it run

@@ -147,6 +147,18 @@ def cmd_strategies(args: argparse.Namespace) -> int:
             print(f"    {doc[0]}")
         for key, value in cls.defaults.items():
             print(f"      {key:<26} = {value!r}")
+    print("\nexit policies (declare under [exits.<name>] in a symbol file):")
+    from .engine import exits as ex
+
+    for name in ex.available():
+        cls = ex._REGISTRY[name]  # noqa: SLF001 - introspection for the help output
+        print(f"\n  {name}")
+        doc = (cls.__doc__ or "").strip().splitlines()
+        if doc:
+            print(f"    {doc[0]}")
+        for key, value in cls.defaults.items():
+            print(f"      {key:<26} = {value!r}")
+
     print("\nfilters (declare under [filters.<name>] in a symbol file):")
     from .strategy import filters as f
 

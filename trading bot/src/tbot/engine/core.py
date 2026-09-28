@@ -24,6 +24,7 @@ from ..obs import log as obs_log
 from ..risk import RiskManager
 from ..strategy import Strategy, create
 from ..strategy.base import BarContext
+from .exits import AppliedExit, ExitManager
 
 
 @dataclass(slots=True)
@@ -31,6 +32,7 @@ class SymbolRuntime:
     cfg: SymbolConfig
     spec: SymbolSpec
     strategy: Strategy
+    exits: ExitManager = field(default_factory=lambda: ExitManager([]))
     bars: list[Bar] = field(default_factory=list)
     ind: dict[str, Series] = field(default_factory=dict)
 
@@ -57,6 +59,7 @@ class StepResult:
     order_result: OrderResult | None = None
     closed: list[ClosedTrade] = field(default_factory=list)
     snapshot: Snapshot | None = None
+    exits: list[AppliedExit] = field(default_factory=list)
 
     @property
     def entered(self) -> bool:
@@ -89,7 +92,12 @@ class TradeEngine:
     def register(self, scfg: SymbolConfig, spec: SymbolSpec | None = None) -> SymbolRuntime:
         resolved = spec or self.broker.symbol_spec(scfg.symbol)
         strategy = create(scfg, resolved)
-        rt = SymbolRuntime(cfg=scfg, spec=resolved, strategy=strategy)
+        rt = SymbolRuntime(
+            cfg=scfg,
+            spec=resolved,
+            strategy=strategy,
+            exits=ExitManager.from_config(scfg.exits),
+        )
         self.runtimes[scfg.symbol] = rt
         self.log.info(
             "registered %s via %s (%d filters, warmup %d)",
@@ -119,20 +127,31 @@ class TradeEngine:
         #    decision, so an entry can never be closed by its own entry bar.
         on_bar = getattr(self.broker, "on_bar", None)
         if callable(on_bar):
-            out.closed = on_bar(rt.cfg.symbol, bar)
-            for trade in out.closed:
+            for trade in on_bar(rt.cfg.symbol, bar):
+                out.closed.append(trade)
                 self._on_closed(trade)
 
-        # 2. Strategy decision, with MT5's structure snapshot when one is fresh.
         spread = self.broker.spread_points(rt.cfg.symbol) if self._live_quotes() else 0.0
         snapshot = self.snapshot_for(rt.cfg.symbol, bar.ts)
         out.snapshot = snapshot
-        signal = rt.strategy.on_bar(rt.context(idx, spread, snapshot))
+        ctx = rt.context(idx, spread, snapshot)
+
+        # 2. Manage what is already open, before considering anything new. A
+        #    partial close here can free the capacity a fresh entry needs.
+        if len(rt.exits):
+            live = self.broker.positions()
+            rt.exits.forget({p.ticket for p in live})
+            out.exits = rt.exits.manage(live, ctx, self.broker)
+            if any(a.ok and a.action.is_close for a in out.exits):
+                self._drain_closes(out)
+
+        # 3. Strategy decision, with MT5's structure snapshot when one is fresh.
+        signal = rt.strategy.on_bar(ctx)
         if signal is None:
             return out
         out.signal = signal
 
-        # 3. Risk gate.
+        # 4. Risk gate.
         account = self.broker.account()
         positions: list[Position] = self.broker.positions()
         decision, order = self.risk.approve(signal, rt.spec, account, positions)
@@ -147,7 +166,7 @@ class TradeEngine:
             )
             return out
 
-        # 4. Route.
+        # 5. Route.
         result = self.broker.market_order(order)
         out.order_result = result
         level = self.log.info if result.ok else self.log.error
@@ -169,6 +188,16 @@ class TradeEngine:
     # ------------------------------------------------------------------ #
     # Bookkeeping
     # ------------------------------------------------------------------ #
+
+    def _drain_closes(self, out: StepResult) -> None:
+        """Pick up settlements an exit policy caused, so the journal and the
+        daily-loss counter stay correct."""
+        drain = getattr(self.broker, "drain_closed", None)
+        if not callable(drain):
+            return  # live broker: reconcile_live_positions covers this instead
+        for trade in drain():
+            out.closed.append(trade)
+            self._on_closed(trade)
 
     def _on_closed(self, trade: ClosedTrade) -> None:
         self.risk.record_close(trade.pnl, trade.closed_at.date())
