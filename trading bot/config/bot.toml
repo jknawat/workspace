@@ -1,0 +1,28 @@
+# tbot -- global configuration.
+# Per-symbol strategy settings live in config/symbols/*.toml (one file each).
+# Environment overrides: TBOT_MODE, TBOT_BROKER, TBOT_TIMEFRAME,
+# TBOT_BROKER_UTC_OFFSET_HOURS.
+
+[engine]
+mode = "paper"                  # backtest | paper | live
+broker = "paper"                # paper | mt5   (data source in paper mode)
+timeframe = "M5"
+poll_seconds = 15               # how often to look for a newly closed bar
+warmup_bars = 500               # history handed to the strategy each poll
+broker_utc_offset_hours = 0.0   # set to your MT5 server offset (e.g. 2.0 in CEST)
+start_balance = 10000.0         # paper/backtest only
+journal_path = "data/journal.sqlite"
+
+[risk]
+risk_per_trade_pct = 1.0        # total, split across symbols by weight
+max_daily_loss_pct = 3.0        # kill-switch for the UTC day
+max_open_positions = 4
+max_positions_per_symbol = 1
+min_rr = 1.5                    # reject any signal whose tp/sl ratio is worse
+
+[log]
+level = "INFO"
+file = "logs/tbot.jsonl"
+
+[symbols]
+dir = "symbols"                 # relative to this file

@@ -1,0 +1,49 @@
+symbol = "EURUSD"
+strategy = "ema_pullback"
+enabled = true
+weight = 3.0          # relative; weights are renormalised across enabled symbols
+sides = ["LONG", "SHORT"]
+
+[session]
+start = "07:00"       # UTC, always. Broker offset is handled once, in [engine].
+end = "16:00"
+weekdays = [0, 1, 2, 3, 4]
+
+[params]
+ema_confirm = 5
+ema_fast = 8
+ema_medium = 13
+ema_slow = 21
+ema_trend = 200
+atr_period = 14
+use_pullback = true
+pullback_bars = 2
+pullback_max_wait = 10
+window_offset_atr = 0.25
+window_bars = 5
+sl_atr = 2.5
+tp_atr = 6.0
+cooldown_bars = 3
+
+[filters.session]
+
+[filters.atr_range]
+min = 0.0002
+max = 0.0020
+
+[filters.ema_order]
+series = ["ema_confirm", "ema_fast", "ema_medium", "ema_slow"]
+
+[filters.price_vs_ema]
+series = "ema_trend"
+
+[filters.angle]
+series = "slope"
+min_degrees = 15.0
+
+[filters.candle_direction]
+bars = 1
+offset = 0
+
+[filters.spread]
+max_points = 25

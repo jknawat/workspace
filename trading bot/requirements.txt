@@ -1,0 +1,7 @@
+# The core has no third-party dependencies (Python 3.11+ standard library only).
+#
+# Live trading / live data (Windows only):
+#   pip install MetaTrader5>=5.0.45
+#
+# Development:
+#   pip install pytest ruff mypy

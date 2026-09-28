@@ -1,0 +1,133 @@
+"""Portfolio-level risk gate.
+
+One object owns every "may this order exist?" question: budget per symbol,
+concurrency caps, reward/risk floor, and the daily loss kill-switch. The
+strategy layer decides *direction*; this layer decides *size and permission*,
+and it is the only place either is decided.
+
+Budget model: each symbol carries a weight, weights are renormalised across the
+enabled symbols, and a symbol's risk budget is
+``balance * risk_per_trade_pct/100 * weight``. Total risk therefore stays at
+``risk_per_trade_pct`` even if every symbol signals on the same bar -- as
+opposed to equal-weighting, where N simultaneous signals risk N x the budget.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import date
+
+from ..config.models import BotConfig
+from ..core.types import AccountState, Decision, OrderRequest, Position, Signal, SymbolSpec
+from .sizing import SizingResult, lot_for_risk
+
+
+@dataclass(slots=True)
+class DayBook:
+    """Realised PnL for a single trading day (UTC)."""
+
+    day: date
+    realised: float = 0.0
+    trades: int = 0
+
+    def add(self, pnl: float) -> None:
+        self.realised += pnl
+        self.trades += 1
+
+
+@dataclass(slots=True)
+class RiskManager:
+    cfg: BotConfig
+    book: DayBook = field(default_factory=lambda: DayBook(date.min))
+    halted_reason: str = ""
+
+    # ------------------------------------------------------------------ #
+    # Budget
+    # ------------------------------------------------------------------ #
+
+    def budget_for(self, symbol: str, balance: float) -> float:
+        weight = self.cfg.normalised_weights.get(symbol.upper(), 0.0)
+        return balance * (self.cfg.risk.risk_per_trade_pct / 100.0) * weight
+
+    def daily_loss_limit(self, balance: float) -> float:
+        return balance * (self.cfg.risk.max_daily_loss_pct / 100.0)
+
+    # ------------------------------------------------------------------ #
+    # Day roll / PnL tracking
+    # ------------------------------------------------------------------ #
+
+    def roll_day(self, today: date) -> None:
+        if self.book.day != today:
+            self.book = DayBook(today)
+            self.halted_reason = ""
+
+    def record_close(self, pnl: float, when: date) -> None:
+        self.roll_day(when)
+        self.book.add(pnl)
+
+    # ------------------------------------------------------------------ #
+    # The gate
+    # ------------------------------------------------------------------ #
+
+    def approve(
+        self,
+        signal: Signal,
+        spec: SymbolSpec,
+        account: AccountState,
+        positions: list[Position],
+    ) -> tuple[Decision, OrderRequest | None]:
+        self.roll_day(signal.ts.date())
+        risk_cfg = self.cfg.risk
+
+        if self.halted_reason:
+            return Decision.no(f"halted: {self.halted_reason}"), None
+
+        loss_limit = self.daily_loss_limit(account.balance)
+        if -self.book.realised >= loss_limit > 0:
+            self.halted_reason = (
+                f"daily loss {self.book.realised:.2f} hit limit -{loss_limit:.2f}"
+            )
+            return Decision.no(self.halted_reason), None
+
+        if len(positions) >= risk_cfg.max_open_positions:
+            return Decision.no(
+                f"{len(positions)} open positions >= cap {risk_cfg.max_open_positions}"
+            ), None
+
+        same = [p for p in positions if p.symbol == signal.symbol]
+        if len(same) >= risk_cfg.max_positions_per_symbol:
+            return Decision.no(
+                f"{signal.symbol} already has {len(same)} position(s)"
+            ), None
+
+        if signal.sl_distance <= 0:
+            return Decision.no("signal has no stop distance"), None
+
+        if signal.rr < risk_cfg.min_rr:
+            return Decision.no(
+                f"reward/risk {signal.rr:.2f} < min {risk_cfg.min_rr:.2f}"
+            ), None
+
+        budget = self.budget_for(signal.symbol, account.balance)
+        sizing: SizingResult = lot_for_risk(spec, budget, signal.sl_distance)
+        if not sizing.ok:
+            return Decision.no(f"sizing: {sizing.reason}", budget=budget), None
+
+        order = OrderRequest(
+            symbol=signal.symbol,
+            side=signal.side,
+            volume=sizing.volume,
+            sl=signal.sl,
+            tp=signal.tp,
+            comment=f"{signal.strategy}:{signal.reason}"[:60],
+        )
+        return (
+            Decision.ok(
+                "approved",
+                budget=budget,
+                volume=sizing.volume,
+                risk_money=sizing.risk_money,
+                rr=signal.rr,
+            ),
+            order,
+        )

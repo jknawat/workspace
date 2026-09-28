@@ -1,0 +1,26 @@
+# Same engine, different strategy -- the only change needed is this line.
+symbol = "USDJPY"
+strategy = "donchian"
+enabled = true
+weight = 1.0
+sides = ["LONG", "SHORT"]
+
+[session]
+start = "00:00"
+end = "23:59"
+
+[params]
+channel_period = 20
+atr_period = 14
+ema_trend = 200
+sl_atr = 2.0
+tp_atr = 4.0
+cooldown_bars = 5
+
+[filters.session]
+
+[filters.price_vs_ema]
+series = "ema_trend"
+
+[filters.atr_range]
+min = 0.02

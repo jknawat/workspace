@@ -1,0 +1,39 @@
+symbol = "XAUUSD"
+strategy = "ema_pullback"
+enabled = true
+weight = 2.0
+sides = ["LONG"]
+
+[session]
+start = "08:00"
+end = "20:00"
+
+[params]
+ema_confirm = 5
+ema_fast = 8
+ema_medium = 21
+ema_slow = 34
+ema_trend = 200
+atr_period = 14
+use_pullback = true
+pullback_bars = 3
+window_offset_atr = 0.4
+window_bars = 8
+sl_atr = 3.0
+tp_atr = 7.5
+cooldown_bars = 6
+
+[filters.session]
+
+[filters.atr_range]
+min = 0.8
+max = 12.0
+
+[filters.price_vs_ema]
+series = "ema_trend"
+
+[filters.angle]
+min_degrees = 10.0
+
+[filters.spread]
+max_points = 60

@@ -1,0 +1,274 @@
+"""MetaTrader 5 adapter.
+
+The ``MetaTrader5`` package is imported lazily inside :meth:`connect`, so the
+rest of the system -- tests, backtests, config validation, CI -- runs on any
+platform with nothing installed. This is the only module in the project that
+knows MT5 exists.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime, timedelta, timezone
+from typing import Any
+
+from ..core.types import AccountState, Bar, OrderRequest, OrderResult, Position, Side, SymbolSpec
+from .base import Broker, BrokerError
+
+TIMEFRAMES = {
+    "M1": "TIMEFRAME_M1",
+    "M5": "TIMEFRAME_M5",
+    "M15": "TIMEFRAME_M15",
+    "M30": "TIMEFRAME_M30",
+    "H1": "TIMEFRAME_H1",
+    "H4": "TIMEFRAME_H4",
+    "D1": "TIMEFRAME_D1",
+}
+
+
+class MT5Broker(Broker):
+    name = "mt5"
+
+    def __init__(
+        self,
+        credentials: dict[str, Any] | None = None,
+        broker_utc_offset_hours: float = 0.0,
+        magic: int = 770_001,
+        deviation_points: int = 20,
+    ) -> None:
+        self.credentials = credentials or {}
+        self.offset = timedelta(hours=broker_utc_offset_hours)
+        self.magic = magic
+        self.deviation_points = deviation_points
+        self._mt5: Any = None
+        self._spec_cache: dict[str, SymbolSpec] = {}
+
+    # ------------------------------------------------------------------ #
+    # Connection
+    # ------------------------------------------------------------------ #
+
+    @property
+    def mt5(self) -> Any:
+        if self._mt5 is None:
+            raise BrokerError("MT5Broker.connect() has not been called")
+        return self._mt5
+
+    def connect(self) -> None:
+        try:
+            import MetaTrader5 as mt5  # noqa: N813  (vendor casing)
+        except ImportError as exc:  # pragma: no cover - platform dependent
+            raise BrokerError(
+                "MetaTrader5 package is not installed (Windows only): pip install MetaTrader5"
+            ) from exc
+
+        kwargs: dict[str, Any] = {}
+        if path := self.credentials.get("terminal_path"):
+            kwargs["path"] = path
+        if not mt5.initialize(**kwargs):
+            raise BrokerError(f"mt5.initialize failed: {mt5.last_error()}")
+
+        login = self.credentials.get("login")
+        if login:
+            ok = mt5.login(
+                int(login),
+                password=self.credentials.get("password", ""),
+                server=self.credentials.get("server", ""),
+            )
+            if not ok:
+                mt5.shutdown()
+                raise BrokerError(f"mt5.login failed for {login}: {mt5.last_error()}")
+        self._mt5 = mt5
+
+    def disconnect(self) -> None:
+        if self._mt5 is not None:
+            self._mt5.shutdown()
+            self._mt5 = None
+
+    # ------------------------------------------------------------------ #
+    # Reads
+    # ------------------------------------------------------------------ #
+
+    def account(self) -> AccountState:
+        info = self.mt5.account_info()
+        if info is None:
+            raise BrokerError(f"account_info unavailable: {self.mt5.last_error()}")
+        return AccountState(
+            balance=float(info.balance),
+            equity=float(info.equity),
+            currency=str(info.currency),
+            leverage=int(info.leverage),
+        )
+
+    def symbol_spec(self, symbol: str) -> SymbolSpec:
+        sym = symbol.upper()
+        if sym in self._spec_cache:
+            return self._spec_cache[sym]
+        if not self.mt5.symbol_select(sym, True):
+            raise BrokerError(f"symbol {sym} not available in Market Watch")
+        info = self.mt5.symbol_info(sym)
+        if info is None:
+            raise BrokerError(f"symbol_info({sym}) returned None")
+        spec = SymbolSpec(
+            name=sym,
+            digits=int(info.digits),
+            point=float(info.point),
+            tick_size=float(info.trade_tick_size or info.point),
+            tick_value=float(info.trade_tick_value),
+            volume_min=float(info.volume_min),
+            volume_step=float(info.volume_step),
+            volume_max=float(info.volume_max),
+            contract_size=float(info.trade_contract_size),
+        )
+        if spec.tick_value <= 0:
+            raise BrokerError(
+                f"{sym}: broker reported tick_value={spec.tick_value}; refusing to size blind"
+            )
+        self._spec_cache[sym] = spec
+        return spec
+
+    def bars(self, symbol: str, timeframe: str, count: int) -> list[Bar]:
+        tf = self._timeframe(timeframe)
+        # start_pos=1 skips the still-forming bar: strategies only see closed bars.
+        rates = self.mt5.copy_rates_from_pos(symbol.upper(), tf, 1, count)
+        if rates is None or len(rates) == 0:
+            raise BrokerError(f"no rates for {symbol} {timeframe}: {self.mt5.last_error()}")
+        out: list[Bar] = []
+        for r in rates:
+            ts = datetime.fromtimestamp(int(r["time"]), tz=timezone.utc) - self.offset
+            out.append(
+                Bar(
+                    ts=ts,
+                    open=float(r["open"]),
+                    high=float(r["high"]),
+                    low=float(r["low"]),
+                    close=float(r["close"]),
+                    volume=float(r["tick_volume"]),
+                )
+            )
+        return out
+
+    def spread_points(self, symbol: str) -> float:
+        tick = self.mt5.symbol_info_tick(symbol.upper())
+        if tick is None:
+            return 0.0
+        spec = self.symbol_spec(symbol)
+        return (float(tick.ask) - float(tick.bid)) / spec.point
+
+    def positions(self, symbol: str | None = None) -> list[Position]:
+        raw = (
+            self.mt5.positions_get(symbol=symbol.upper())
+            if symbol
+            else self.mt5.positions_get()
+        )
+        if raw is None:
+            return []
+        out: list[Position] = []
+        for p in raw:
+            if int(p.magic) != self.magic:
+                continue  # never touch positions this bot did not open
+            out.append(
+                Position(
+                    symbol=str(p.symbol),
+                    side=Side.LONG if p.type == self.mt5.POSITION_TYPE_BUY else Side.SHORT,
+                    volume=float(p.volume),
+                    entry_price=float(p.price_open),
+                    sl=float(p.sl),
+                    tp=float(p.tp),
+                    opened_at=datetime.fromtimestamp(int(p.time), tz=timezone.utc) - self.offset,
+                    ticket=int(p.ticket),
+                    strategy=str(p.comment).split(":", 1)[0],
+                )
+            )
+        return out
+
+    # ------------------------------------------------------------------ #
+    # Writes
+    # ------------------------------------------------------------------ #
+
+    def market_order(self, req: OrderRequest) -> OrderResult:
+        mt5 = self.mt5
+        spec = self.symbol_spec(req.symbol)
+        tick = mt5.symbol_info_tick(req.symbol.upper())
+        if tick is None:
+            return OrderResult(False, message=f"no tick for {req.symbol}")
+        price = float(tick.ask) if req.side is Side.LONG else float(tick.bid)
+
+        request = {
+            "action": mt5.TRADE_ACTION_DEAL,
+            "symbol": req.symbol.upper(),
+            "volume": float(req.volume),
+            "type": mt5.ORDER_TYPE_BUY if req.side is Side.LONG else mt5.ORDER_TYPE_SELL,
+            "price": price,
+            "sl": round(req.sl, spec.digits),
+            "tp": round(req.tp, spec.digits),
+            "deviation": req.deviation_points or self.deviation_points,
+            "magic": self.magic,
+            "comment": req.comment[:31],  # MT5 truncates silently past 31 chars
+            "type_time": mt5.ORDER_TIME_GTC,
+            "type_filling": self._filling_mode(req.symbol),
+        }
+        result = mt5.order_send(request)
+        if result is None:
+            return OrderResult(False, message=f"order_send returned None: {mt5.last_error()}")
+        if result.retcode != mt5.TRADE_RETCODE_DONE:
+            return OrderResult(
+                False, message=f"retcode {result.retcode}: {getattr(result, 'comment', '')}"
+            )
+        return OrderResult(
+            True,
+            ticket=int(result.order),
+            price=float(result.price),
+            volume=float(result.volume),
+            message="filled",
+        )
+
+    def close_position(self, ticket: int, reason: str = "manual") -> OrderResult:
+        mt5 = self.mt5
+        raw = mt5.positions_get(ticket=ticket)
+        if not raw:
+            return OrderResult(False, message=f"position {ticket} not found")
+        p = raw[0]
+        tick = mt5.symbol_info_tick(p.symbol)
+        is_buy = p.type == mt5.POSITION_TYPE_BUY
+        request = {
+            "action": mt5.TRADE_ACTION_DEAL,
+            "position": int(ticket),
+            "symbol": p.symbol,
+            "volume": float(p.volume),
+            "type": mt5.ORDER_TYPE_SELL if is_buy else mt5.ORDER_TYPE_BUY,
+            "price": float(tick.bid if is_buy else tick.ask),
+            "deviation": self.deviation_points,
+            "magic": self.magic,
+            "comment": f"close:{reason}"[:31],
+            "type_time": mt5.ORDER_TIME_GTC,
+            "type_filling": self._filling_mode(p.symbol),
+        }
+        result = mt5.order_send(request)
+        if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
+            code = getattr(result, "retcode", "None")
+            return OrderResult(False, message=f"close failed, retcode {code}")
+        return OrderResult(True, ticket=ticket, price=float(result.price), message="closed")
+
+    # ------------------------------------------------------------------ #
+    # Internals
+    # ------------------------------------------------------------------ #
+
+    def _timeframe(self, name: str) -> Any:
+        key = name.upper()
+        if key not in TIMEFRAMES:
+            raise BrokerError(f"unsupported timeframe '{name}'; known: {sorted(TIMEFRAMES)}")
+        return getattr(self.mt5, TIMEFRAMES[key])
+
+    def _filling_mode(self, symbol: str) -> Any:
+        """Pick a filling mode the symbol actually accepts.
+
+        Hardcoding ``ORDER_FILLING_FOK`` is a common source of retcode 10030
+        ("unsupported filling mode") on brokers that only allow IOC.
+        """
+        mt5 = self.mt5
+        info = mt5.symbol_info(symbol.upper())
+        modes = int(getattr(info, "filling_mode", 0) or 0)
+        if modes & 1:  # SYMBOL_FILLING_FOK
+            return mt5.ORDER_FILLING_FOK
+        if modes & 2:  # SYMBOL_FILLING_IOC
+            return mt5.ORDER_FILLING_IOC
+        return mt5.ORDER_FILLING_RETURN
