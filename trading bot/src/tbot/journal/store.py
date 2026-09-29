@@ -189,7 +189,7 @@ class Journal:
         with closing(self.conn):
             self.finish_run()
 
-    def __enter__(self) -> "Journal":
+    def __enter__(self) -> Journal:
         return self
 
     def __exit__(self, *exc: object) -> None:

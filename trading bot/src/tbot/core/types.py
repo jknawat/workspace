@@ -22,7 +22,7 @@ class Side(str, Enum):
         return 1 if self is Side.LONG else -1
 
     @property
-    def opposite(self) -> "Side":
+    def opposite(self) -> Side:
         return Side.SHORT if self is Side.LONG else Side.LONG
 
 
@@ -63,7 +63,7 @@ class Bar:
         return self.high - self.low
 
     @classmethod
-    def from_row(cls, row: dict[str, Any]) -> "Bar":
+    def from_row(cls, row: dict[str, Any]) -> Bar:
         ts = row["ts"]
         if isinstance(ts, str):
             ts = datetime.fromisoformat(ts.replace("Z", "+00:00"))
@@ -180,11 +180,11 @@ class Decision:
         return self.passed
 
     @classmethod
-    def ok(cls, reason: str = "", **detail: Any) -> "Decision":
+    def ok(cls, reason: str = "", **detail: Any) -> Decision:
         return cls(True, reason, detail)
 
     @classmethod
-    def no(cls, reason: str, **detail: Any) -> "Decision":
+    def no(cls, reason: str, **detail: Any) -> Decision:
         return cls(False, reason, detail)
 
 
@@ -201,5 +201,5 @@ def round_to_step(volume: float, spec: SymbolSpec) -> float:
         raise ValueError(f"{spec.name}: volume_step must be > 0")
     steps = math.floor(volume / spec.volume_step + 1e-9)
     stepped = steps * spec.volume_step
-    decimals = max(0, -int(math.floor(math.log10(spec.volume_step))))
+    decimals = max(0, -math.floor(math.log10(spec.volume_step)))
     return min(max(round(stepped, decimals + 2), 0.0), spec.volume_max)

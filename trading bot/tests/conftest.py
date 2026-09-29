@@ -14,14 +14,14 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from tbot.config.models import (  # noqa: E402
+from tbot.config.models import (
     BotConfig,
     EngineConfig,
     RiskConfig,
     SessionConfig,
     SymbolConfig,
 )
-from tbot.core.types import Bar, SymbolSpec  # noqa: E402
+from tbot.core.types import Bar, SymbolSpec
 
 START = datetime(2026, 1, 5, 0, 0, tzinfo=timezone.utc)  # a Monday
 
@@ -53,6 +53,23 @@ def bars_from_closes(
         )
         prev = close
     return bars
+
+
+def n_shape(
+    up: int = 60, down: int = 60, base: float = 1.1000, step: float = 0.0008
+) -> list[float]:
+    """The mirror of :func:`v_shape`: an up-leg, then a down-leg.
+
+    Needed for short setups. A path that only falls never produces a
+    cross-below, because the fast EMA starts the series already under the slow
+    one and never gets back above it -- so a short can only arm after a rise.
+    """
+    closes = [base]
+    for i in range(up):
+        closes.append(closes[-1] + (step if i % 4 != 3 else -step * 0.6))
+    for i in range(down):
+        closes.append(closes[-1] + (-step if i % 4 != 3 else step * 0.6))
+    return closes
 
 
 def v_shape(

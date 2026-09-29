@@ -199,10 +199,15 @@ class Record:
         return self.lower - tolerance <= price <= self.upper + tolerance
 
     def distance_to(self, price: float) -> float:
-        """Zero inside the zone, otherwise the gap to its nearest edge."""
+        """Signed gap from the zone to ``price``; zero when price is inside.
+
+        Positive means price sits **above** the zone, negative **below**, so the
+        sign says which side of the structure price is on. Callers that only
+        care about proximity take ``abs()``.
+        """
         if self.contains(price):
             return 0.0
-        return self.lower - price if price < self.lower else price - self.upper
+        return price - self.upper if price > self.upper else price - self.lower
 
     # -- direction --------------------------------------------------------- #
 
@@ -223,7 +228,7 @@ class Record:
         return now - self.updated_at
 
     @classmethod
-    def parse(cls, raw: Any, path: str, offset: timedelta) -> "Record":
+    def parse(cls, raw: Any, path: str, offset: timedelta) -> Record:
         d = _obj(
             raw,
             path,
@@ -384,7 +389,7 @@ class Snapshot:
     @classmethod
     def parse(
         cls, raw: Any, *, broker_utc_offset_hours: float = 0.0, source_path: str = ""
-    ) -> "Snapshot":
+    ) -> Snapshot:
         offset = timedelta(hours=broker_utc_offset_hours)
         d = _obj(
             raw,
@@ -464,7 +469,7 @@ class Snapshot:
     @classmethod
     def from_json(
         cls, text: str, *, broker_utc_offset_hours: float = 0.0, source_path: str = ""
-    ) -> "Snapshot":
+    ) -> Snapshot:
         try:
             raw = json.loads(text, parse_constant=_reject_constant)
         except json.JSONDecodeError as exc:

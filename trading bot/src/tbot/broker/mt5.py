@@ -63,7 +63,7 @@ class MT5Broker(Broker):
 
     def connect(self) -> None:
         try:
-            import MetaTrader5 as mt5  # noqa: N813  (vendor casing)
+            import MetaTrader5 as mt5  # vendor's casing, not ours
         except ImportError as exc:  # pragma: no cover - platform dependent
             raise BrokerError(
                 "MetaTrader5 package is not installed (Windows only): pip install MetaTrader5"

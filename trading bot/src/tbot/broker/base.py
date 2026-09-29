@@ -76,7 +76,7 @@ class Broker(ABC):
         """Current spread in points; 0.0 when quotes are unavailable."""
         return 0.0
 
-    def __enter__(self) -> "Broker":
+    def __enter__(self) -> Broker:
         self.connect()
         return self
 

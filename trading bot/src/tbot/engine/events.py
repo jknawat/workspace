@@ -69,7 +69,14 @@ class EventBus:
     def __len__(self) -> int:
         return len(self._subscribers)
 
-    def publish(self, kind: str, symbol: str = "", **data: Any) -> Event:
+    def publish(self, kind: str, symbol: str = "", /, **data: Any) -> Event:
+        """Publish an event. ``kind`` and ``symbol`` are positional-only.
+
+        That slash matters: without it, a payload field called ``kind`` or
+        ``symbol`` collides with these parameters and raises
+        ``TypeError: got multiple values for argument`` -- at runtime, in the
+        trading loop, on whichever event happened to carry that key.
+        """
         event = Event(kind=kind, symbol=symbol, data=data)
         for name, fn in self._subscribers:
             try:

@@ -1,13 +1,15 @@
 # First run
 
-**Nothing in this repository has ever been executed.** It was built on a machine
-with no Python interpreter, so roughly 400 tests exist and none have run. That
-is not a disclaimer to skim past — it is the single most important fact about
-the current state, and working through this page is how it stops being true.
+The suite has been run: **306 tests, all passing on Python 3.12.10**, with
+`ruff check` clean and a full backtest completing on synthetic data. This page
+is the path from a fresh checkout to paper trading.
 
-Expect the first `pytest` run to fail somewhere. Every failure is a real
-finding: either the code is wrong or a test's expectation is. Both are worth
-knowing, and both are cheap to fix now.
+It is worth knowing what that first run cost, because it is the argument for
+doing this early: nine failures, three of them real bugs — a sign error in
+`Record.distance_to`, a rejection reason wiped the instant it was recorded, and
+a test path on which a short could never arm. A first real backtest then found a
+fourth that no unit test had reached: an event field colliding with its own
+publisher's parameter name.
 
 ---
 

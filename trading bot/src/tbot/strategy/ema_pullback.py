@@ -21,7 +21,7 @@ replayed and explained without adding print statements.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, ClassVar
 
 from ..core.indicators import Series, atr, crossed_above, crossed_below, ema, slope_degrees
 from ..core.types import Bar, Phase, Side, Signal
@@ -33,7 +33,7 @@ from .filters import build_chain
 class EmaPullbackBreakout(Strategy):
     name = "ema_pullback"
 
-    defaults: dict[str, Any] = {
+    defaults: ClassVar[dict[str, Any]] = {
         # indicator periods
         "ema_confirm": 5,
         "ema_fast": 8,
@@ -294,9 +294,13 @@ class EmaPullbackBreakout(Strategy):
     def _to(self, phase: Phase, ctx: BarContext, reason: str) -> None:
         self._record(ctx, "transition", to=phase.value, reason=reason)
         if phase is Phase.SCANNING:
-            cooldown = self.cooldown_until  # survives a reset; it is time-based
+            # Both survive the reset: the cooldown is time-based, and
+            # last_reject is the explanation for this transition -- clearing it
+            # would erase the reason the moment it was recorded.
+            cooldown, reject = self.cooldown_until, self.last_reject
             self.reset()
             self.cooldown_until = cooldown
+            self.last_reject = reject
         self.phase = phase
 
     def _record(self, ctx: BarContext, event: str, **fields: Any) -> None:

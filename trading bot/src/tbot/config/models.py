@@ -35,7 +35,7 @@ def _parse_hhmm(value: str, where: str) -> time:
     try:
         hh, mm = value.split(":")
         return time(int(hh), int(mm))
-    except Exception as exc:  # noqa: BLE001 - config errors are reported verbatim
+    except Exception as exc:  # config errors are reported verbatim
         raise ConfigError(f"{where}: '{value}' is not HH:MM") from exc
 
 
@@ -53,7 +53,7 @@ class SessionConfig:
     weekdays: tuple[int, ...] = (0, 1, 2, 3, 4)  # Monday=0
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any], where: str) -> "SessionConfig":
+    def from_dict(cls, d: dict[str, Any], where: str) -> SessionConfig:
         _reject_unknown(d, {"start", "end", "weekdays"}, where)
         return cls(
             start=_parse_hhmm(d.get("start", "00:00"), f"{where}.start"),
@@ -79,7 +79,7 @@ class RiskConfig:
     min_rr: float = 1.0
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "RiskConfig":
+    def from_dict(cls, d: dict[str, Any]) -> RiskConfig:
         _reject_unknown(
             d,
             {
@@ -111,7 +111,7 @@ class EngineConfig:
     journal_path: str = "data/journal.sqlite"
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "EngineConfig":
+    def from_dict(cls, d: dict[str, Any]) -> EngineConfig:
         _reject_unknown(
             d,
             {
@@ -154,7 +154,7 @@ class SnapshotConfig:
     require_fresh: bool = True    # no fresh snapshot -> ICT gates fail closed
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "SnapshotConfig":
+    def from_dict(cls, d: dict[str, Any]) -> SnapshotConfig:
         _reject_unknown(
             d,
             {
@@ -188,7 +188,7 @@ class SymbolConfig:
     session: SessionConfig = field(default_factory=SessionConfig)
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any], where: str) -> "SymbolConfig":
+    def from_dict(cls, d: dict[str, Any], where: str) -> SymbolConfig:
         _reject_unknown(
             d,
             {
@@ -228,9 +228,9 @@ class BotConfig:
     risk: RiskConfig
     symbols: tuple[SymbolConfig, ...]
     snapshot: SnapshotConfig = field(default_factory=SnapshotConfig)
-    telegram: "TelegramConfig" = field(default_factory=lambda: TelegramConfig())
-    dashboard: "DashboardConfig" = field(default_factory=lambda: DashboardConfig())
-    overlay: "OverlayConfig" = field(default_factory=lambda: OverlayConfig())
+    telegram: TelegramConfig = field(default_factory=lambda: TelegramConfig())
+    dashboard: DashboardConfig = field(default_factory=lambda: DashboardConfig())
+    overlay: OverlayConfig = field(default_factory=lambda: OverlayConfig())
     log_level: str = "INFO"
     log_file: str | None = "logs/tbot.jsonl"
 
@@ -275,7 +275,7 @@ class TelegramConfig:
     accept_commands: bool = True
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "TelegramConfig":
+    def from_dict(cls, d: dict[str, Any]) -> TelegramConfig:
         _reject_unknown(
             d, {"enabled", "token", "chat_id", "events", "accept_commands"}, "[telegram]"
         )
@@ -306,7 +306,7 @@ class DashboardConfig:
     port: int = 8787
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "DashboardConfig":
+    def from_dict(cls, d: dict[str, Any]) -> DashboardConfig:
         _reject_unknown(d, {"enabled", "host", "port"}, "[dashboard]")
         cfg = cls(**d)
         if not 1 <= cfg.port <= 65535:
@@ -323,7 +323,7 @@ class OverlayConfig:
     filename: str = "tbot_state.json"
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "OverlayConfig":
+    def from_dict(cls, d: dict[str, Any]) -> OverlayConfig:
         _reject_unknown(d, {"enabled", "folder", "filename"}, "[overlay]")
         cfg = cls(**d)
         if cfg.enabled and not cfg.filename:

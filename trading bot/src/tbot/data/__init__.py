@@ -5,9 +5,9 @@ from .snapshot import CONCEPTS, Module, Record, Session, Snapshot, SnapshotError
 from .snapshot_store import SnapshotStore, default_common_files_dir, sanitise_symbol
 
 __all__ = [
+    "CONCEPTS",
     "BarFeed",
     "BrokerFeed",
-    "CONCEPTS",
     "CsvFeed",
     "ListFeed",
     "Module",

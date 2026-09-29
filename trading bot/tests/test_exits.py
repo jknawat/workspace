@@ -14,7 +14,7 @@ import pytest
 from conftest import bars_from_closes
 
 from tbot.broker.paper import PaperBroker
-from tbot.config.models import ConfigError, SymbolConfig
+from tbot.config.models import ConfigError
 from tbot.core.types import Bar, OrderRequest, Position, Side
 from tbot.engine.exits import ExitManager, PositionState, available, build_policies
 from tbot.strategy.base import BarContext
@@ -332,9 +332,24 @@ def test_partial_close_reduces_volume_and_banks_pnl(broker_with_position):
     assert broker.balance == pytest.approx(10_080.0)
 
 
-def test_partial_close_refuses_to_leave_an_untradeable_remnant(broker_with_position):
-    result = broker_with_position.close_position(1, volume=0.995)
+def test_partial_close_refuses_to_leave_an_untradeable_remnant(spec_eurusd):
+    """Matters on brokers whose minimum volume exceeds their step.
+
+    With min == step (0.01/0.01) every remainder is tradeable, so the guard
+    looks dead. Give it min 0.10 with a 0.01 step -- common on CFDs -- and
+    closing 0.08 of a 0.15 lot position would strand 0.07, below the minimum.
+    """
+    from dataclasses import replace
+
+    broker = PaperBroker(balance=10_000.0, slippage_points=0.0)
+    broker.specs["EURUSD"] = replace(broker.specs["EURUSD"], volume_min=0.10)
+    broker.connect()
+    broker.on_bar("EURUSD", Bar(ts=TS, open=1.1000, high=1.1002, low=1.0998, close=1.1000))
+    assert broker.market_order(OrderRequest("EURUSD", Side.LONG, 0.15, 1.0980, 1.1060)).ok
+
+    result = broker.close_position(1, volume=0.08)
     assert not result.ok and "minimum" in result.message
+    assert broker.positions()[0].volume == pytest.approx(0.15)  # untouched
 
 
 def test_partial_close_of_the_whole_volume_closes_it(broker_with_position):

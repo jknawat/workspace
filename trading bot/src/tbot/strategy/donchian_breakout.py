@@ -8,7 +8,7 @@ symbol, with no engine edits.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, ClassVar
 
 from ..core.indicators import Series, atr, ema, slope_degrees
 from ..core.types import Bar, Phase, Side, Signal
@@ -20,7 +20,7 @@ from .filters import build_chain
 class DonchianBreakout(Strategy):
     name = "donchian"
 
-    defaults: dict[str, Any] = {
+    defaults: ClassVar[dict[str, Any]] = {
         "channel_period": 20,
         "atr_period": 14,
         "ema_trend": 200,

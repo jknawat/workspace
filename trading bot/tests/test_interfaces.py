@@ -142,7 +142,24 @@ def test_closed_event_shows_the_sign():
 
 def test_failed_exit_is_not_announced():
     """Retryable plumbing noise does not belong on someone's phone."""
-    assert format_event(Event(EXIT, "EURUSD", TS, {"ok": False, "kind": "modify"})) is None
+    assert format_event(Event(EXIT, "EURUSD", TS, {"ok": False, "action": "modify"})) is None
+
+
+def test_publish_rejects_nothing_when_payload_uses_reserved_names():
+    """``kind`` and ``symbol`` are positional-only on publish().
+
+    Without that, an event carrying a field called ``kind`` raises TypeError
+    inside the trading loop -- which is exactly how the exit events broke on
+    their first real backtest.
+    """
+    bus = EventBus()
+    seen: list[Event] = []
+    bus.subscribe(seen.append, "spy")
+    bus.publish(EXIT, "EURUSD", kind="close", symbol="shadowed", action="close")
+    assert seen[0].kind == EXIT
+    assert seen[0].symbol == "EURUSD"
+    assert seen[0].data["kind"] == "close"       # kept as plain payload
+    assert seen[0].data["symbol"] == "shadowed"
 
 
 def test_unknown_event_kinds_are_ignored():

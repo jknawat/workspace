@@ -89,7 +89,7 @@ class CsvFeed(BarFeed):
 class BrokerFeed(BarFeed):
     """Live bars pulled through whatever broker adapter is connected."""
 
-    def __init__(self, broker) -> None:  # noqa: ANN001 - avoids an import cycle
+    def __init__(self, broker) -> None:  # untyped: avoids an import cycle
         self.broker = broker
 
     def history(self, symbol: str, timeframe: str, count: int) -> list[Bar]:

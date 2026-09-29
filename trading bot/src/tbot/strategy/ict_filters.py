@@ -24,7 +24,7 @@ strings your library version emits before relying on one.
 from __future__ import annotations
 
 from datetime import timedelta
-from typing import Any
+from typing import Any, ClassVar
 
 from ..core.types import Decision, Side
 from ..data.snapshot import BIAS_CONCEPTS, Record, Snapshot
@@ -108,7 +108,7 @@ class IctSnapshotFilter(Filter):
     """
 
     name = "ict_snapshot"
-    defaults: dict[str, Any] = {"concepts": []}
+    defaults: ClassVar[dict[str, Any]] = {"concepts": []}
 
     def check(self, ctx: BarContext, side: Side) -> Decision:
         snapshot, why = _snapshot(ctx)
@@ -135,7 +135,7 @@ class IctBiasFilter(Filter):
     """
 
     name = "ict_bias"
-    defaults: dict[str, Any] = {"concepts": sorted(BIAS_CONCEPTS), "allow_neutral": False}
+    defaults: ClassVar[dict[str, Any]] = {"concepts": sorted(BIAS_CONCEPTS), "allow_neutral": False}
 
     def check(self, ctx: BarContext, side: Side) -> Decision:
         snapshot, why = _snapshot(ctx)
@@ -162,7 +162,7 @@ class IctKillzoneFilter(Filter):
     """
 
     name = "ict_killzone"
-    defaults: dict[str, Any] = {"names": []}
+    defaults: ClassVar[dict[str, Any]] = {"names": []}
 
     def check(self, ctx: BarContext, side: Side) -> Decision:
         snapshot, why = _snapshot(ctx)
@@ -200,7 +200,7 @@ class IctZoneFilter(Filter):
     """
 
     name = "ict_zone"
-    defaults: dict[str, Any] = {
+    defaults: ClassVar[dict[str, Any]] = {
         "concepts": list(ZONE_DEFAULTS),
         "tolerance_points": 0.0,
         "states": [],
@@ -249,7 +249,7 @@ class IctLiquiditySweptFilter(Filter):
     """
 
     name = "ict_liquidity_swept"
-    defaults: dict[str, Any] = {
+    defaults: ClassVar[dict[str, Any]] = {
         "states": ["swept", "taken"],
         "max_age_minutes": 240.0,
         "direction": "agree",  # agree | oppose | any
@@ -293,7 +293,7 @@ class IctPremiumDiscountFilter(Filter):
     """
 
     name = "ict_premium_discount"
-    defaults: dict[str, Any] = {"tolerance_points": 0.0}
+    defaults: ClassVar[dict[str, Any]] = {"tolerance_points": 0.0}
 
     def check(self, ctx: BarContext, side: Side) -> Decision:
         snapshot, why = _snapshot(ctx)
@@ -330,7 +330,7 @@ class IctNoOpposingZoneFilter(Filter):
     """
 
     name = "ict_no_opposing_zone"
-    defaults: dict[str, Any] = {
+    defaults: ClassVar[dict[str, Any]] = {
         "concepts": list(ZONE_DEFAULTS),
         "distance_points": 200.0,
         "states": [],

@@ -27,7 +27,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from . import __version__
-from .broker import DEFAULT_SPECS, PaperBroker, build as build_broker
+from .broker import DEFAULT_SPECS, PaperBroker
+from .broker import build as build_broker
 from .broker.base import Broker, BrokerError
 from .config import ConfigError, load_config, load_credentials
 from .config.models import BotConfig
@@ -41,7 +42,9 @@ from .interfaces import build as build_interfaces
 from .interfaces.telegram import TelegramClient, TelegramError, discover_chat_id
 from .journal import Journal
 from .obs import log as obs_log
-from .strategy import available as available_strategies, create, get as get_strategy
+from .strategy import available as available_strategies
+from .strategy import create
+from .strategy import get as get_strategy
 from .strategy.filters import available as available_filters
 
 DEFAULT_CONFIG = "config/bot.toml"
@@ -143,39 +146,44 @@ def cmd_validate(args: argparse.Namespace) -> int:
     return 0
 
 
+def _summary(cls: type) -> str:
+    """First line of the class docstring, falling back to its module's.
+
+    Strategies put their explanation in the module docstring, where it belongs;
+    without this fallback they listed with no description at all.
+    """
+    doc = cls.__doc__
+    if not doc or not doc.strip():
+        doc = getattr(sys.modules.get(cls.__module__), "__doc__", "") or ""
+    lines = doc.strip().splitlines()
+    return lines[0].strip() if lines else ""
+
+
+def _describe(name: str, cls: type, module: bool = False) -> None:
+    print(f"\n  {name}" + (f"  ({cls.__module__})" if module else ""))
+    summary = _summary(cls)
+    if summary:
+        print(f"    {summary}")
+    for key, value in cls.defaults.items():  # type: ignore[attr-defined]
+        print(f"      {key:<26} = {value!r}")
+
+
 def cmd_strategies(args: argparse.Namespace) -> int:
     print("strategies:")
     for name in available_strategies():
-        cls = get_strategy(name)
-        print(f"\n  {name}  ({cls.__module__})")
-        doc = (cls.__doc__ or "").strip().splitlines()
-        if doc:
-            print(f"    {doc[0]}")
-        for key, value in cls.defaults.items():
-            print(f"      {key:<26} = {value!r}")
+        _describe(name, get_strategy(name), module=True)
+
     print("\nexit policies (declare under [exits.<name>] in a symbol file):")
     from .engine import exits as ex
 
     for name in ex.available():
-        cls = ex._REGISTRY[name]  # noqa: SLF001 - introspection for the help output
-        print(f"\n  {name}")
-        doc = (cls.__doc__ or "").strip().splitlines()
-        if doc:
-            print(f"    {doc[0]}")
-        for key, value in cls.defaults.items():
-            print(f"      {key:<26} = {value!r}")
+        _describe(name, ex._REGISTRY[name])  # noqa: SLF001 - introspection for help output
 
     print("\nfilters (declare under [filters.<name>] in a symbol file):")
     from .strategy import filters as f
 
     for name in available_filters():
-        cls = f._REGISTRY[name]  # noqa: SLF001 - introspection for the help output
-        print(f"\n  {name}")
-        doc = (cls.__doc__ or "").strip().splitlines()
-        if doc:
-            print(f"    {doc[0]}")
-        for key, value in cls.defaults.items():
-            print(f"      {key:<26} = {value!r}")
+        _describe(name, f._REGISTRY[name])  # noqa: SLF001 - introspection for help output
     return 0
 
 
@@ -287,7 +295,7 @@ def cmd_telegram_setup(args: argparse.Namespace) -> int:
     me = client.me()
     print(f"bot: @{me.get('username', '?')} ({me.get('first_name', '')})")
     print(f"\nNow send any message to @{me.get('username', '?')} from Telegram.")
-    print(f"Waiting up to {args.wait:.0f}s…")
+    print(f"Waiting up to {args.wait:.0f}s...")
 
     chat_id = discover_chat_id(token, wait_seconds=args.wait)
     if chat_id is None:
@@ -392,7 +400,7 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
         print(f"\nno readable snapshot for {args.symbol}", file=sys.stderr)
         return 1
 
-    print(f"\n{snapshot.symbol} {snapshot.timeframe} — {snapshot.status}")
+    print(f"\n{snapshot.symbol} {snapshot.timeframe} -- {snapshot.status}")
     print(f"  library     {snapshot.library_version} (schema {snapshot.schema_version})")
     print(f"  as of       {snapshot.as_of_broker} broker = {snapshot.as_of} UTC")
     print(f"  bias        {snapshot.bias()}")
@@ -482,7 +490,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         check(
             "MetaTrader5 package",
             not needed,
-            "not installed — required for live data/orders (pip install MetaTrader5)",
+            "not installed -- required for live data/orders (pip install MetaTrader5)",
         )
 
     # --- structure snapshots ------------------------------------------- #
@@ -529,12 +537,12 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         check(
             f"dashboard port {cfg.dashboard.port}",
             free,
-            "available" if free else "already in use — change [dashboard].port",
+            "available" if free else "already in use -- change [dashboard].port",
         )
 
     if cfg is not None and cfg.telegram.enabled:
         if not cfg.telegram.token:
-            check("telegram token", False, "missing — run `tbot telegram-setup`")
+            check("telegram token", False, "missing -- run `tbot telegram-setup`")
         else:
             try:
                 me = TelegramClient(cfg.telegram.token, timeout=10.0).me()

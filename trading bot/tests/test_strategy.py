@@ -9,9 +9,10 @@ parameter change without saying anything about correctness.
 from __future__ import annotations
 
 import dataclasses
+from itertools import pairwise
 
 import pytest
-from conftest import bars_from_closes, fast_params, v_shape
+from conftest import bars_from_closes, fast_params, n_shape, v_shape
 
 from tbot.core.types import Phase, Side, Signal
 from tbot.strategy import create
@@ -66,8 +67,10 @@ def test_short_signals_are_not_emitted_when_only_long_is_enabled(symbol_cfg, spe
 
 
 def test_enabling_short_produces_short_signals_on_the_down_leg(symbol_cfg, spec_eurusd):
+    """A rise then a fall: a short can only arm after the fast EMA has been
+    above the slow one, which a permanently falling series never gives it."""
     cfg = dataclasses.replace(symbol_cfg, sides=("LONG", "SHORT"))
-    bars = bars_from_closes(v_shape())
+    bars = bars_from_closes(n_shape())
     signals = collect(create(cfg, spec_eurusd), cfg, spec_eurusd, bars)
     shorts = [s for _, s in signals if s.side is Side.SHORT]
     assert shorts, "the down-leg should produce at least one short setup"
@@ -95,7 +98,7 @@ def test_cooldown_spaces_consecutive_entries(symbol_cfg, spec_eurusd):
     cfg = with_params(symbol_cfg, cooldown_bars=cooldown, use_pullback=False)
     bars = bars_from_closes(v_shape())
     indices = [i for i, _ in collect(create(cfg, spec_eurusd), cfg, spec_eurusd, bars)]
-    gaps = [b - a for a, b in zip(indices, indices[1:])]
+    gaps = [b - a for a, b in pairwise(indices)]
     assert all(g >= cooldown for g in gaps), gaps
 
 

@@ -146,7 +146,7 @@ class BreakEvenPolicy(ExitPolicy):
     """
 
     name = "break_even"
-    defaults = {"trigger_r": 1.0, "offset_r": 0.05}
+    defaults: ClassVar[dict[str, Any]] = {"trigger_r": 1.0, "offset_r": 0.05}
 
     def evaluate(self, pos, ctx, state):
         if state.flags.get("break_even"):
@@ -171,7 +171,7 @@ class TrailingAtrPolicy(ExitPolicy):
     """
 
     name = "trailing_atr"
-    defaults = {"distance_atr": 2.0, "start_r": 1.0, "source": "atr"}
+    defaults: ClassVar[dict[str, Any]] = {"distance_atr": 2.0, "start_r": 1.0, "source": "atr"}
 
     def evaluate(self, pos, ctx, state):
         atr = ctx.value(str(self.opt["source"]))
@@ -195,7 +195,7 @@ class TrailingStructurePolicy(ExitPolicy):
     """
 
     name = "trailing_structure"
-    defaults = {"start_r": 1.0, "buffer_atr": 0.25, "source": "atr"}
+    defaults: ClassVar[dict[str, Any]] = {"start_r": 1.0, "buffer_atr": 0.25, "source": "atr"}
 
     def evaluate(self, pos, ctx, state):
         if ctx.snapshot is None:
@@ -227,7 +227,7 @@ class PartialTakeProfitPolicy(ExitPolicy):
     """
 
     name = "partial_tp"
-    defaults = {"trigger_r": 1.0, "percent": 50.0}
+    defaults: ClassVar[dict[str, Any]] = {"trigger_r": 1.0, "percent": 50.0}
 
     def evaluate(self, pos, ctx, state):
         if state.flags.get("partial_tp"):
@@ -262,7 +262,7 @@ class TimeStopPolicy(ExitPolicy):
     """
 
     name = "time_stop"
-    defaults = {"max_bars": 48, "min_r": 0.5}
+    defaults: ClassVar[dict[str, Any]] = {"max_bars": 48, "min_r": 0.5}
 
     def evaluate(self, pos, ctx, state):
         held = ctx.i - state.opened_index
@@ -314,7 +314,7 @@ class ExitManager:
         return len(self.policies)
 
     @classmethod
-    def from_config(cls, spec: dict[str, dict[str, Any]]) -> "ExitManager":
+    def from_config(cls, spec: dict[str, dict[str, Any]]) -> ExitManager:
         return cls(build_policies(spec))
 
     def forget(self, live_tickets: set[int]) -> None:

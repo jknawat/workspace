@@ -68,7 +68,7 @@ class _Handler(BaseHTTPRequestHandler):
     state: DashboardState  # injected by DashboardServer
     server_version = "tbot"
 
-    def log_message(self, fmt: str, *args: Any) -> None:  # noqa: A003
+    def log_message(self, fmt: str, *args: Any) -> None:
         pass  # the access log is noise; real events go to the JSONL log
 
     def _send(self, body: bytes, content_type: str, code: int = 200) -> None:
@@ -82,7 +82,7 @@ class _Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def do_GET(self) -> None:  # noqa: N802 - required name
+    def do_GET(self) -> None:  # the name http.server requires
         path = self.path.split("?", 1)[0].rstrip("/") or "/"
         if path == "/":
             self._send(PAGE.encode("utf-8"), "text/html; charset=utf-8")

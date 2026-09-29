@@ -153,7 +153,7 @@ def format_event(event: Event) -> str | None:
     if event.kind == EXIT:
         if not d.get("ok"):
             return None
-        if d.get("kind") == "close":
+        if d.get("action") == "close":
             return f"✂️ {sym} partial close — {d.get('reason')}"
         return f"🛡️ {sym} stop moved to {d.get('sl')} — {d.get('reason')}"
     if event.kind == SIGNAL:

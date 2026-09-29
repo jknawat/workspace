@@ -11,6 +11,7 @@ from __future__ import annotations
 import dataclasses
 import json
 from datetime import datetime, timezone
+from itertools import pairwise
 from pathlib import Path
 
 import pytest
@@ -56,8 +57,16 @@ def ict_cfg(**params) -> SymbolConfig:
 
 
 def approach_zone(n_before: int = 8) -> list[float]:
-    """Drift down from above the block, then trade inside it on the last bars."""
-    return [1.1090] * n_before + [1.1080, 1.1072, 1.1060, 1.1062]
+    """Drift down into the order block, staying clear of the fixture's FVG.
+
+    The prefix sits at 1.1076: below fvg-001 (1.10800-1.10900) once the 0.0003
+    wick is allowed for, and above ob-001 (1.10500-1.10700). So the first zone
+    this path touches is the order block, and nothing else -- which is what
+    these tests are about. A path starting at 1.1090 sits exactly on the FVG's
+    upper edge and trades that first, which is correct behaviour but a
+    different test.
+    """
+    return [1.1076] * n_before + [1.1074, 1.1072, 1.1060, 1.1062]
 
 
 def run(cfg: SymbolConfig, spec, closes: list[float], snapshot: Snapshot | None):
@@ -90,7 +99,7 @@ def test_no_snapshot_means_no_trades(spec_eurusd):
 def test_losing_the_snapshot_while_armed_resets_to_scanning(spec_eurusd):
     cfg = ict_cfg(confirmation="candle", confirm_max_bars=5)
     strategy = create(cfg, spec_eurusd)
-    bars = bars_from_closes([1.1090] * 8 + [1.1072, 1.1058], wick=0.0003, start=START)
+    bars = bars_from_closes([1.1076] * 8 + [1.1072, 1.1058], wick=0.0003, start=START)
     ind = strategy.compute(bars)
 
     def step(i: int, snapshot: Snapshot | None):
@@ -171,7 +180,7 @@ def test_a_zone_price_never_reaches_is_not_traded(spec_eurusd):
 def test_a_zone_is_traded_once_not_on_every_bar(spec_eurusd):
     """An order block stays active for many bars; without memory the bot
     re-enters the same setup until the zone finally breaks."""
-    closes = [1.1090] * 8 + [1.1060] * 20
+    closes = [1.1076] * 8 + [1.1060] * 20
     _, signals = run(ict_cfg(cooldown_bars=0), spec_eurusd, closes, snap())
     assert len(signals) == 1
     zone_ids = [s.meta["zone_id"] for _, s in signals]
@@ -179,7 +188,7 @@ def test_a_zone_is_traded_once_not_on_every_bar(spec_eurusd):
 
 
 def test_repeat_entries_are_possible_when_the_guard_is_disabled(spec_eurusd):
-    closes = [1.1090] * 8 + [1.1060] * 20
+    closes = [1.1076] * 8 + [1.1060] * 20
     _, signals = run(
         ict_cfg(one_entry_per_zone=False, cooldown_bars=0), spec_eurusd, closes, snap()
     )
@@ -187,11 +196,11 @@ def test_repeat_entries_are_possible_when_the_guard_is_disabled(spec_eurusd):
 
 
 def test_cooldown_spaces_entries(spec_eurusd):
-    closes = [1.1090] * 8 + [1.1060] * 30
+    closes = [1.1076] * 8 + [1.1060] * 30
     _, signals = run(
         ict_cfg(one_entry_per_zone=False, cooldown_bars=5), spec_eurusd, closes, snap()
     )
-    gaps = [b - a for (a, _), (b, _) in zip(signals, signals[1:])]
+    gaps = [b - a for (a, _), (b, _) in pairwise(signals)]
     assert all(g >= 5 for g in gaps), gaps
 
 
@@ -224,7 +233,7 @@ def test_the_refusal_reason_is_recorded(spec_eurusd):
 def test_candle_confirmation_waits_for_a_directional_close(spec_eurusd):
     """Entry into the zone on a falling bar does not confirm; the next up bar does."""
     cfg = ict_cfg(confirmation="candle", confirm_max_bars=4)
-    closes = [1.1090] * 8 + [1.1060, 1.1058, 1.1065]
+    closes = [1.1076] * 8 + [1.1060, 1.1058, 1.1065]
     _, signals = run(cfg, spec_eurusd, closes, snap())
     assert signals
     entry_index = signals[0][0]
@@ -233,14 +242,14 @@ def test_candle_confirmation_waits_for_a_directional_close(spec_eurusd):
 
 def test_candle_confirmation_expires(spec_eurusd):
     cfg = ict_cfg(confirmation="candle", confirm_max_bars=1)
-    closes = [1.1090] * 8 + [1.1062, 1.1061, 1.1060, 1.1059, 1.1058]
+    closes = [1.1076] * 8 + [1.1062, 1.1061, 1.1060, 1.1059, 1.1058]
     _, signals = run(cfg, spec_eurusd, closes, snap())
     assert signals == []
 
 
 def test_a_close_through_the_zone_invalidates_the_setup(spec_eurusd):
     cfg = ict_cfg(confirmation="candle", confirm_max_bars=10)
-    closes = [1.1090] * 8 + [1.1060, 1.1030, 1.1035]
+    closes = [1.1076] * 8 + [1.1060, 1.1030, 1.1035]
     strategy, signals = run(cfg, spec_eurusd, closes, snap())
     assert signals == []
     assert any(
@@ -251,7 +260,7 @@ def test_a_close_through_the_zone_invalidates_the_setup(spec_eurusd):
 def test_structure_confirmation_accepts_an_event_confirmed_since_arming(spec_eurusd):
     """The fixture's BOS confirmed at 11:40; bars starting 10:00 arm before that."""
     cfg = ict_cfg(confirmation="structure", confirm_max_bars=40)
-    closes = [1.1090] * 8 + [1.1060] * 30
+    closes = [1.1076] * 8 + [1.1060] * 30
     _, signals = run(cfg, spec_eurusd, closes, snap())
     assert signals, "the BOS confirmed later in the session should confirm the setup"
     assert "structure BOS" in signals[0][1].reason
@@ -356,6 +365,6 @@ def test_structure_confirmation_ignores_events_older_than_the_setup(spec_eurusd)
         if record["id"] == "bos-001":
             record["confirmed_at"] = "2026-09-18T09:00:00"  # before the first bar
     cfg = ict_cfg(confirmation="structure", confirm_max_bars=40)
-    closes = [1.1090] * 8 + [1.1060] * 10
+    closes = [1.1076] * 8 + [1.1060] * 10
     _, signals = run(cfg, spec_eurusd, closes, snap(d))
     assert signals == []

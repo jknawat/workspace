@@ -250,14 +250,18 @@ pip tables get wrong), the simulator's fill and stop/target rules, the risk
 gate, and two end-to-end backtests through the journal. Nothing in it requires
 MetaTrader 5, so it runs in CI on Linux.
 
-**Status: nothing here has ever been executed.** This was built on a machine
-with no Python interpreter, so ~400 tests exist and none have run. Expect the
-first run to fail somewhere; every failure is a real finding, in the code or in
-a test's expectation.
+**Status: 306 tests, all passing on Python 3.12.** `ruff check` is clean, and
+`tbot backtest` runs the full pipeline end to end on synthetic data.
 
-Start with **[docs/FIRST_RUN.md](docs/FIRST_RUN.md)** and `tbot doctor`, which
-checks the interpreter, config, strategies, exit policies, MetaTrader5, the
-snapshot folder, the journal and the watchers in one pass.
+The suite was written before an interpreter was available; its first run found
+nine failures, three of them real bugs (a sign error in `Record.distance_to`, a
+rejection reason wiped the instant it was set, and a price path that could never
+arm a short). A first live backtest then found a fourth: an event payload field
+colliding with `EventBus.publish`'s own parameter.
+
+New checkout? Start with **[docs/FIRST_RUN.md](docs/FIRST_RUN.md)** and
+`tbot doctor`, which checks the interpreter, config, strategies, exit policies,
+MetaTrader5, the snapshot folder, the journal and the watchers in one pass.
 
 ---
 

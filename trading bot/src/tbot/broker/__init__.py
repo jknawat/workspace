@@ -7,7 +7,7 @@ from typing import Any
 from .base import Broker, BrokerError, ClosedTrade
 from .paper import DEFAULT_SPECS, PaperBroker
 
-__all__ = ["Broker", "BrokerError", "ClosedTrade", "PaperBroker", "DEFAULT_SPECS", "build"]
+__all__ = ["DEFAULT_SPECS", "Broker", "BrokerError", "ClosedTrade", "PaperBroker", "build"]
 
 
 def build(name: str, **kwargs: Any) -> Broker:

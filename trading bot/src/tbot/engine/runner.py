@@ -22,6 +22,7 @@ state machines would leave them stale and confused on resume.
 
 from __future__ import annotations
 
+import contextlib
 import signal
 import time
 from collections.abc import Callable
@@ -93,10 +94,9 @@ class Runner:
             self._stop = True
 
         for sig in (signal.SIGINT, signal.SIGTERM):
-            try:
+            # Installing a handler fails off the main thread; that is fine.
+            with contextlib.suppress(ValueError, OSError):
                 signal.signal(sig, handle)
-            except (ValueError, OSError):  # pragma: no cover - non-main thread
-                pass
 
     def stop(self) -> None:
         self._stop = True
@@ -260,7 +260,7 @@ class Runner:
 
             try:
                 result = self.engine.step(symbol)
-            except Exception as exc:  # noqa: BLE001 - one bad symbol must not stop the rest
+            except Exception as exc:  # one bad symbol must not stop the rest
                 self.stats.errors += 1
                 self.log.exception("step failed for %s", symbol, extra={"symbol": symbol})
                 self.engine.events.publish(ERROR, symbol, message=str(exc))

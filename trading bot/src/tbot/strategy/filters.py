@@ -10,6 +10,7 @@ always explainable after the fact.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from itertools import pairwise
 from typing import Any, ClassVar
 
 from ..config.models import ConfigError
@@ -45,7 +46,7 @@ def register(cls: type[Filter]) -> type[Filter]:
     return cls
 
 
-def build_chain(spec: dict[str, dict[str, Any]]) -> "FilterChain":
+def build_chain(spec: dict[str, dict[str, Any]]) -> FilterChain:
     filters: list[Filter] = []
     for name, options in spec.items():
         opts = dict(options)
@@ -90,7 +91,7 @@ class AtrRangeFilter(Filter):
     """Volatility band: too quiet means noise, too wild means the stop is huge."""
 
     name = "atr_range"
-    defaults = {"min": 0.0, "max": float("inf"), "source": "atr"}
+    defaults: ClassVar[dict[str, Any]] = {"min": 0.0, "max": float("inf"), "source": "atr"}
 
     def check(self, ctx: BarContext, side: Side) -> Decision:
         v = ctx.value(self.opt["source"])
@@ -108,7 +109,9 @@ class EmaOrderFilter(Filter):
     """Require the EMA stack to be ordered with the trade direction."""
 
     name = "ema_order"
-    defaults = {"series": ["ema_confirm", "ema_fast", "ema_medium", "ema_slow"]}
+    defaults: ClassVar[dict[str, Any]] = {
+        "series": ["ema_confirm", "ema_fast", "ema_medium", "ema_slow"]
+    }
 
     def check(self, ctx: BarContext, side: Side) -> Decision:
         names = list(self.opt["series"])
@@ -116,12 +119,12 @@ class EmaOrderFilter(Filter):
         if any(v is None for v in raw):
             return Decision.no("ema stack not ready")
         vals: list[float] = [float(v) for v in raw]  # type: ignore[arg-type]
-        pairs = list(zip(vals, vals[1:]))
+        pairs = list(pairwise(vals))
         if side is Side.LONG:
             ordered = all(a > b for a, b in pairs)
         else:
             ordered = all(a < b for a, b in pairs)
-        detail = dict(zip(names, vals))
+        detail = dict(zip(names, vals, strict=True))
         if not ordered:
             return Decision.no(f"ema stack not ordered for {side.value}", **detail)
         return Decision.ok("ema stack ordered", **detail)
@@ -132,7 +135,7 @@ class PriceVsEmaFilter(Filter):
     """Trade only on the correct side of a slow trend EMA."""
 
     name = "price_vs_ema"
-    defaults = {"series": "ema_trend"}
+    defaults: ClassVar[dict[str, Any]] = {"series": "ema_trend"}
 
     def check(self, ctx: BarContext, side: Side) -> Decision:
         ref = ctx.value(self.opt["series"])
@@ -154,7 +157,7 @@ class AngleFilter(Filter):
     """Reject flat markets: the reference series must actually be sloping."""
 
     name = "angle"
-    defaults = {"series": "slope", "min_degrees": 0.0}
+    defaults: ClassVar[dict[str, Any]] = {"series": "slope", "min_degrees": 0.0}
 
     def check(self, ctx: BarContext, side: Side) -> Decision:
         raw = ctx.value(self.opt["series"])
@@ -174,7 +177,7 @@ class CandleDirectionFilter(Filter):
     """Require the last N closed bars to agree with the trade direction."""
 
     name = "candle_direction"
-    defaults = {"bars": 1, "offset": 0}
+    defaults: ClassVar[dict[str, Any]] = {"bars": 1, "offset": 0}
 
     def check(self, ctx: BarContext, side: Side) -> Decision:
         n, off = int(self.opt["bars"]), int(self.opt["offset"])
@@ -196,7 +199,7 @@ class SessionFilter(Filter):
     """Trading-hours gate, evaluated in UTC against the symbol's session."""
 
     name = "session"
-    defaults: dict[str, Any] = {}
+    defaults: ClassVar[dict[str, Any]] = {}
 
     def check(self, ctx: BarContext, side: Side) -> Decision:
         session = ctx.cfg.session
@@ -213,7 +216,7 @@ class SpreadFilter(Filter):
     """Live-only guard: a widened spread destroys a tight-stop edge."""
 
     name = "spread"
-    defaults = {"max_points": 50.0}
+    defaults: ClassVar[dict[str, Any]] = {"max_points": 50.0}
 
     def check(self, ctx: BarContext, side: Side) -> Decision:
         if ctx.spread_points <= 0:  # backtest, or no quote available yet

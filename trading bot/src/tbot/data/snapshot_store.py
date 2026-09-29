@@ -111,7 +111,7 @@ class SnapshotStore:
         timeframe: str = "M5",
         max_age_minutes: float = 0.0,
         broker_utc_offset_hours: float = 0.0,
-    ) -> "SnapshotStore":
+    ) -> SnapshotStore:
         """Build a store from plain settings, resolving MT5's shared folder.
 
         Takes primitives rather than a config object so the data layer keeps no
@@ -169,7 +169,7 @@ class SnapshotStore:
             stat = path.stat()
         except OSError as exc:
             raise SnapshotError(
-                f"no snapshot for {symbol} {timeframe or self.timeframe} at {path} — "
+                f"no snapshot for {symbol} {timeframe or self.timeframe} at {path} -- "
                 f"is SMC_Snapshot_Export attached to that chart?"
             ) from exc
 
@@ -251,7 +251,7 @@ class SnapshotStore:
         if snapshot.is_stale(moment, self.max_age):
             age = snapshot.age(moment)
             obs_log.get("snapshot").warning(
-                "snapshot for %s is stale (age %s, limit %s) — is MT5 running?",
+                "snapshot for %s is stale (age %s, limit %s) -- is MT5 running?",
                 symbol, age, self.max_age,
                 extra={"symbol": symbol, "event": "snapshot_stale"},
             )

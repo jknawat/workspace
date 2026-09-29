@@ -31,7 +31,7 @@ Two safeguards worth knowing about:
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, ClassVar
 
 from ..config.models import ConfigError
 from ..core.indicators import Series, atr
@@ -49,7 +49,7 @@ TARGETS = {"rr", "liquidity"}
 class IctConfluence(Strategy):
     name = "ict_confluence"
 
-    defaults: dict[str, Any] = {
+    defaults: ClassVar[dict[str, Any]] = {
         # zone selection
         "zone_concepts": ["ORDER_BLOCK", "FVG"],
         "zone_states": [],              # empty: any state; e.g. ["fresh"]
@@ -325,10 +325,14 @@ class IctConfluence(Strategy):
     def _to(self, phase: Phase, ctx: BarContext, reason: str) -> None:
         self._record(ctx, "transition", to=phase.value, reason=reason)
         if phase is Phase.SCANNING:
-            cooldown, traded = self.cooldown_until, self.traded_zones
+            # Survive the reset: the cooldown is time-based, traded zones are
+            # history, and last_reject is why we are here -- wiping it would
+            # leave status output and the dashboard with nothing to show.
+            cooldown, traded, reject = self.cooldown_until, self.traded_zones, self.last_reject
             self.reset()
             self.cooldown_until = cooldown
             self.traded_zones = traded
+            self.last_reject = reject
         self.phase = phase
 
     def _record(self, ctx: BarContext, event: str, **fields: Any) -> None:

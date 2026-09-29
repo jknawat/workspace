@@ -150,7 +150,7 @@ class TradeEngine:
             for applied in out.exits:
                 self.events.publish(
                     EXIT, rt.cfg.symbol,
-                    kind=applied.action.kind,
+                    action=applied.action.kind,
                     ticket=applied.action.ticket,
                     reason=applied.action.reason,
                     sl=applied.action.sl,

@@ -5,8 +5,12 @@ Importing this package registers every built-in strategy and filter, so
 config.
 """
 
-from . import donchian_breakout, ema_pullback, ict_confluence  # noqa: F401
-from . import ict_filters  # noqa: F401  (registers the ICT filters)
+from . import (  # noqa: F401
+    donchian_breakout,
+    ema_pullback,
+    ict_confluence,
+    ict_filters,
+)
 from .base import BarContext, Strategy, available, create, get
 
 __all__ = ["BarContext", "Strategy", "available", "create", "get"]

@@ -181,7 +181,9 @@ def test_zone_gate_passes_when_price_is_inside_a_matching_zone(symbol_cfg, spec_
         context(symbol_cfg, spec_eurusd), Side.LONG
     )
     assert decision
-    assert decision.detail["zone_id"] == "ob-001"
+    # A chain reports each filter's detail under its trace, not at the top
+    # level -- otherwise two filters returning the same key would collide.
+    assert decision.detail["trace"]["ict_zone"]["zone_id"] == "ob-001"
 
 
 def test_zone_gate_rejects_price_outside_every_zone(symbol_cfg, spec_eurusd):

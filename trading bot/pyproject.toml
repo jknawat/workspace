@@ -34,7 +34,26 @@ line-length = 100
 target-version = "py311"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+# BLE is selected deliberately: catching bare `Exception` is worth flagging, and
+# the handful of places that must (watchers, status reads, per-symbol isolation)
+# each carry a noqa explaining why trading continuing matters more there.
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "SLF", "BLE"]
+ignore = [
+    # `timezone.utc` reads better than `datetime.UTC` and works on every
+    # supported version; the alias buys nothing here.
+    "UP017",
+    # Em dashes, arrows and box-drawing characters in docstrings and dashboard
+    # copy are deliberate prose, not typos.
+    "RUF001",
+    "RUF002",
+    "RUF003",
+    # `Side(str, Enum)` is intentional: `.value` is used everywhere, and
+    # StrEnum would silently change what `str(Side.LONG)` produces.
+    "UP042",
+    # `Strategy.reset()` is an optional hook with a working default, not an
+    # abstract method every strategy must implement.
+    "B027",
+]
 
 [tool.mypy]
 python_version = "3.11"

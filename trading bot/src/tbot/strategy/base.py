@@ -11,7 +11,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable, ClassVar
+from typing import Any, ClassVar
 
 from ..config.models import ConfigError, SymbolConfig
 from ..core.indicators import Series
@@ -32,7 +32,7 @@ class BarContext:
     #: MT5's SMC/ICT structure snapshot for this symbol, when one is fresh.
     #: ``None`` means unavailable, stale or not configured -- gates that depend
     #: on it must fail closed rather than assume agreement.
-    snapshot: "Snapshot | None" = None
+    snapshot: Snapshot | None = None
     notes: list[str] = field(default_factory=list)
 
     @property
