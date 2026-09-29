@@ -156,12 +156,51 @@ daylight saving.
 | stale warnings during quiet hours | expected when the market is closed. |
 | `already has a publisher` | a second EA is targeting the same file. Give it its own `InpFolder`. |
 
+### `IPC timeout` from the Python bridge
+
+`mt5.initialize()` failing with `(-10005, 'IPC timeout')` on a fresh install
+almost always means **no trading account is logged in**, even though the
+terminal looks perfectly healthy — window open, chart showing, responding.
+
+Confirm it by reading the terminal log
+(`…\Terminal\<ID>\logs\<date>.log`, UTF-16): a terminal with no account shows
+`started for MetaQuotes Ltd.` and then *nothing about a server or a login*, and
+`…\Terminal\<ID>\config\` contains `servers.dat` but no `accounts.dat`.
+
+Log in to any account — demo is fine — and the bridge connects. Other causes,
+in rough order of likelihood:
+
+* the terminal is running elevated while Python is not (or vice versa); let
+  `mt5.initialize(path=…)` start its own instance instead;
+* the terminal is still doing its first-run `full recompilation` (the log says
+  so; it takes a minute or two);
+* a modal dialog is blocking startup.
+
 ---
 
-## What this does not do yet
+## Where things get installed
 
-Stage 2 makes the structure data available and visible: `tbot snapshot` shows
-it, and every strategy receives it on `ctx.snapshot`. **No strategy trades on it
-yet** — the ICT entry model and its filters are stage 3. Until then the snapshot
-is observable, journalled context, which is the right order: prove the data is
-correct before betting on it.
+On this machine the terminal data folder is
+`%APPDATA%\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075`, and the
+shared folder the export writes to is
+`%APPDATA%\MetaQuotes\Terminal\Common\Files` — which `tbot` auto-detects, so
+`[snapshot].common_path` can stay empty.
+
+Installed and compiled (0 errors, 0 warnings, MetaEditor build 6231):
+
+| file | lands in | purpose |
+|---|---|---|
+| `Include/SMC/` (36 files) | `MQL5\Include\SMC\` | the detection library |
+| `SMC_Snapshot_Export.mq5` | `MQL5\Experts\` | publishes the JSON snapshot |
+| `SMC_Visualizer.mq5` | `MQL5\Indicators\` | draws what the library detected |
+| `TbotOverlay.mq5` | `MQL5\Indicators\` | draws what the bot did about it |
+
+Compiling headlessly, without opening MetaEditor:
+
+```powershell
+& "C:\Program Files\MetaTrader 5\metaeditor64.exe" `
+    /compile:"$env:APPDATA\MetaQuotes\Terminal\<ID>\MQL5\Experts\SMC_Snapshot_Export.mq5" `
+    /log:"compile.log"
+```
+
+The log is UTF-16; read it with `Get-Content -Encoding Unicode`.
