@@ -135,6 +135,45 @@ Run `tbot strategies` for the authoritative list with every default. In summary:
 | `ict_premium_discount` | longs above equilibrium, shorts below it |
 | `ict_no_opposing_zone` | an opposing zone blocks the path to target |
 
+### The vocabulary this library actually emits
+
+Measured from a live EURUSD M5 export (library 1.1.0, schema 1.0, 462 records),
+rather than read off the documentation:
+
+| concept | states seen | active? |
+|---|---|---|
+| `ORDER_BLOCK` | `FRESH` `TESTED` `MITIGATED` `BROKEN` | only the first three |
+| `BREAKER` | `FRESH` `TESTED` `MITIGATED` `BROKEN` | only the first three |
+| `FVG` / `IFVG` | `FRESH` `TESTED` `MITIGATED` `BROKEN` | only the first three |
+| `LIQUIDITY` | `SWEPT` `ACTIVE` | both |
+| `KILL_ZONE` | `FORMING` `COMPLETE` | both |
+| `PREMIUM_DISCOUNT`, `OTE` | `ACTIVE` | yes |
+| `BOS`, `CHOCH` | `CONFIRMED` | **never active** |
+| `MSS`, `DISPLACEMENT` | `CONFIRMED` | always active |
+| `SWING_HIGH` / `SWING_LOW` | `CONFIRMED` `BROKEN` | confirmed only |
+| `PO3` | `ACCUMULATION` `MANIPULATION` `INVALIDATED` | varies |
+
+Two things follow, and both bit this project:
+
+**`BOS` and `CHOCH` are never `active`.** They are point-in-time events, not
+living zones. Anything that filters them on the active flag sees nothing at
+all — which is why `Snapshot.bias()` deliberately ignores the flag. If you
+write your own query over structural events, do the same.
+
+**There is no `UNSWEPT`.** An untaken liquidity pool is `ACTIVE`; a taken one
+is `SWEPT`. So `[filters.ict_liquidity_swept] states = ["swept"]` is right, and
+`states = ["active"]` is how you ask for the opposite.
+
+### Truncation is real, and the cap is inside the EA
+
+That same export showed `ORDER_BLOCK truncated` and `BREAKER truncated`:
+exactly 100 records each, of which 80 were `BROKEN`. The library's
+`max_records_per_concept` defaults to 100, and dead blocks crowd out live ones.
+
+`tbot snapshot` reports this under `!` markers — believe it. The cap is not an
+EA input, so raising it means editing `SMC_Snapshot_Export.mq5` to set
+`config.maxRecordsPerConcept` after `SetDefaults()`, then recompiling.
+
 ### State strings are yours to configure
 
 The snapshot contract fixes the *concepts* but leaves each record's `state` as

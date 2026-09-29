@@ -26,6 +26,7 @@ from ..core.types import (
     Side,
     SymbolSpec,
     round_to_step,
+    same_symbol,
 )
 from .base import Broker, BrokerError, ClosedTrade
 
@@ -77,12 +78,13 @@ class PaperBroker(Broker):
         return AccountState(balance=self.balance, equity=equity, currency=self.currency)
 
     def symbol_spec(self, symbol: str) -> SymbolSpec:
-        try:
-            return self.specs[symbol.upper()]
-        except KeyError:
-            raise BrokerError(
-                f"no simulated spec for {symbol}; add one to PaperBroker.specs"
-            ) from None
+        # Case-insensitive match, exact storage: a spec captured from the broker
+        # is keyed by whatever the broker calls it (EURUSDm), while a default
+        # table uses the plain name.
+        for name, spec in self.specs.items():
+            if same_symbol(name, symbol):
+                return spec
+        raise BrokerError(f"no simulated spec for {symbol}; add one to PaperBroker.specs")
 
     def bars(self, symbol: str, timeframe: str, count: int) -> list[Bar]:
         raise BrokerError(
@@ -100,15 +102,18 @@ class PaperBroker(Broker):
         """
         out = [replace(p) for p in self._positions.values()]
         if symbol:
-            out = [p for p in out if p.symbol == symbol.upper()]
+            out = [p for p in out if same_symbol(p.symbol, symbol)]
         return out
 
     def spread_points(self, symbol: str) -> float:
-        return self.spread_points_map.get(symbol.upper(), 0.0)
+        for name, points in self.spread_points_map.items():
+            if same_symbol(name, symbol):
+                return points
+        return 0.0
 
     def market_order(self, req: OrderRequest) -> OrderResult:
         spec = self.symbol_spec(req.symbol)
-        bar = self._last_bar.get(req.symbol.upper())
+        bar = self._last_bar.get(req.symbol.strip())
         if bar is None:
             return OrderResult(False, message=f"no market data seen for {req.symbol}")
         if req.volume < spec.volume_min:
@@ -124,7 +129,7 @@ class PaperBroker(Broker):
         ticket = self._next_ticket
         self._next_ticket += 1
         self._positions[ticket] = Position(
-            symbol=req.symbol.upper(),
+            symbol=req.symbol.strip(),
             side=req.side,
             volume=req.volume,
             entry_price=price,
@@ -204,7 +209,7 @@ class PaperBroker(Broker):
 
     def on_bar(self, symbol: str, bar: Bar) -> list[ClosedTrade]:
         """Advance the simulation; returns trades closed by this bar."""
-        sym = symbol.upper()
+        sym = symbol.strip()
         self._last_bar[sym] = bar
         for pos in [p for p in self._positions.values() if p.symbol == sym]:
             hit_sl = bar.low <= pos.sl if pos.side is Side.LONG else bar.high >= pos.sl
@@ -252,7 +257,7 @@ class PaperBroker(Broker):
         return trade
 
     def _mark(self, symbol: str) -> float:
-        bar = self._last_bar.get(symbol.upper())
+        bar = self._last_bar.get(symbol.strip())
         return bar.close if bar else 0.0
 
     # ------------------------------------------------------------------ #

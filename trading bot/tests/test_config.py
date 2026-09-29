@@ -73,21 +73,40 @@ def test_loads_engine_risk_and_symbols(config_dir):
     assert cfg.symbol("eurusd").sides == ("LONG", "SHORT")
 
 
-def test_symbol_names_are_normalised_to_upper_case(config_dir):
+def test_symbol_names_are_kept_exactly_as_written(config_dir):
+    """The broker's own spelling is authoritative, casing included.
+
+    Uppercasing looks harmless until a broker uses a case-sensitive suffix:
+    Exness sells EURUSDm, IC Markets EURUSD.a. Normalising those to EURUSDM
+    and EURUSD.A asks the terminal for symbols that do not exist.
+    """
     cfg = load_config(config_dir / "bot.toml")
-    assert {s.symbol for s in cfg.symbols} == {"EURUSD", "XAUUSD"}
+    assert {s.symbol for s in cfg.symbols} == {"eurusd", "XAUUSD"}
+
+
+def test_a_suffixed_broker_symbol_survives_loading():
+    cfg = SymbolConfig.from_dict(
+        {"symbol": "EURUSDm", "strategy": "ema_pullback"}, "test"
+    )
+    assert cfg.symbol == "EURUSDm"
+
+
+def test_symbol_lookup_is_case_insensitive(config_dir):
+    cfg = load_config(config_dir / "bot.toml")
+    assert cfg.symbol("EURUSD").symbol == "eurusd"
+    assert cfg.symbol("eurusd").symbol == "eurusd"
 
 
 def test_disabled_symbols_are_excluded_but_still_listed(config_dir):
     cfg = load_config(config_dir / "bot.toml")
-    assert [s.symbol for s in cfg.active_symbols] == ["EURUSD"]
+    assert [s.symbol for s in cfg.active_symbols] == ["eurusd"]
     assert len(cfg.symbols) == 2
 
 
 def test_weights_are_renormalised_across_enabled_symbols_only(config_dir):
     cfg = load_config(config_dir / "bot.toml")
     # XAUUSD is disabled, so EURUSD carries the full budget rather than 75% of it
-    assert cfg.normalised_weights == {"EURUSD": pytest.approx(1.0)}
+    assert cfg.normalised_weights == {"eurusd": pytest.approx(1.0)}
 
 
 def test_unknown_engine_key_is_rejected():

@@ -153,6 +153,25 @@ def test_bias_comes_from_the_newest_structural_event():
     assert load().bias("MSS") == "bearish"
 
 
+def test_bias_counts_inactive_structural_events():
+    """BOS and CHOCH arrive with active=false on every record.
+
+    Measured against a live MetaQuotes export: 11 BOS and 13 CHOCH, none
+    active, because the library treats a break of structure as an event rather
+    than a living zone. Filtering them out made bias() return neutral forever,
+    so a strategy configured with bias_concepts = ["BOS", "CHOCH"] would never
+    have taken a trade -- silently.
+    """
+    d = raw()
+    for record in d["records"]:
+        if record["concept"] in {"BOS", "MSS"}:
+            record["active"] = False
+    s = Snapshot.parse(d)
+    assert s.by_concept("BOS") == ()          # nothing active, as in real data
+    assert s.bias("BOS") == "bullish"         # ...but the event still counts
+    assert s.bias() == "bullish"
+
+
 def test_bias_is_neutral_when_nothing_structural_is_present():
     d = raw()
     d["records"] = [r for r in d["records"] if r["concept"] not in {"BOS", "MSS"}]

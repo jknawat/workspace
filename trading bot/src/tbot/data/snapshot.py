@@ -373,8 +373,21 @@ class Snapshot:
 
         Returns ``bullish``, ``bearish`` or ``neutral``. Neutral is the honest
         answer when nothing structural has confirmed — never a coin flip.
+
+        **Inactive records count here**, unlike everywhere else. Measured
+        against a live export: BOS and CHOCH arrive with ``active=false`` on
+        every single record (11 and 13 of them, none active), because the
+        library treats a break of structure as a point-in-time event rather
+        than a living zone. MSS and DISPLACEMENT arrive active. Filtering on
+        the flag therefore made ``bias("BOS", "CHOCH")`` return ``neutral``
+        forever — so a strategy configured that way would simply never trade,
+        with nothing in the logs to say why.
+
+        Recency is what supersedes a structural read, not the active flag: a
+        bullish BOS followed by a bearish CHOCH is bearish, and ``latest``
+        already expresses that.
         """
-        record = self.latest(*(concepts or tuple(BIAS_CONCEPTS)))
+        record = self.latest(*(concepts or tuple(BIAS_CONCEPTS)), active_only=False)
         return record.direction if record is not None else "neutral"
 
     def counts(self) -> dict[str, int]:

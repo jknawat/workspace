@@ -16,7 +16,16 @@ from datetime import date, datetime, timezone
 from ..broker.base import Broker, ClosedTrade
 from ..config.models import BotConfig, SymbolConfig
 from ..core.indicators import Series
-from ..core.types import Bar, Decision, OrderRequest, OrderResult, Position, Signal, SymbolSpec
+from ..core.types import (
+    Bar,
+    Decision,
+    OrderRequest,
+    OrderResult,
+    Position,
+    Signal,
+    SymbolSpec,
+    same_symbol,
+)
 from ..data.snapshot import Snapshot
 from ..data.snapshot_store import SnapshotStore
 from ..journal import Journal
@@ -112,6 +121,15 @@ class TradeEngine:
         )
         return rt
 
+    def _runtime(self, symbol: str) -> SymbolRuntime:
+        rt = self.runtimes.get(symbol)
+        if rt is None:
+            for name, candidate in self.runtimes.items():
+                if same_symbol(name, symbol):
+                    return candidate
+            raise KeyError(f"{symbol} is not registered")
+        return rt
+
     def register_all(self) -> None:
         for scfg in self.config.active_symbols:
             self.register(scfg)
@@ -121,9 +139,9 @@ class TradeEngine:
     # ------------------------------------------------------------------ #
 
     def step(self, symbol: str, i: int | None = None) -> StepResult:
-        rt = self.runtimes[symbol.upper()]
+        rt = self._runtime(symbol)
         if not rt.bars:
-            return StepResult(symbol=symbol.upper())
+            return StepResult(symbol=rt.cfg.symbol)
         idx = len(rt.bars) - 1 if i is None else i
         bar = rt.bars[idx]
         out = StepResult(symbol=rt.cfg.symbol, bar=bar)

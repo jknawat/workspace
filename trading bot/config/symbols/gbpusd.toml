@@ -23,7 +23,9 @@ zone_tolerance_points = 20.0  # a near-miss wick still counts
 zone_max_age_minutes = 480.0
 zone_min_strength = 0.0
 
-# Direction comes from the newest confirmed structural event.
+# Direction comes from the newest confirmed structural event. BOS and CHOCH
+# arrive with active=false on every record (they are events, not zones), which
+# Snapshot.bias() accounts for -- see docs/ICT_STRATEGY.md.
 require_bias = true
 bias_concepts = ["BOS", "CHOCH", "MSS"]
 

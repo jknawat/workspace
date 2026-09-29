@@ -9,10 +9,11 @@ broker = "mt5"                  # paper | mt5   (data source in paper mode)
 timeframe = "M5"
 poll_seconds = 15               # how often to look for a newly closed bar
 warmup_bars = 500               # history handed to the strategy each poll
-# MetaQuotes-Demo runs on UTC+3, measured by comparing a live tick's broker
-# clock against real UTC. Re-check after any daylight-saving change, and again
-# if you switch broker: this one setting governs bar timestamps, session
-# filters, snapshot freshness and the chart overlay.
+# MetaQuotes-Demo runs UTC+3, measured by comparing a live tick's broker clock
+# against real UTC. (An Exness demo on the same machine runs UTC+0 and names
+# its symbols EURUSDm -- so re-measure both this and the symbol names if you
+# switch broker.) This one setting governs bar timestamps, session filters,
+# snapshot freshness and the chart overlay.
 broker_utc_offset_hours = 3.0
 start_balance = 10000.0         # paper/backtest only
 journal_path = "data/journal.sqlite"
@@ -40,7 +41,7 @@ dir = "symbols"                 # relative to this file
 #   tbot snapshot -c config/bot.toml --symbol EURUSD
 
 [snapshot]
-enabled = false            # set true once the EA is attached and exporting
+enabled = true             # set true once the EA is attached and exporting
 folder = "SMC_Export"      # must match the EA's InpFolder input
 common_path = ""           # blank auto-detects %APPDATA%\MetaQuotes\Terminal\Common\Files
 timeframe = ""             # blank follows [engine].timeframe

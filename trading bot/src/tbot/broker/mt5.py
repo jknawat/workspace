@@ -109,7 +109,7 @@ class MT5Broker(Broker):
         )
 
     def symbol_spec(self, symbol: str) -> SymbolSpec:
-        sym = symbol.upper()
+        sym = symbol.strip()
         if sym in self._spec_cache:
             return self._spec_cache[sym]
         if not self.mt5.symbol_select(sym, True):
@@ -175,7 +175,7 @@ class MT5Broker(Broker):
     def bars(self, symbol: str, timeframe: str, count: int) -> list[Bar]:
         tf = self._timeframe(timeframe)
         # start_pos=1 skips the still-forming bar: strategies only see closed bars.
-        rates = self.mt5.copy_rates_from_pos(symbol.upper(), tf, 1, count)
+        rates = self.mt5.copy_rates_from_pos(symbol.strip(), tf, 1, count)
         if rates is None or len(rates) == 0:
             raise BrokerError(f"no rates for {symbol} {timeframe}: {self.mt5.last_error()}")
         out: list[Bar] = []
@@ -194,7 +194,7 @@ class MT5Broker(Broker):
         return out
 
     def spread_points(self, symbol: str) -> float:
-        tick = self.mt5.symbol_info_tick(symbol.upper())
+        tick = self.mt5.symbol_info_tick(symbol.strip())
         if tick is None:
             return 0.0
         spec = self.symbol_spec(symbol)
@@ -202,7 +202,7 @@ class MT5Broker(Broker):
 
     def positions(self, symbol: str | None = None) -> list[Position]:
         raw = (
-            self.mt5.positions_get(symbol=symbol.upper())
+            self.mt5.positions_get(symbol=symbol.strip())
             if symbol
             else self.mt5.positions_get()
         )
@@ -234,14 +234,14 @@ class MT5Broker(Broker):
     def market_order(self, req: OrderRequest) -> OrderResult:
         mt5 = self.mt5
         spec = self.symbol_spec(req.symbol)
-        tick = mt5.symbol_info_tick(req.symbol.upper())
+        tick = mt5.symbol_info_tick(req.symbol.strip())
         if tick is None:
             return OrderResult(False, message=f"no tick for {req.symbol}")
         price = float(tick.ask) if req.side is Side.LONG else float(tick.bid)
 
         request = {
             "action": mt5.TRADE_ACTION_DEAL,
-            "symbol": req.symbol.upper(),
+            "symbol": req.symbol.strip(),
             "volume": float(req.volume),
             "type": mt5.ORDER_TYPE_BUY if req.side is Side.LONG else mt5.ORDER_TYPE_SELL,
             "price": price,
@@ -367,7 +367,7 @@ class MT5Broker(Broker):
         ("unsupported filling mode") on brokers that only allow IOC.
         """
         mt5 = self.mt5
-        info = mt5.symbol_info(symbol.upper())
+        info = mt5.symbol_info(symbol.strip())
         modes = int(getattr(info, "filling_mode", 0) or 0)
         if modes & 1:  # SYMBOL_FILLING_FOK
             return mt5.ORDER_FILLING_FOK

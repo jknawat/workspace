@@ -68,7 +68,7 @@ def _load_specs(path: str | None) -> dict[str, SymbolSpec] | None:
 
     with Path(path).open("rb") as fh:
         raw = tomllib.load(fh)
-    return {k.upper(): SymbolSpec(name=k.upper(), **v) for k, v in raw.get("symbols", {}).items()}
+    return {k.strip(): SymbolSpec(name=k.strip(), **v) for k, v in raw.get("symbols", {}).items()}
 
 
 def _build_snapshots(cfg: BotConfig) -> SnapshotStore | None:

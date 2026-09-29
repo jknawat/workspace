@@ -211,6 +211,17 @@ class Decision:
         return cls(False, reason, detail)
 
 
+def same_symbol(a: str, b: str) -> bool:
+    """Compare two symbol names.
+
+    Case-insensitive because config and broker may disagree on casing, but
+    never *normalising* either one: the broker's exact string is what must
+    be sent back to it. Uppercasing EURUSDm to EURUSDM asks Exness for a
+    symbol that does not exist.
+    """
+    return a.strip().casefold() == b.strip().casefold()
+
+
 def round_to_step(volume: float, spec: SymbolSpec) -> float:
     """Floor a volume to the broker's step, then clamp to its maximum.
 

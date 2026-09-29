@@ -34,11 +34,11 @@ class CsvFeed(BarFeed):
         self, directory: str | Path = "data", paths: dict[str, str | Path] | None = None
     ) -> None:
         self.directory = Path(directory)
-        self.paths = {k.upper(): Path(v) for k, v in (paths or {}).items()}
+        self.paths = {k.strip(): Path(v) for k, v in (paths or {}).items()}
         self._cache: dict[tuple[str, str], list[Bar]] = {}
 
     def path_for(self, symbol: str, timeframe: str) -> Path:
-        sym = symbol.upper()
+        sym = symbol.strip()
         if sym in self.paths:
             return self.paths[sym]
         return self.directory / f"{sym}_{timeframe.upper()}.csv"
@@ -100,8 +100,8 @@ class ListFeed(BarFeed):
     """In-memory feed, used by tests and by the backtester's replay loop."""
 
     def __init__(self, bars: dict[str, list[Bar]]) -> None:
-        self.bars = {k.upper(): v for k, v in bars.items()}
+        self.bars = {k.strip(): v for k, v in bars.items()}
 
     def history(self, symbol: str, timeframe: str, count: int) -> list[Bar]:
-        series = self.bars.get(symbol.upper(), [])
+        series = self.bars.get(symbol.strip(), [])
         return series[-count:] if count > 0 else list(series)

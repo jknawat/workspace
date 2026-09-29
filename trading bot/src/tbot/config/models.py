@@ -12,6 +12,8 @@ from dataclasses import dataclass, field
 from datetime import time
 from typing import Any
 
+from ..core.types import same_symbol
+
 
 class ConfigError(ValueError):
     """Raised for any malformed or unknown configuration key."""
@@ -204,7 +206,10 @@ class SymbolConfig:
             },
             where,
         )
-        symbol = str(_require(d, "symbol", where)).upper()
+        # Exact, not uppercased: brokers use case-sensitive suffixes
+        # (Exness EURUSDm, IC Markets EURUSD.a) and this string is sent
+        # straight back to the terminal.
+        symbol = str(_require(d, "symbol", where)).strip()
         sides = tuple(s.upper() for s in d.get("sides", ["LONG"]))
         for s in sides:
             if s not in {"LONG", "SHORT"}:
@@ -240,7 +245,7 @@ class BotConfig:
 
     def symbol(self, name: str) -> SymbolConfig:
         for s in self.symbols:
-            if s.symbol == name.upper():
+            if same_symbol(s.symbol, name):
                 return s
         raise ConfigError(f"symbol '{name}' is not configured")
 

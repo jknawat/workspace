@@ -151,10 +151,10 @@ def run_backtest(
     log = obs_log.get("backtest")
     broker = PaperBroker(balance=config.engine.start_balance, slippage_points=2.0)
     if specs:  # real broker specs captured with `tbot specs` beat the defaults
-        broker.specs.update({k.upper(): v for k, v in specs.items()})
+        broker.specs.update({k.strip(): v for k, v in specs.items()})
     broker.connect()
 
-    wanted = [s.upper() for s in symbols] if symbols else [s.symbol for s in config.active_symbols]
+    wanted = [s.strip() for s in symbols] if symbols else [s.symbol for s in config.active_symbols]
     engine = TradeEngine(config, broker, journal=journal, risk=RiskManager(config))
 
     series: dict[str, list[Bar]] = {}
