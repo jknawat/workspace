@@ -1,0 +1,43 @@
+# captured from the live broker -- do not hand-edit
+
+[symbols.EURUSD]
+digits = 5
+point = 1e-05
+tick_size = 1e-05
+tick_value = 1.0
+volume_min = 0.01
+volume_step = 0.01
+volume_max = 500.0
+contract_size = 100000.0
+# What 1.0 lot earns per 1.0 of price movement, as the broker
+# itself calculates it. Authoritative: tick_value/tick_size is
+# wrong by 10x on this server's gold.
+money_per_price_unit = 100000.0
+
+[symbols.USDJPY]
+digits = 3
+point = 0.001
+tick_size = 0.001
+tick_value = 0.6352836541515787
+volume_min = 0.01
+volume_step = 0.01
+volume_max = 500.0
+contract_size = 100000.0
+# What 1.0 lot earns per 1.0 of price movement, as the broker
+# itself calculates it. Authoritative: tick_value/tick_size is
+# wrong by 10x on this server's gold.
+money_per_price_unit = 631.28
+
+[symbols.XAUUSD]
+digits = 2
+point = 0.01
+tick_size = 0.01
+tick_value = 0.1
+volume_min = 0.01
+volume_step = 0.01
+volume_max = 100.0
+contract_size = 100.0
+# What 1.0 lot earns per 1.0 of price movement, as the broker
+# itself calculates it. Authoritative: tick_value/tick_size is
+# wrong by 10x on this server's gold.
+money_per_price_unit = 100.0

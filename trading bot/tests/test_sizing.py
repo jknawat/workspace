@@ -69,3 +69,33 @@ def test_spec_with_zero_tick_size_is_rejected():
     bad = SymbolSpec("BAD", 5, 0.00001, 0.0, 1.0, 0.01, 0.01, 10.0)
     with pytest.raises(ValueError):
         _ = bad.value_per_price_unit
+
+
+def test_brokers_own_figure_overrides_the_tick_value_derivation():
+    """Measured on MetaQuotes-Demo, and worth a test of its own.
+
+    XAUUSD reports tick_value 0.1 with tick_size 0.01, deriving $10 per dollar
+    of gold. The terminal's order_calc_profit says $100 -- the real number.
+    Since lot size is risk / this figure, the derivation would have sized every
+    gold position ten times too large.
+    """
+    derived_only = SymbolSpec("XAUUSD", 2, 0.01, 0.01, 0.1, 0.01, 0.01, 100.0, 100.0)
+    assert derived_only.value_per_price_unit == pytest.approx(10.0)  # the trap
+
+    from_broker = SymbolSpec(
+        "XAUUSD", 2, 0.01, 0.01, 0.1, 0.01, 0.01, 100.0, 100.0,
+        money_per_price_unit=100.0,
+    )
+    assert from_broker.value_per_price_unit == pytest.approx(100.0)
+
+    # $100 risk with a $5 stop: 0.2 lots on the truth, 2.0 on the derivation.
+    assert lot_for_risk(from_broker, 100.0, 5.00).volume == pytest.approx(0.2)
+    assert lot_for_risk(derived_only, 100.0, 5.00).volume == pytest.approx(2.0)
+
+
+def test_a_non_positive_broker_figure_is_rejected():
+    spec = SymbolSpec(
+        "BAD", 2, 0.01, 0.01, 1.0, 0.01, 0.01, 10.0, 100.0, money_per_price_unit=0.0
+    )
+    with pytest.raises(ValueError, match="money_per_price_unit"):
+        _ = spec.value_per_price_unit

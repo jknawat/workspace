@@ -321,11 +321,18 @@ def cmd_specs(args: argparse.Namespace) -> int:
     try:
         for sym in symbols:
             spec = broker.symbol_spec(sym)
+            derived = spec.tick_value / spec.tick_size if spec.tick_size else 0.0
+            flag = ""
+            if spec.money_per_price_unit and derived:
+                ratio = spec.money_per_price_unit / derived
+                if abs(ratio - 1.0) > 0.01:
+                    flag = f"  <- broker says {ratio:.0f}x the tick_value derivation"
             print(
                 f"{spec.name:<10} digits={spec.digits} point={spec.point} "
                 f"tick_size={spec.tick_size} tick_value={spec.tick_value} "
                 f"vol={spec.volume_min}/{spec.volume_step}/{spec.volume_max} "
-                f"contract={spec.contract_size}"
+                f"contract={spec.contract_size} "
+                f"per_price_unit={spec.value_per_price_unit:,.2f}{flag}"
             )
             lines += [
                 f"[symbols.{spec.name}]",
@@ -337,8 +344,15 @@ def cmd_specs(args: argparse.Namespace) -> int:
                 f"volume_step = {spec.volume_step}",
                 f"volume_max = {spec.volume_max}",
                 f"contract_size = {spec.contract_size}",
-                "",
             ]
+            if spec.money_per_price_unit is not None:
+                lines += [
+                    "# What 1.0 lot earns per 1.0 of price movement, as the broker",
+                    "# itself calculates it. Authoritative: tick_value/tick_size is",
+                    "# wrong by 10x on this server's gold.",
+                    f"money_per_price_unit = {spec.money_per_price_unit}",
+                ]
+            lines.append("")
     finally:
         broker.disconnect()
     if args.save:

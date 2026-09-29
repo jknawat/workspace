@@ -92,10 +92,33 @@ class SymbolSpec:
     volume_step: float
     volume_max: float
     contract_size: float = 100_000.0
+    #: Account currency per 1.0 of price movement for 1.0 lot, as calculated by
+    #: the broker itself. Set from ``order_calc_profit`` where available; it
+    #: overrides the ``tick_value / tick_size`` derivation below.
+    money_per_price_unit: float | None = None
 
     @property
     def value_per_price_unit(self) -> float:
-        """Account currency gained per 1.0 of price movement, per 1.0 lot."""
+        """Account currency gained per 1.0 of price movement, per 1.0 lot.
+
+        Prefers the broker's own figure when we have it. The
+        ``tick_value / tick_size`` derivation looks authoritative but is not:
+        on a real MetaQuotes demo, XAUUSD reports ``tick_value 0.1`` with
+        ``tick_size 0.01``, deriving $10 per dollar of gold -- while the
+        terminal's own ``order_calc_profit`` says $100. Sizing off the
+        derivation would have built every gold position **ten times too
+        large**, because lot size is risk divided by this number.
+
+        Forex agrees with the derivation; leveraged CFDs are where it breaks.
+        So: ask the broker, and only fall back to arithmetic.
+        """
+        if self.money_per_price_unit is not None:
+            if self.money_per_price_unit <= 0:
+                raise ValueError(
+                    f"{self.name}: money_per_price_unit must be > 0, "
+                    f"got {self.money_per_price_unit}"
+                )
+            return self.money_per_price_unit
         if self.tick_size <= 0:
             raise ValueError(f"{self.name}: tick_size must be > 0")
         return self.tick_value / self.tick_size

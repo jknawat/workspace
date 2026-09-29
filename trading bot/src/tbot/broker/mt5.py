@@ -21,6 +21,7 @@ from ..core.types import (
     SymbolSpec,
     round_to_step,
 )
+from ..obs import log as obs_log
 from .base import Broker, BrokerError
 
 TIMEFRAMES = {
@@ -126,13 +127,50 @@ class MT5Broker(Broker):
             volume_step=float(info.volume_step),
             volume_max=float(info.volume_max),
             contract_size=float(info.trade_contract_size),
+            money_per_price_unit=self._money_per_price_unit(sym, info),
         )
-        if spec.tick_value <= 0:
+        if spec.tick_value <= 0 and spec.money_per_price_unit is None:
             raise BrokerError(
-                f"{sym}: broker reported tick_value={spec.tick_value}; refusing to size blind"
+                f"{sym}: broker reported tick_value={spec.tick_value} and could not "
+                f"calculate profit; refusing to size blind"
             )
         self._spec_cache[sym] = spec
         return spec
+
+    def _money_per_price_unit(self, sym: str, info: Any) -> float | None:
+        """Ask the terminal what 1.0 lot earns on a 1.0 move, in account currency.
+
+        ``tick_value / tick_size`` is the obvious derivation and it is wrong on
+        leveraged CFDs. Measured on MetaQuotes-Demo: XAUUSD reports
+        ``tick_value 0.1`` and ``tick_size 0.01``, deriving $10 per dollar of
+        gold, while ``order_calc_profit`` returns $100 -- the real figure. Since
+        lot size is risk divided by this number, trusting the derivation would
+        have sized gold ten times too large.
+
+        Returns ``None`` when the terminal cannot price it (market closed, no
+        quote); the caller then falls back to the derivation, which is correct
+        for plain forex.
+        """
+        tick = self.mt5.symbol_info_tick(sym)
+        price = float(getattr(tick, "bid", 0.0) or 0.0) if tick else 0.0
+        if price <= 0:
+            return None
+        profit = self.mt5.order_calc_profit(
+            self.mt5.ORDER_TYPE_BUY, sym, 1.0, price, price + 1.0
+        )
+        if profit is None or profit <= 0:
+            return None
+
+        derived = float(info.trade_tick_value) / float(info.trade_tick_size or info.point or 1)
+        if derived > 0 and abs(profit - derived) / max(profit, derived) > 0.01:
+            obs_log.get("broker").warning(
+                "%s: broker profit calc says %.4f per price unit but tick_value "
+                "implies %.4f (%.1fx) -- using the broker's figure",
+                sym, profit, derived, profit / derived if derived else 0.0,
+                extra={"symbol": sym, "event": "tick_value_mismatch",
+                       "broker": profit, "derived": derived},
+            )
+        return float(profit)
 
     def bars(self, symbol: str, timeframe: str, count: int) -> list[Bar]:
         tf = self._timeframe(timeframe)

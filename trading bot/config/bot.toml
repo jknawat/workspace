@@ -5,11 +5,15 @@
 
 [engine]
 mode = "paper"                  # backtest | paper | live
-broker = "paper"                # paper | mt5   (data source in paper mode)
+broker = "mt5"                  # paper | mt5   (data source in paper mode)
 timeframe = "M5"
 poll_seconds = 15               # how often to look for a newly closed bar
 warmup_bars = 500               # history handed to the strategy each poll
-broker_utc_offset_hours = 0.0   # set to your MT5 server offset (e.g. 2.0 in CEST)
+# MetaQuotes-Demo runs on UTC+3, measured by comparing a live tick's broker
+# clock against real UTC. Re-check after any daylight-saving change, and again
+# if you switch broker: this one setting governs bar timestamps, session
+# filters, snapshot freshness and the chart overlay.
+broker_utc_offset_hours = 3.0
 start_balance = 10000.0         # paper/backtest only
 journal_path = "data/journal.sqlite"
 
