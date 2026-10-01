@@ -43,6 +43,10 @@ class EmaPullbackBreakout(Strategy):
         "atr_period": 14,
         "slope_source": "ema_medium",
         "slope_lookback": 5,
+        # "point" or "atr". Use "atr" for anything that is not forex: with
+        # point scaling, gold reads 89.8-89.9 degrees on every bar and the
+        # angle filter silently passes everything.
+        "slope_scale": "point",
         # entry model
         "use_pullback": True,
         "pullback_bars": 2,
@@ -100,10 +104,14 @@ class EmaPullbackBreakout(Strategy):
             "ema_trend": ema(closes, int(self.p("ema_trend"))),
             "atr": atr(bars, int(self.p("atr_period"))),
         }
+        # Scale the angle by ATR or by point. "atr" makes 45 degrees mean "one
+        # ATR per bar" on any instrument; "point" only behaves on forex, and
+        # pins gold at ~90 degrees on every bar (see slope_degrees).
+        scale = out["atr"] if str(self.p("slope_scale")) == "atr" else self.spec.point
         out["slope"] = slope_degrees(
             out[str(self.p("slope_source"))],
             int(self.p("slope_lookback")),
-            self.spec.point,
+            scale,
         )
         return out
 

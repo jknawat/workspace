@@ -5,7 +5,7 @@
 # this strategy takes no trades at all -- by design, it fails closed.
 # See docs/ICT_STRATEGY.md and docs/MT5_SNAPSHOT_SETUP.md.
 
-symbol = "GBPUSD"
+symbol = "GBPUSDm"
 strategy = "ict_confluence"
 enabled = false
 weight = 2.0

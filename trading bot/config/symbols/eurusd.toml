@@ -1,6 +1,6 @@
-symbol = "EURUSD"
+symbol = "EURUSDm"
 strategy = "ema_pullback"
-enabled = true
+enabled = false
 weight = 3.0          # relative; weights are renormalised across enabled symbols
 sides = ["LONG", "SHORT"]
 

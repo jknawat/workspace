@@ -1,7 +1,7 @@
 # Same engine, different strategy -- the only change needed is this line.
-symbol = "USDJPY"
+symbol = "USDJPYm"
 strategy = "donchian"
-enabled = true
+enabled = false
 weight = 1.0
 sides = ["LONG", "SHORT"]
 

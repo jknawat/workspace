@@ -9,12 +9,12 @@ broker = "mt5"                  # paper | mt5   (data source in paper mode)
 timeframe = "M5"
 poll_seconds = 15               # how often to look for a newly closed bar
 warmup_bars = 500               # history handed to the strategy each poll
-# MetaQuotes-Demo runs UTC+3, measured by comparing a live tick's broker clock
-# against real UTC. (An Exness demo on the same machine runs UTC+0 and names
-# its symbols EURUSDm -- so re-measure both this and the symbol names if you
-# switch broker.) This one setting governs bar timestamps, session filters,
+# Exness-MT5Trial6 runs on UTC+0, measured by comparing a live tick's broker
+# clock against real UTC. Exness also suffixes its symbols (EURUSDm), and both
+# facts are per-broker -- re-measure the offset and re-check the names if you
+# ever switch. This one setting governs bar timestamps, session filters,
 # snapshot freshness and the chart overlay.
-broker_utc_offset_hours = 3.0
+broker_utc_offset_hours = 0.0
 start_balance = 10000.0         # paper/backtest only
 journal_path = "data/journal.sqlite"
 

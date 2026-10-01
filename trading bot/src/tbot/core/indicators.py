@@ -82,23 +82,36 @@ def atr(bars: Sequence[Bar], period: int) -> Series:
     return out
 
 
-def slope_degrees(series: Series, lookback: int, scale: float) -> Series:
+def slope_degrees(series: Series, lookback: int, scale: float | Series) -> Series:
     """Angle of a series in degrees, normalised by ``scale`` price units per bar.
 
-    ``scale`` makes the angle comparable across instruments: pass the symbol's
-    point size so that a 45 degree reading means "one point per bar" on EURUSD
-    and on XAUUSD alike.
+    ``scale`` may be a constant or a per-bar series.
+
+    **Choose it with care, because the wrong one silently saturates.** Passing
+    the symbol's point size works for forex, where a point and a bar's typical
+    move are the same order of magnitude. It does not work for gold: with
+    ``point = 0.001`` and bars that move whole dollars, every reading comes out
+    at 89.8-89.9 degrees, so any "minimum angle" filter passes everything and
+    looks like it is working.
+
+    Passing a per-bar ATR series instead makes 45 degrees mean "one ATR per
+    bar" on every instrument, which is what comparable actually requires.
     """
     if lookback <= 0:
         raise ValueError("lookback must be > 0")
-    if scale <= 0:
+    constant = not isinstance(scale, list)
+    if constant and scale <= 0:  # type: ignore[operator]
         raise ValueError("scale must be > 0")
+
     out: Series = [None] * len(series)
     for i in range(lookback, len(series)):
         a, b = series[i - lookback], series[i]
         if a is None or b is None:
             continue
-        out[i] = math.degrees(math.atan((b - a) / (lookback * scale)))
+        unit = scale if constant else scale[i]  # type: ignore[index]
+        if unit is None or unit <= 0:
+            continue
+        out[i] = math.degrees(math.atan((b - a) / (lookback * unit)))
     return out
 
 

@@ -1,11 +1,17 @@
-symbol = "XAUUSD"
+# Gold on Exness. The only enabled symbol, so it carries the whole 1% budget.
+#
+# Filter bounds below are measured from 1,500 live M5 bars (2026-09-22 to
+# 09-29, price ~4,150), not guessed. Re-measure after any major regime change:
+#   .venv\Scripts\python.exe scripts\profile_symbol.py XAUUSDm
+
+symbol = "XAUUSDm"
 strategy = "ema_pullback"
 enabled = true
 weight = 2.0
 sides = ["LONG"]
 
 [session]
-start = "08:00"
+start = "08:00"       # UTC. Exness server time is UTC+0, so these match.
 end = "20:00"
 
 [params]
@@ -16,24 +22,46 @@ ema_slow = 34
 ema_trend = 200
 atr_period = 14
 use_pullback = true
-pullback_bars = 3
+pullback_bars = 2        # 3 left too little room to complete before invalidation
 window_offset_atr = 0.4
 window_bars = 8
-sl_atr = 3.0
+
+# Scale the slope by ATR, not by point. Gold's point is 0.001 while its bars
+# move whole dollars, so point scaling pins every reading at ~89.9 degrees and
+# the angle filter below would pass everything. With ATR scaling, 45 degrees
+# means "one ATR per bar".
+slope_scale = "atr"
+slope_source = "ema_medium"
+slope_lookback = 5
+
+sl_atr = 3.0          # ~13.9 at median ATR -> 0.07 lots for $100 risk
 tp_atr = 7.5
 cooldown_bars = 6
 
 [filters.session]
 
+# Measured ATR(14): min 2.42, p5 2.93, median 4.62, p95 7.18, max 7.98.
+# The old 0.8-12.0 band admitted every single bar -- a filter that never
+# rejects is not a filter. This one trims the quiet and frantic extremes.
 [filters.atr_range]
-min = 0.8
-max = 12.0
+min = 2.9
+max = 7.2
 
 [filters.price_vs_ema]
 series = "ema_trend"
 
+# Measured under ATR scaling: median 5.0 deg, p75 8.6, p90 11.8, max 20.1.
+# A smoothed EMA21 moves far less than one ATR per bar, so the first guess of
+# 20 deg would have rejected all but the most extreme bar in a week, and 6.0
+# still passed only 17.9% of bars -- which, stacked with session (49%) and
+# price_vs_ema (46%), left one armed setup per week and no entries at all.
+# 3.0 passes roughly two thirds while still refusing a flat tape.
 [filters.angle]
-min_degrees = 10.0
+min_degrees = 3.0
 
+# Gold's live spread is ~240 points (point = 0.001, so $0.24). The 60 here
+# before was carried over from forex and would have rejected every single
+# trade. 400 allows normal conditions and still catches real widening.
+# One observation at 10:20 UTC -- watch the rejection counts in `tbot report`.
 [filters.spread]
-max_points = 60
+max_points = 400
