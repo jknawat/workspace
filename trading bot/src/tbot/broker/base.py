@@ -76,6 +76,15 @@ class Broker(ABC):
         """Current spread in points; 0.0 when quotes are unavailable."""
         return 0.0
 
+    def quote(self, symbol: str) -> tuple[float, float] | None:
+        """Current ``(bid, ask)``, or ``None`` when no quote is available.
+
+        For display only. Nothing that decides a trade reads this: entries are
+        made on closed bars, and a mid-bar price that moved a decision would be
+        a different strategy than the one that was backtested.
+        """
+        return None
+
     def __enter__(self) -> Broker:
         self.connect()
         return self

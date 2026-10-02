@@ -38,6 +38,7 @@ from ..data.snapshot_store import SnapshotStore
 from ..journal import Journal
 from ..obs import log as obs_log
 from ..risk import RiskManager
+from .chartdata import chart_payload
 from .core import TradeEngine
 from .events import ERROR, STARTED, STATUS, STOPPED
 
@@ -68,6 +69,7 @@ class Runner:
         snapshots: SnapshotStore | None = None,
         control: Any | None = None,          # ControlState, kept untyped to avoid a cycle
         status_sinks: list[StatusSink] | None = None,
+        chart_sinks: list[Any] | None = None,
         max_iterations: int = 0,
     ) -> None:
         self.config = config
@@ -79,6 +81,7 @@ class Runner:
         )
         self.control = control
         self.status_sinks = list(status_sinks or [])
+        self.chart_sinks = list(chart_sinks or [])
         self.log = obs_log.get("runner")
         self.stats = RunnerStats()
         self.max_iterations = max_iterations
@@ -241,7 +244,29 @@ class Runner:
             "started_at": self.stats.started_at.isoformat(),
         }
 
+    def _publish_chart(self) -> None:
+        """Push the chart and gate readings to whoever is displaying them.
+
+        Computed on the trading thread and handed over as a finished snapshot.
+        The web thread must never reach into the engine itself: neither the
+        runtimes nor the MT5 handle are safe to read from another thread while
+        a bar is being processed.
+        """
+        if not self.chart_sinks:
+            return
+        try:
+            payload = chart_payload(self.engine, self.journal)
+        except Exception as exc:  # noqa: BLE001 - a panel must not stop trading
+            self.log.error("chart payload failed: %s", exc)
+            return
+        for sink in self.chart_sinks:
+            try:
+                sink(payload)
+            except Exception as exc:  # noqa: BLE001
+                self.log.error("chart sink failed: %s", exc)
+
     def _publish_status(self) -> None:
+        self._publish_chart()
         status = self.status()
         for sink in self.status_sinks:
             try:

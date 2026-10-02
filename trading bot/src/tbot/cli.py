@@ -108,6 +108,10 @@ def _build_runtime(
         data_broker.connect()
         for scfg in cfg.active_symbols:  # trade the broker's real contract specs
             exec_broker.specs[scfg.symbol] = data_broker.symbol_spec(scfg.symbol)
+        # Charge simulated fills the spread a real one would pay. Without this
+        # paper mode trades for free and flatters itself against the backtest,
+        # which charges 240 points on gold.
+        exec_broker.spread_source = data_broker.spread_points
         if cfg.engine.mirror_account_balance:
             # Size against the money that actually exists. Otherwise the paper
             # account runs on a number from a config file, and every lot is
@@ -268,6 +272,7 @@ def _run_session(args, cfg, mode: str) -> int:
         snapshots=snapshots,
         control=interfaces.control,
         status_sinks=interfaces.status_sinks,
+        chart_sinks=interfaces.chart_sinks,
         max_iterations=args.iterations,
     )
     interfaces.attach(runner.engine)

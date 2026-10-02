@@ -51,6 +51,9 @@ class DashboardState:
         #: threads; opening read-only also makes it impossible for the web page
         #: to alter the record it is displaying.
         self._journal_path = Path(journal_path) if journal_path else None
+        #: Latest chart snapshot, built on the trading thread each poll.
+        self._chart: dict[str, Any] = {}
+        self._chart_at: str = ""
 
     def log_rows(
         self, limit: int = 200, symbol: str = "", action: str = ""
@@ -83,6 +86,16 @@ class DashboardState:
         except sqlite3.Error as exc:
             # A locked or half-written journal must not take the page down.
             return {"rows": [], "note": f"journal unavailable: {exc}"}
+
+    def update_chart(self, payload: dict[str, Any]) -> None:
+        """Receive a finished chart snapshot from the trading thread."""
+        with self._lock:
+            self._chart = dict(payload)
+            self._chart_at = datetime.now(timezone.utc).isoformat()
+
+    def chart(self) -> dict[str, Any]:
+        with self._lock:
+            return {"symbols": dict(self._chart), "built_at": self._chart_at}
 
     def update_status(self, status: dict[str, Any]) -> None:
         with self._lock:
@@ -131,6 +144,9 @@ class _Handler(BaseHTTPRequestHandler):
             self._send(PAGE.encode("utf-8"), "text/html; charset=utf-8")
         elif path == "/api/state":
             body = json.dumps(self.state.payload(), default=str).encode("utf-8")
+            self._send(body, "application/json; charset=utf-8")
+        elif path == "/api/chart":
+            body = json.dumps(self.state.chart(), default=str).encode("utf-8")
             self._send(body, "application/json; charset=utf-8")
         elif path == "/api/log":
             q = parse_qs(self.path.split("?", 1)[1] if "?" in self.path else "")
@@ -247,6 +263,29 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute
 .act.closed{color:var(--accent);border-color:var(--accent)}
 .bar{display:inline-block;height:6px;border-radius:3px;background:var(--accent);
      vertical-align:middle;margin-right:6px}
+#chart,#vol,#scorestrip{width:100%;display:block}
+#chart{height:320px}#vol{height:64px}#scorestrip{height:48px}
+.px{display:flex;gap:18px;flex-wrap:wrap;align-items:baseline;margin-bottom:10px}
+.px .mid{font-size:26px;font-variant-numeric:tabular-nums}
+.px .leg{font-size:12px;color:var(--muted)}
+.px .leg b{color:var(--fg);font-variant-numeric:tabular-nums}
+.stages{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 10px}
+.stage{flex:1 1 120px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;
+       text-align:center;color:var(--muted);font-size:12px}
+.stage b{display:block;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.stage.on{border-color:var(--accent);color:var(--accent)}
+.stage.done{border-color:var(--up);color:var(--up)}
+.gates{width:100%;border-collapse:collapse}
+.gates td,.gates th{padding:5px 8px;border-bottom:1px solid var(--line);font-size:13px}
+.gates th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.gates td.v{text-align:center;width:72px;font-weight:600}
+.ok{color:var(--up)}.no{color:var(--down)}
+.verdict{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 0}
+.verdict span{flex:1 1 180px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);
+       font-size:13px}
+.verdict .allow{border-color:var(--up);color:var(--up)}
+.verdict .block{border-color:var(--down);color:var(--down)}
+.prov{font-size:11px;color:var(--muted);margin-top:8px}
 footer{padding:0 20px 24px;color:var(--muted);font-size:12px}
 </style></head><body>
 <header>
@@ -284,6 +323,42 @@ footer{padding:0 20px 24px;color:var(--muted);font-size:12px}
     <tbody></tbody></table></div></div>
 
   <div class="card"><h2>Recent activity</h2><div id="events"></div></div>
+
+  <div class="card"><h2>Live chart <span id="chartsym" class="muted"></span></h2>
+    <div class="px">
+      <span class="mid" id="pxmid">-</span>
+      <span class="leg">bid <b id="pxbid">-</b></span>
+      <span class="leg">ask <b id="pxask">-</b></span>
+      <span class="leg">spread <b id="pxspread">-</b></span>
+      <span class="leg" style="margin-left:auto">next decision in
+        <b id="pxclock">-</b></span>
+    </div>
+    <div id="tfstrip" style="margin-bottom:8px"></div>
+    <canvas id="chart"></canvas>
+    <canvas id="vol"></canvas>
+    <div class="muted" style="margin-top:6px;font-size:12px">
+      M5 candles with the 5, 8 and 200 EMAs - the lines the bot actually reads.
+      Dashed lines are the trigger and failure levels when a setup is armed;
+      triangles are past trades. Volume is MT5 tick count, not traded size.
+    </div>
+  </div>
+
+  <div class="card"><h2>Where it is, and what it is waiting for</h2>
+    <div class="stages" id="stages"></div>
+    <div class="scroll"><table class="gates" id="gates">
+      <thead><tr><th>Check</th><th class="v">Buy</th><th class="v">Sell</th>
+        <th>Reading</th></tr></thead><tbody></tbody></table></div>
+    <div class="verdict" id="verdict"></div>
+    <div class="prov" id="prov"></div>
+  </div>
+
+  <div class="card"><h2>Score history</h2>
+    <canvas id="scorestrip"></canvas>
+    <div class="muted" style="font-size:12px">
+      Confidence of each signal, oldest left. Filled marks were traded, hollow
+      were declined. Nothing is sized by this yet - it is being measured.
+    </div>
+  </div>
 
   <div class="card"><h2>Decision log</h2>
     <div class="filters" id="logfilters">
@@ -512,7 +587,348 @@ async function tick() {
     el('dot').className = 'dot';
   }
 }
+
+// --------------------------------------------------------------------- //
+// Live chart
+// --------------------------------------------------------------------- //
+
+let chartData = null;
+
+function fitCanvas(c, cssHeight) {
+  const w = c.clientWidth || 600;
+  c.width = w * devicePixelRatio;
+  c.height = cssHeight * devicePixelRatio;
+  const g = c.getContext('2d');
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.scale(devicePixelRatio, devicePixelRatio);
+  g.clearRect(0, 0, w, cssHeight);
+  return {g: g, w: w, h: cssHeight};
+}
+
+function cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+function drawChart(d) {
+  const PAD_R = 62, PAD_B = 18, PAD_T = 8;
+  const c = el('chart');
+  const fit = fitCanvas(c, 320), g = fit.g, W = fit.w, H = fit.h;
+  const bars = d.bars || [];
+  if (bars.length < 2) {
+    g.fillStyle = cssVar('--muted');
+    g.fillText('waiting for bars', 10, 20);
+    return;
+  }
+  const plotW = W - PAD_R, plotH = H - PAD_B - PAD_T;
+
+  // Range covers candles, every EMA on screen and any armed level, so nothing
+  // the bot is watching can sit outside the picture.
+  let lo = Infinity, hi = -Infinity;
+  bars.forEach(b => { lo = Math.min(lo, b.l); hi = Math.max(hi, b.h); });
+  const emas = [d.ema.confirm || [], d.ema.fast || [], d.ema.trend || []];
+  emas.forEach(se => se.forEach(v => {
+    if (v !== null && v !== undefined) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+  }));
+  [d.levels && d.levels.trigger, d.levels && d.levels.failure].forEach(v => {
+    if (v) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+  });
+  (d.positions || []).forEach(pz => [pz.sl, pz.tp, pz.entry].forEach(v => {
+    if (v) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+  }));
+  const span = (hi - lo) || 1;
+  lo -= span * 0.04; hi += span * 0.04;
+  const y = v => PAD_T + plotH - ((v - lo) / (hi - lo)) * plotH;
+  const x = i => (i + 0.5) * (plotW / bars.length);
+  const cw = Math.max(1.5, (plotW / bars.length) * 0.62);
+
+  // Price grid and axis.
+  g.strokeStyle = cssVar('--line'); g.fillStyle = cssVar('--muted');
+  g.lineWidth = 1; g.font = '11px ui-sans-serif,system-ui,sans-serif';
+  for (let k = 0; k <= 4; k++) {
+    const v = lo + (hi - lo) * k / 4, yy = Math.round(y(v)) + 0.5;
+    g.beginPath(); g.moveTo(0, yy); g.lineTo(plotW, yy); g.stroke();
+    g.fillText(v.toFixed(d.digits >= 3 ? 2 : 4), plotW + 6, yy + 3);
+  }
+
+  // Candles.
+  const up = cssVar('--up'), down = cssVar('--down');
+  bars.forEach((b, i) => {
+    const rising = b.c >= b.o;
+    g.strokeStyle = rising ? up : down;
+    g.fillStyle = rising ? up : down;
+    g.beginPath();
+    g.moveTo(Math.round(x(i)) + 0.5, y(b.h));
+    g.lineTo(Math.round(x(i)) + 0.5, y(b.l));
+    g.stroke();
+    const top = y(Math.max(b.o, b.c)), bot = y(Math.min(b.o, b.c));
+    g.fillRect(x(i) - cw / 2, top, cw, Math.max(1, bot - top));
+  });
+
+  // EMAs.
+  const emaStyle = [
+    {s: d.ema.confirm, c: cssVar('--accent'), w: 1.2},
+    {s: d.ema.fast, c: '#d4a017', w: 1.2},
+    {s: d.ema.trend, c: cssVar('--muted'), w: 1.6}
+  ];
+  emaStyle.forEach(e => {
+    const se = e.s || [];
+    if (!se.length) return;
+    g.strokeStyle = e.c; g.lineWidth = e.w; g.beginPath();
+    let started = false;
+    se.forEach((v, i) => {
+      if (v === null || v === undefined) { started = false; return; }
+      if (!started) { g.moveTo(x(i), y(v)); started = true; }
+      else g.lineTo(x(i), y(v));
+    });
+    g.stroke();
+  });
+
+  // Armed levels, and the stop/target of anything open.
+  function level(v, colour, label) {
+    if (!v) return;
+    g.save(); g.setLineDash([5, 4]); g.strokeStyle = colour; g.lineWidth = 1.2;
+    g.beginPath(); g.moveTo(0, y(v)); g.lineTo(plotW, y(v)); g.stroke(); g.restore();
+    g.fillStyle = colour;
+    g.fillText(label, 4, y(v) - 3);
+  }
+  if (d.levels) {
+    level(d.levels.trigger, cssVar('--accent'), 'trigger');
+    level(d.levels.failure, cssVar('--down'), 'invalidates');
+  }
+  (d.positions || []).forEach(pz => {
+    level(pz.entry, cssVar('--fg'), 'entry');
+    level(pz.sl, cssVar('--down'), 'stop');
+    level(pz.tp, cssVar('--up'), 'target');
+  });
+
+  // Past trades, placed on the bar nearest their time.
+  const times = bars.map(b => Date.parse(b.ts));
+  function nearest(ts) {
+    const t = Date.parse(ts);
+    if (isNaN(t) || t < times[0]) return -1;
+    let best = 0;
+    for (let i = 1; i < times.length; i++) {
+      if (Math.abs(times[i] - t) < Math.abs(times[best] - t)) best = i;
+    }
+    return best;
+  }
+  (d.markers || []).forEach(m => {
+    const i = nearest(m.opened_at);
+    if (i < 0) return;
+    g.fillStyle = m.win ? up : down;
+    const yy = y(m.entry), buy = String(m.side).toUpperCase() === 'LONG';
+    g.beginPath();
+    if (buy) {
+      g.moveTo(x(i), yy + 10); g.lineTo(x(i) - 5, yy + 18); g.lineTo(x(i) + 5, yy + 18);
+    } else {
+      g.moveTo(x(i), yy - 10); g.lineTo(x(i) - 5, yy - 18); g.lineTo(x(i) + 5, yy - 18);
+    }
+    g.closePath(); g.fill();
+  });
+
+  // Time labels.
+  g.fillStyle = cssVar('--muted');
+  [0, Math.floor(bars.length / 2), bars.length - 1].forEach(i => {
+    const t = new Date(bars[i].ts);
+    const label = String(t.getHours()).padStart(2, '0') + ':'
+      + String(t.getMinutes()).padStart(2, '0');
+    g.fillText(label, Math.min(x(i), plotW - 26), H - 5);
+  });
+
+  drawVolume(bars, plotW);
+}
+
+function drawVolume(bars, plotW) {
+  const fit = fitCanvas(el('vol'), 64), g = fit.g, H = fit.h;
+  let max = 0;
+  bars.forEach(b => { max = Math.max(max, b.v || 0); });
+  if (!max) {
+    g.fillStyle = cssVar('--muted');
+    g.font = '11px ui-sans-serif,system-ui,sans-serif';
+    g.fillText('no volume reported', 10, 20);
+    return;
+  }
+  const cw = Math.max(1.5, (plotW / bars.length) * 0.62);
+  const up = cssVar('--up'), down = cssVar('--down');
+  bars.forEach((b, i) => {
+    const h = ((b.v || 0) / max) * (H - 8);
+    g.fillStyle = b.c >= b.o ? up : down;
+    g.globalAlpha = 0.45;
+    g.fillRect((i + 0.5) * (plotW / bars.length) - cw / 2, H - h, cw, h);
+  });
+  g.globalAlpha = 1;
+}
+
+const STAGES = [
+  {key: 'SCANNING', label: 'Scanning', hint: 'waiting for the 5-EMA to cross the 8-EMA'},
+  {key: 'ARMED', label: 'Armed', hint: 'waiting for 2 bars pulling back'},
+  {key: 'WINDOW', label: 'Window', hint: 'waiting for price to break the trigger'},
+  {key: 'COOLDOWN', label: 'Cooldown', hint: 'resting after the last trade'}
+];
+
+function renderStages(d) {
+  const host = el('stages');
+  host.innerHTML = '';
+  const at = STAGES.findIndex(s => s.key === d.phase);
+  STAGES.forEach((s, i) => {
+    const div = document.createElement('div');
+    let cls = 'stage';
+    if (i === at) cls += ' on';
+    else if (at > i && d.phase !== 'SCANNING') cls += ' done';
+    div.className = cls;
+    let hint = s.hint;
+    if (i === at && s.key === 'ARMED' && d.pullback_count !== null
+        && d.pullback_count !== undefined) {
+      hint = d.pullback_count + ' of 2 pullback bars so far';
+    }
+    if (i === at && d.side) hint = d.side + ' - ' + hint;
+    div.innerHTML = '<b>' + s.label + '</b>' + (i === at ? esc(hint) : '');
+    host.appendChild(div);
+  });
+}
+
+function renderGates(d) {
+  const body = el('gates').querySelector('tbody');
+  body.innerHTML = '';
+  const prov = (d.gates && d.gates.provisional) || {};
+  const conf = (d.gates && d.gates.confirmed) || {};
+  const longG = (prov.LONG && prov.LONG.gates) || [];
+  const shortG = (prov.SHORT && prov.SHORT.gates) || [];
+  const names = longG.length ? longG.map(x => x.name) : shortG.map(x => x.name);
+  if (!names.length) {
+    body.innerHTML = '<tr><td colspan="4" class="muted">no filters configured</td></tr>';
+  }
+  names.forEach((name, i) => {
+    const L = longG[i], S = shortG[i];
+    const mark = x => !x ? '<span class="muted">-</span>'
+      : (x.passed ? '<span class="ok">PASS</span>' : '<span class="no">BLOCK</span>');
+    // The reading is the same measurement for both sides; show whichever side
+    // actually has something to say about it.
+    const reading = (S && !S.passed) ? S.reason : (L ? L.reason : (S ? S.reason : ''));
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + esc(name) + '</td>'
+      + '<td class="v">' + mark(L) + '</td>'
+      + '<td class="v">' + mark(S) + '</td>'
+      + '<td class="muted">' + esc(reading) + '</td>';
+    body.appendChild(tr);
+  });
+
+  const v = el('verdict');
+  v.innerHTML = '';
+  ['LONG', 'SHORT'].forEach(side => {
+    const r = prov[side];
+    const span = document.createElement('span');
+    if (!r || !r.configured) {
+      span.className = ''; span.textContent = side + ': not traded';
+    } else if (!r.blocked_by || !r.blocked_by.length) {
+      span.className = 'allow';
+      span.textContent = (side === 'LONG' ? 'Buy' : 'Sell') + ' is allowed';
+    } else {
+      span.className = 'block';
+      span.textContent = (side === 'LONG' ? 'Buy' : 'Sell') + ' blocked by '
+        + r.blocked_by.join(', ');
+    }
+    v.appendChild(span);
+  });
+
+  // The honest footnote: these readings are from the bar still forming, and
+  // the bot only acts when one closes.
+  const cl = d.bar_clock || {};
+  const confL = conf.LONG, confS = conf.SHORT;
+  const summary = (confL || confS)
+    ? ('At the last close the bot judged: buy '
+       + (confL && (!confL.blocked_by || !confL.blocked_by.length) ? 'allowed' : 'blocked')
+       + ', sell '
+       + (confS && (!confS.blocked_by || !confS.blocked_by.length) ? 'allowed' : 'blocked') + '.')
+    : '';
+  el('prov').textContent = 'Readings above are provisional - taken from the '
+    + (cl.timeframe || 'M5') + ' bar still forming. The bot only acts when a bar '
+    + 'closes, so a green row does not mean an order is coming. ' + summary;
+}
+
+function renderTfStrip(d) {
+  const host = el('tfstrip');
+  host.innerHTML = '';
+  const views = (d.mtf && d.mtf.views) || [];
+  views.forEach(v => {
+    const span = document.createElement('span');
+    const word = !v.ready ? 'n/a'
+      : v.direction === 'bullish' ? 'bull'
+      : v.direction === 'bearish' ? 'bear' : 'flat';
+    span.className = 'tf ' + (word === 'bull' ? 'bull' : word === 'bear' ? 'bear' : 'flat');
+    span.textContent = v.timeframe + ' ' + word;
+    host.appendChild(span);
+  });
+}
+
+function drawScores(d) {
+  const fit = fitCanvas(el('scorestrip'), 48), g = fit.g, W = fit.w, H = fit.h;
+  const pts = d.score_history || [];
+  if (!pts.length) {
+    g.fillStyle = cssVar('--muted');
+    g.font = '11px ui-sans-serif,system-ui,sans-serif';
+    g.fillText('no signals scored yet', 10, 26);
+    return;
+  }
+  const step = pts.length > 1 ? (W - 20) / (pts.length - 1) : 0;
+  const y = v => H - 6 - (v / 100) * (H - 14);
+  g.strokeStyle = cssVar('--line'); g.lineWidth = 1;
+  g.beginPath(); g.moveTo(0, y(50)); g.lineTo(W, y(50)); g.stroke();
+  pts.forEach((p, i) => {
+    const cx = 10 + i * step, cy = y(p.score);
+    g.beginPath(); g.arc(cx, cy, 3.4, 0, Math.PI * 2);
+    const colour = p.outcome === 'win' ? cssVar('--up')
+      : p.outcome === 'loss' ? cssVar('--down') : cssVar('--accent');
+    if (p.taken) { g.fillStyle = colour; g.fill(); }
+    else { g.strokeStyle = cssVar('--muted'); g.stroke(); }
+  });
+}
+
+function renderChart(payload) {
+  const syms = payload.symbols || {};
+  const key = Object.keys(syms)[0];
+  if (!key) return;
+  const d = syms[key];
+  chartData = d;
+  txt('chartsym', d.symbol + ' ' + d.timeframe);
+
+  const q = d.quote;
+  const dp = d.digits >= 3 ? 2 : 4;
+  txt('pxmid', q ? fmt(q.mid, dp) : '-');
+  txt('pxbid', q ? fmt(q.bid, dp) : '-');
+  txt('pxask', q ? fmt(q.ask, dp) : '-');
+  txt('pxspread', fmt(d.spread_points, 0) + ' pts');
+
+  renderTfStrip(d);
+  drawChart(d);
+  renderStages(d);
+  renderGates(d);
+  drawScores(d);
+}
+
+function tickClock() {
+  if (!chartData || !chartData.bar_clock) return;
+  const closes = Date.parse(chartData.bar_clock.closes_at);
+  const left = Math.max(0, Math.round((closes - Date.now()) / 1000));
+  const m = Math.floor(left / 60), sec = left % 60;
+  txt('pxclock', m + 'm ' + String(sec).padStart(2, '0') + 's');
+}
+
+async function tickChart() {
+  try {
+    const r = await fetch('/api/chart', {cache: 'no-store'});
+    renderChart(await r.json());
+  } catch (e) { /* leave the last good picture up */ }
+}
+
 tick(); setInterval(tick, 2000);
+// The chart is rebuilt on the trading thread each poll; fetching faster than
+// that would redraw the same picture.
+tickChart(); setInterval(tickChart, 5000);
+// The countdown is pure arithmetic on the client, so it can tick smoothly
+// without asking the bot anything.
+setInterval(tickClock, 1000);
+window.addEventListener('resize', () => { if (chartData) renderChart({symbols: {x: chartData}}); });
 // The log is history, not live state -- it does not need a 2-second poll.
 tickLog(); setInterval(tickLog, 10000);
 </script></body></html>

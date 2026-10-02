@@ -1,4 +1,4 @@
-"""Deterministic simulated broker, used by both paper mode and the backtester.
+﻿"""Deterministic simulated broker, used by both paper mode and the backtester.
 
 Because the same object serves both, a backtest and a paper-trading session
 cannot diverge in their fill logic. Fills are pessimistic on purpose:
@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
+from typing import Any
 
 from ..core.types import (
     AccountState,
@@ -57,6 +58,9 @@ class PaperBroker(Broker):
     _pending: list[ClosedTrade] = field(default_factory=list, init=False)
     _next_ticket: int = field(default=1, init=False)
     _last_bar: dict[str, Bar] = field(default_factory=dict, init=False)
+    #: Optional callable returning the live spread in points for a symbol.
+    #: Set in paper mode so simulated fills pay what real ones would.
+    spread_source: Any = None
     _connected: bool = field(default=False, init=False)
     _equity_curve: list[tuple[datetime, float]] = field(default_factory=list, init=False)
 
@@ -106,10 +110,39 @@ class PaperBroker(Broker):
         return out
 
     def spread_points(self, symbol: str) -> float:
+        """The spread this simulated fill is charged.
+
+        A live source takes precedence when one is attached. Paper mode on an
+        MT5 feed was charging nothing at all: the simulator has no order book,
+        so with no source the spread is whatever the map says, and the map is
+        empty unless a backtest filled it. Every paper fill was therefore free
+        while the backtest charged 240 points on gold, which made the forward
+        run quietly more flattering than the test it was meant to confirm.
+        """
+        if self.spread_source is not None:
+            try:
+                live = self.spread_source(symbol)
+            except Exception:  # noqa: BLE001 - a lost quote must not stop trading
+                live = None
+            if live is not None and live > 0:
+                return float(live)
         for name, points in self.spread_points_map.items():
             if same_symbol(name, symbol):
                 return points
         return 0.0
+
+    def quote(self, symbol: str) -> tuple[float, float] | None:
+        """Last bar's close, split by the configured spread.
+
+        A simulated book has no real bid and ask; this is what the simulator
+        itself fills against, so the panel shows the price the paper account is
+        actually trading at rather than a prettier one.
+        """
+        bar = self._last_bar.get(symbol.strip())
+        if bar is None:
+            return None
+        half = self.spread_points(symbol) * self.symbol_spec(symbol).point / 2.0
+        return (bar.close - half, bar.close + half)
 
     def market_order(self, req: OrderRequest) -> OrderResult:
         spec = self.symbol_spec(req.symbol)

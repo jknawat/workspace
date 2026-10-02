@@ -236,6 +236,17 @@ class MT5Broker(Broker):
         spec = self.symbol_spec(symbol)
         return (float(tick.ask) - float(tick.bid)) / spec.point
 
+    def quote(self, symbol: str) -> tuple[float, float] | None:
+        tick = self.mt5.symbol_info_tick(symbol.strip())
+        if tick is None:
+            return None
+        bid, ask = float(tick.bid), float(tick.ask)
+        # A terminal that is connected but has no fresh tick returns zeros
+        # rather than None, and a zero price on the panel reads as a crash.
+        if bid <= 0.0 or ask <= 0.0:
+            return None
+        return (bid, ask)
+
     def positions(self, symbol: str | None = None) -> list[Position]:
         raw = (
             self.mt5.positions_get(symbol=symbol.strip())

@@ -56,6 +56,13 @@ class InterfaceBundle:
     # -- wiring ---------------------------------------------------------- #
 
     @property
+    def chart_sinks(self) -> list[Any]:
+        sinks: list[Any] = []
+        if self.dashboard_state is not None:
+            sinks.append(self.dashboard_state.update_chart)
+        return sinks
+
+    @property
     def status_sinks(self) -> list[Any]:
         """Callables the runner feeds its status dict to, once per cycle."""
         sinks: list[Any] = []
