@@ -32,7 +32,7 @@ class DonchianBreakout(Strategy):
 
     def __init__(self, cfg, spec) -> None:
         super().__init__(cfg, spec)
-        self.filters = build_chain(cfg.filters)
+        self.filters = build_chain(cfg.filters, min_votes=getattr(cfg, 'min_votes', 0))
         self.reset()
 
     def reset(self) -> None:

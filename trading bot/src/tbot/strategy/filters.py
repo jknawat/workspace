@@ -31,6 +31,9 @@ class Filter(ABC):
                 f"filter {self.name!r}: when={self.when!r} is not one of "
                 "both|arm|entry"
             )
+        # A veto filter kills the trade on its own. A voter only contributes
+        # to a count. Default veto, so an existing config behaves identically.
+        self.veto = bool(options.pop("veto", True))
         unknown = set(options) - set(self.defaults)
         if unknown:
             raise ConfigError(
@@ -57,7 +60,7 @@ def register(cls: type[Filter]) -> type[Filter]:
     return cls
 
 
-def build_chain(spec: dict[str, dict[str, Any]]) -> FilterChain:
+def build_chain(spec: dict[str, dict[str, Any]], min_votes: int = 0) -> FilterChain:
     filters: list[Filter] = []
     for name, options in spec.items():
         opts = dict(options)
@@ -70,7 +73,7 @@ def build_chain(spec: dict[str, dict[str, Any]]) -> FilterChain:
                 f"unknown filter {name!r}; available: {sorted(_REGISTRY)}"
             ) from None
         filters.append(cls(**opts))
-    return FilterChain(filters)
+    return FilterChain(filters, min_votes=min_votes)
 
 
 #: When a filter is consulted. A setup is *armed* when the entry condition
@@ -86,8 +89,12 @@ STAGES = (STAGE_ARM, STAGE_ENTRY)
 class FilterChain:
     """Evaluates every filter and reports the first failure, with the full trace."""
 
-    def __init__(self, filters: list[Filter]) -> None:
+    def __init__(self, filters: list[Filter], min_votes: int = 0) -> None:
         self.filters = filters
+        #: How many of the *voting* filters must pass. 0 means all of them,
+        #: which is the same as having no voters at all -- the default, so a
+        #: config that marks nothing as a voter behaves exactly as before.
+        self.min_votes = min_votes
 
     def __len__(self) -> int:
         return len(self.filters)
@@ -95,18 +102,52 @@ class FilterChain:
     def evaluate(self, ctx: BarContext, side: Side, stage: str = "") -> Decision:
         """Check the chain. ``stage`` skips filters not configured for it.
 
+        Two kinds of filter. A **veto** fails the trade on its own. A **voter**
+        contributes to a count, and ``min_votes`` of them must pass.
+
+        Vetoes are evaluated first and short-circuit, because the point of a
+        veto is that no amount of agreement elsewhere buys past it: trading on
+        a 2000-point spread loses money whatever the candles say.
+
         An empty stage checks everything, which keeps every existing caller and
-        every backtest behaving exactly as before.
+        every backtest behaving as before.
         """
         trace: dict[str, Any] = {}
+        voters: list[tuple[str, bool, str]] = []
+
         for f in self.filters:
             if stage and not f.applies_at(stage):
                 continue
             d = f.check(ctx, side)
-            trace[f.name] = {"passed": d.passed, "reason": d.reason, **d.detail}
-            if not d.passed:
-                return Decision.no(f"{f.name}: {d.reason}", trace=trace)
-        return Decision.ok("all filters passed", trace=trace)
+            trace[f.name] = {
+                "passed": d.passed, "reason": d.reason, "veto": f.veto, **d.detail
+            }
+            if f.veto:
+                if not d.passed:
+                    return Decision.no(f"{f.name}: {d.reason}", trace=trace)
+            else:
+                voters.append((f.name, d.passed, d.reason))
+
+        if not voters:
+            return Decision.ok("all filters passed", trace=trace)
+
+        passed = [name for name, ok, _ in voters if ok]
+        needed = self.min_votes if self.min_votes > 0 else len(voters)
+        if len(passed) < needed:
+            objections = "; ".join(
+                f"{name}: {why}" for name, ok, why in voters if not ok
+            )
+            return Decision.no(
+                f"only {len(passed)} of {len(voters)} votes, need {needed} "
+                f"({objections})",
+                trace=trace,
+                votes=len(passed), votes_needed=needed,
+            )
+        return Decision.ok(
+            f"vetoes clear, {len(passed)} of {len(voters)} votes (need {needed})",
+            trace=trace,
+            votes=len(passed), votes_needed=needed,
+        )
 
 
 # --------------------------------------------------------------------------- #
@@ -260,3 +301,79 @@ class SpreadFilter(Filter):
 
 def available() -> list[str]:
     return sorted(_REGISTRY)
+
+
+@register
+class CandlePatternFilter(Filter):
+    """Does the candle itself back this direction?
+
+    The one input here that reads price *action* rather than an average of it.
+    Everything else in the chain is derived from EMAs, ATR or the spread, all
+    of which smooth away the shape of the bar the trade actually enters on.
+
+    ``require`` decides how strict it is:
+
+    * ``support``  -- at least one pattern must back this side (default)
+    * ``no_oppose`` -- only fails when a pattern backs the *other* side, which
+      lets a bar with no pattern through rather than treating "nothing to see"
+      as a refusal
+    * ``named``    -- one of ``patterns`` must be present and back this side
+
+    Most bars show no pattern at all, so ``support`` as a veto would block
+    almost everything. It is meant to be a voter.
+    """
+
+    name = "candles"
+    defaults: ClassVar[dict[str, Any]] = {
+        "require": "support",
+        "patterns": (),
+        "wick_ratio": 2.0,
+        "doji_body": 0.1,
+        "marubozu_body": 0.8,
+        "opposite_wick": 0.35,
+    }
+
+    def check(self, ctx: BarContext, side: Side) -> Decision:
+        from .candles import detect, summarise
+
+        mode = str(self.opt["require"])
+        found = detect(
+            ctx.bars, ctx.i,
+            wick_ratio=float(self.opt["wick_ratio"]),
+            doji_body=float(self.opt["doji_body"]),
+            marubozu_body=float(self.opt["marubozu_body"]),
+            opposite_wick=float(self.opt["opposite_wick"]),
+        )
+        note = summarise(found, side.value)
+        supporting = [p for p in found if p.supports(side.value)]
+        opposing = [
+            p for p in found
+            if p.side not in ("NEUTRAL", side.value.upper())
+        ]
+
+        if mode == "no_oppose":
+            if opposing:
+                return Decision.no(
+                    f"{opposing[0].name} backs the other side", note=note
+                )
+            return Decision.ok(note or "nothing against it", note=note)
+
+        if mode == "named":
+            wanted = {str(p).lower() for p in self.opt["patterns"]}
+            if not wanted:
+                return Decision.no(
+                    "require='named' with no patterns listed, so nothing can "
+                    "ever match"
+                )
+            hit = [p for p in supporting if p.name in wanted]
+            if not hit:
+                return Decision.no(f"none of {sorted(wanted)} present", note=note)
+            return Decision.ok(hit[0].note, note=note)
+
+        if mode != "support":
+            return Decision.no(
+                f"require={mode!r} is not one of support|no_oppose|named"
+            )
+        if not supporting:
+            return Decision.no(note or "no pattern backs this side", note=note)
+        return Decision.ok(supporting[0].note, note=note)

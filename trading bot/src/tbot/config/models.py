@@ -240,6 +240,10 @@ class SymbolConfig:
     sides: tuple[str, ...] = ("LONG",)
     params: dict[str, Any] = field(default_factory=dict)
     filters: dict[str, dict[str, Any]] = field(default_factory=dict)
+    #: How many *voting* filters (``veto = false``) must pass. 0 keeps the
+    #: original rule that every filter must pass, which is what a config
+    #: marking nothing as a voter means anyway.
+    min_votes: int = 0
     exits: dict[str, dict[str, Any]] = field(default_factory=dict)
     session: SessionConfig = field(default_factory=SessionConfig)
     #: Signal rating and size tiering. Disabled by default, so an existing
@@ -258,6 +262,7 @@ class SymbolConfig:
                 "sides",
                 "params",
                 "filters",
+                "min_votes",
                 "exits",
                 "session",
                 "confidence",
@@ -280,6 +285,7 @@ class SymbolConfig:
             sides=sides,
             params=dict(d.get("params", {})),
             filters={k: dict(v) for k, v in d.get("filters", {}).items()},
+            min_votes=int(d.get("min_votes", 0)),
             exits={k: dict(v) for k, v in d.get("exits", {}).items()},
             session=SessionConfig.from_dict(d.get("session", {}), f"{where}.session"),
             confidence=_confidence_from(d.get("confidence", {}), f"{where}.confidence"),

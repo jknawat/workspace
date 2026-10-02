@@ -83,7 +83,7 @@ class IctConfluence(Strategy):
                 raise ConfigError(
                     f"ict_confluence.{key}: {self.p(key)!r} not in {sorted(allowed)}"
                 )
-        self.filters = build_chain(cfg.filters)
+        self.filters = build_chain(cfg.filters, min_votes=getattr(cfg, 'min_votes', 0))
         self.transitions: list[dict[str, Any]] = []
         self.traded_zones: list[str] = []
         self.reset()

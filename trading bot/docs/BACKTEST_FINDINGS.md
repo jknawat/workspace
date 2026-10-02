@@ -184,6 +184,63 @@ The `when` option is kept, tested and currently unused by any shipped config.
 It is how the same question gets asked of another filter without rebuilding
 this scaffolding.
 
+## Candlestick patterns, and "almost all passed"
+
+Two proposals, tested together because they interact: add candlestick patterns
+to the decision, and stop requiring *every* filter to pass -- let a setup
+through when almost all of them do.
+
+Filters gained `veto = true|false`. A veto fails the trade alone; a voter
+contributes to a count, and `min_votes` of them must pass. `session`, `spread`,
+`price_vs_ema` and `mtf_required` were kept as vetoes: the first two are safety
+rather than edge, and removing the third turns +1621 into -622.
+
+| variant | full period | half A | half B |
+|---|---|---|---|
+| current | +1620.66, pf 1.19 | **+652.32, pf 1.20** | **+1784.34, pf 1.40** |
+| candles must support | 20 trades, +102.65, pf 1.08 | -83.22, pf 0.84 | +578.06, pf 2.53 |
+| candles not against | +2050.56, pf **1.29** | +520.92, pf 1.19 | +1473.72, pf 1.38 |
+| vote 2 of 3, with candles | +1466.92, pf 1.16 | +156.76, pf 1.04 | +1139.80, pf 1.24 |
+| vote 1 of 3, with candles | **-1451.55, pf 0.89** | +541.43, pf 1.09 | +417.12, pf 1.07 |
+| vote 1 of 2, no candles | **-1104.90, pf 0.91** | +499.61, pf 1.08 | +494.03, pf 1.09 |
+
+**Acted on: nothing. Both ideas were rejected.**
+
+### Loosening the gates loses money
+
+This is the clearest result of the lot. Requiring only one of the soft filters
+turns a +1621 strategy into a **-1452 one**, with drawdown going from 8.6% to
+21.6%. Two of three is also worse than the current rule in both halves.
+
+The filters are not too strict. They are load-bearing. The intuition that a
+good setup is being blocked on a technicality is real -- it happens, visibly,
+and it is the price of refusing the much larger number of bad ones.
+
+### The candle result is a lesson in why halves matter
+
+"Candles not against" looks like the best variant on the table: +2050 against
++1621, profit factor 1.29 against 1.19. **Both halves are worse than current**
+(1.19 vs 1.20, and 1.38 vs 1.40).
+
+The full-period figure is a path effect, not better selection. Fewer early
+trades meant a different balance curve, which changed position sizes later; the
+halves each restart flat and measure trade quality directly. Where the two
+disagree, the halves are the honest answer -- which is the same rule that has
+now rejected five changes, and the only reason this one did not slip through.
+
+"Candles must support" took 20 trades in 310 days, eight of them in half A,
+where it lost. A variant that trades once a fortnight cannot be judged on this
+data at all.
+
+### What is kept
+
+`strategy/candles.py` and the veto/vote machinery stay: tested, default-inert,
+and used by no shipped config. Every pattern is defined as a measurement
+(`lower >= wick_ratio * body`) rather than a shape, because a pattern that
+cannot be computed identically on every bar cannot be backtested. If forward
+data ever suggests revisiting this, the scaffolding is here and does not need
+rebuilding.
+
 ## Standing caveats
 
 * A profit factor of 1.13--1.19 is thin. It survives a 240-point spread, which
