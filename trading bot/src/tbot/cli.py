@@ -201,6 +201,10 @@ def cmd_backtest(args: argparse.Namespace) -> int:
             specs=_load_specs(args.specs),
             journal=journal,
             max_bars=args.bars,
+            spread_points=(
+                {s.symbol: args.spread for s in cfg.active_symbols}
+                if args.spread else None
+            ),
         )
     finally:
         if journal:
@@ -632,6 +636,12 @@ def build_parser() -> argparse.ArgumentParser:
     bt.add_argument("--bars", type=int, default=0, help="use only the last N bars (0 = all)")
     bt.add_argument("--specs", help="TOML of real broker specs (see `tbot specs --save`)")
     bt.add_argument("--journal", help="write signals/trades to this sqlite file")
+    bt.add_argument(
+        "--spread",
+        type=float,
+        help="spread in points to charge on entry (gold is ~240; without it "
+             "costs are near zero and the result flatters itself)",
+    )
     bt.add_argument("--trades", action="store_true", help="print every closed trade")
     bt.add_argument("--json", action="store_true", help="machine-readable metrics")
     bt.set_defaults(func=cmd_backtest)

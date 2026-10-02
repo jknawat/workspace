@@ -18,7 +18,15 @@ from dataclasses import dataclass, field
 from datetime import date
 
 from ..config.models import BotConfig
-from ..core.types import AccountState, Decision, OrderRequest, Position, Signal, SymbolSpec
+from ..core.types import (
+    AccountState,
+    Decision,
+    OrderRequest,
+    Position,
+    Signal,
+    SymbolSpec,
+    same_symbol,
+)
 from .sizing import SizingResult, lot_for_risk
 
 
@@ -45,8 +53,21 @@ class RiskManager:
     # Budget
     # ------------------------------------------------------------------ #
 
+    def weight_for(self, symbol: str) -> float | None:
+        """This symbol's share of the risk budget, or ``None`` if unconfigured.
+
+        Case-insensitive, and ``None`` rather than ``0.0`` for "not found" --
+        the two mean very different things. An uppercase lookup here once
+        turned every XAUUSDm signal into "risk budget is zero or negative",
+        which reads like a balance problem and is actually a name mismatch.
+        """
+        for name, weight in self.cfg.normalised_weights.items():
+            if same_symbol(name, symbol):
+                return weight
+        return None
+
     def budget_for(self, symbol: str, balance: float) -> float:
-        weight = self.cfg.normalised_weights.get(symbol.upper(), 0.0)
+        weight = self.weight_for(symbol) or 0.0
         return balance * (self.cfg.risk.risk_per_trade_pct / 100.0) * weight
 
     def daily_loss_limit(self, balance: float) -> float:
@@ -106,6 +127,13 @@ class RiskManager:
         if signal.rr < risk_cfg.min_rr:
             return Decision.no(
                 f"reward/risk {signal.rr:.2f} < min {risk_cfg.min_rr:.2f}"
+            ), None
+
+        if self.weight_for(signal.symbol) is None:
+            # A name mismatch, not a money problem -- say which.
+            return Decision.no(
+                f"{signal.symbol} has no risk weight; configured symbols are "
+                f"{sorted(self.cfg.normalised_weights)}"
             ), None
 
         budget = self.budget_for(signal.symbol, account.balance)

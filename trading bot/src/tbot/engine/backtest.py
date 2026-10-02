@@ -147,11 +147,17 @@ def run_backtest(
     specs: dict[str, SymbolSpec] | None = None,
     journal: Journal | None = None,
     max_bars: int = 0,
+    spread_points: dict[str, float] | None = None,
 ) -> BacktestReport:
     log = obs_log.get("backtest")
     broker = PaperBroker(balance=config.engine.start_balance, slippage_points=2.0)
     if specs:  # real broker specs captured with `tbot specs` beat the defaults
         broker.specs.update({k.strip(): v for k, v in specs.items()})
+    if spread_points:
+        # Without this, costs are set only by slippage_points, which is counted
+        # in *points* -- 2 points of gold is $0.002 against a real spread of
+        # $0.24. A backtest that cheap is not a backtest, it is an advert.
+        broker.spread_points_map.update({k.strip(): float(v) for k, v in spread_points.items()})
     broker.connect()
 
     wanted = [s.strip() for s in symbols] if symbols else [s.symbol for s in config.active_symbols]

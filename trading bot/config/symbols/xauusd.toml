@@ -50,13 +50,22 @@ max = 7.2
 [filters.price_vs_ema]
 series = "ema_trend"
 
-# Measured under ATR scaling: median 5.0 deg, p75 8.6, p90 11.8, max 20.1.
-# A smoothed EMA21 moves far less than one ATR per bar, so the first guess of
-# 20 deg would have rejected all but the most extreme bar in a week, and 6.0
-# still passed only 17.9% of bars -- which, stacked with session (49%) and
-# price_vs_ema (46%), left one armed setup per week and no entries at all.
-# 3.0 passes roughly two thirds while still refusing a flat tape.
+# DISABLED on evidence, not taste.
+#
+# Over 60,000 M5 bars (310 days), with every other gate unchanged:
+#   with angle      8 trades   12.5% win   -354   pf 0.39
+#   without angle 117 trades   29.9% win   +902   pf 1.13
+# and split in half, removing it is positive in both periods (pf 1.05 then
+# 1.22, drawdown under 13%) rather than in one lucky stretch.
+#
+# Why it fails here: the gate measures the slope of a smoothed EMA21, which
+# barely moves in ATR terms, so any threshold either passes everything (the
+# old point scaling, pinned at ~89.9 deg) or strangles the strategy. It was
+# costing 13x the trades and turning a thin edge into a loss.
+#
+# Left in place, disabled, because the reasoning is worth more than the line.
 [filters.angle]
+enabled = false
 min_degrees = 3.0
 
 # Gold's live spread is ~240 points (point = 0.001, so $0.24). The 60 here

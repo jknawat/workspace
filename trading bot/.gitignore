@@ -28,3 +28,6 @@ desktop.ini
 
 # python
 .venv/
+
+# exported market data and split sets
+data/_split/
