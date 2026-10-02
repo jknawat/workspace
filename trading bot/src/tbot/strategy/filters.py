@@ -23,6 +23,14 @@ class Filter(ABC):
     defaults: ClassVar[dict[str, Any]] = {}
 
     def __init__(self, **options: Any) -> None:
+        # ``when`` is understood by every filter rather than declared per
+        # subclass, so it never collides with a filter's own option names.
+        self.when = str(options.pop("when", "both")).lower()
+        if self.when not in ("both", "arm", "entry"):
+            raise ConfigError(
+                f"filter {self.name!r}: when={self.when!r} is not one of "
+                "both|arm|entry"
+            )
         unknown = set(options) - set(self.defaults)
         if unknown:
             raise ConfigError(
@@ -33,6 +41,9 @@ class Filter(ABC):
 
     @abstractmethod
     def check(self, ctx: BarContext, side: Side) -> Decision: ...
+
+    def applies_at(self, stage: str) -> bool:
+        return self.when == "both" or self.when == stage
 
     def __repr__(self) -> str:  # pragma: no cover - debug aid
         return f"<{self.name} {self.opt}>"
@@ -62,6 +73,16 @@ def build_chain(spec: dict[str, dict[str, Any]]) -> FilterChain:
     return FilterChain(filters)
 
 
+#: When a filter is consulted. A setup is *armed* when the entry condition
+#: first appears, and *entered* when price finally triggers -- which on a
+#: pullback strategy can be many bars later, at a materially different price.
+#: A gate that measures where price is relative to a moving average therefore
+#: answers a different question at each point.
+STAGE_ARM = "arm"
+STAGE_ENTRY = "entry"
+STAGES = (STAGE_ARM, STAGE_ENTRY)
+
+
 class FilterChain:
     """Evaluates every filter and reports the first failure, with the full trace."""
 
@@ -71,9 +92,16 @@ class FilterChain:
     def __len__(self) -> int:
         return len(self.filters)
 
-    def evaluate(self, ctx: BarContext, side: Side) -> Decision:
+    def evaluate(self, ctx: BarContext, side: Side, stage: str = "") -> Decision:
+        """Check the chain. ``stage`` skips filters not configured for it.
+
+        An empty stage checks everything, which keeps every existing caller and
+        every backtest behaving exactly as before.
+        """
         trace: dict[str, Any] = {}
         for f in self.filters:
+            if stage and not f.applies_at(stage):
+                continue
             d = f.check(ctx, side)
             trace[f.name] = {"passed": d.passed, "reason": d.reason, **d.detail}
             if not d.passed:

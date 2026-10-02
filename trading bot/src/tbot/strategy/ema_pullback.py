@@ -26,7 +26,7 @@ from typing import Any, ClassVar
 from ..core.indicators import Series, atr, crossed_above, crossed_below, ema, slope_degrees
 from ..core.types import Bar, Phase, Side, Signal
 from .base import BarContext, Strategy, register
-from .filters import build_chain
+from .filters import STAGE_ARM, STAGE_ENTRY, build_chain
 
 
 @register
@@ -154,7 +154,7 @@ class EmaPullbackBreakout(Strategy):
         if side is None or side not in self.sides:
             return None
 
-        decision = self.filters.evaluate(ctx, side)
+        decision = self.filters.evaluate(ctx, side, stage=STAGE_ARM)
         if not decision:
             self.last_reject = decision.reason
             self._record(ctx, "rejected", side=side.value, reason=decision.reason)
@@ -234,7 +234,7 @@ class EmaPullbackBreakout(Strategy):
             # Re-run the chain: session and spread can invalidate between arming
             # and the breakout, and those are exactly the gates that matter at
             # the moment an order would actually be sent.
-            decision = self.filters.evaluate(ctx, self.side)
+            decision = self.filters.evaluate(ctx, self.side, stage=STAGE_ENTRY)
             if not decision:
                 self.last_reject = decision.reason
                 self._to(Phase.SCANNING, ctx, f"breakout blocked: {decision.reason}")

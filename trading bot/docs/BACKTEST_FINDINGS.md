@@ -140,6 +140,50 @@ The components could no doubt be reweighted until the bands line up on these
 310 days. That is the definition of curve fitting, and the angle gate already
 demonstrated what it costs. The weights stay as first written.
 
+## price_vs_ema at the cross: the timing is right, the hypothesis was wrong
+
+Watching it live on 2026-10-02 raised a fair suspicion. Six short crossovers
+that day: three refused for being outside the session, then 08:20, 09:40 and
+10:00 all refused by `price_vs_ema` because price sat above the trend EMA at
+the instant of the cross. Price then fell about $13 with the bot flat.
+
+The hypothesis: the gate asks its question at the wrong moment. A pullback
+entry triggers many bars after the setup arms, at a materially different price,
+so a move that *begins* above the trend EMA is refused at its start and only
+becomes permissible once the cross is spent.
+
+Filters gained a `when` option (`both` by default, or `arm` / `entry`) so the
+question could be measured rather than argued:
+
+| variant | full period | half A | half B |
+|---|---|---|---|
+| both (current) | 125 trades, +1620.66, pf 1.19 | +652.32, pf 1.20 | +1784.34, pf **1.40** |
+| entry only | 151 trades, +1840.43, pf 1.18 | **-41.83, pf 0.99** | +623.20, pf 1.12 |
+| arm only | 125 trades, +1620.66, pf 1.19 | +652.32, pf 1.20 | +1784.34, pf 1.40 |
+| removed | 218 trades, **-622.30, pf 0.96** | +367.10, pf 1.10 | -214.65, pf 0.96 |
+
+**Acted on: nothing. The hypothesis was wrong.** Checking only at the breakout
+makes more money over the full period and *loses* in the first half, while the
+current setting is the strongest variant in both halves independently. Removing
+the gate entirely turns the strategy into a loser, which settles how much work
+it is doing.
+
+Two things worth keeping from this:
+
+* `arm only` is **identical** to `both`, to the cent. The re-check at the
+  breakout never once rejected a trade that had passed at the cross -- for this
+  filter. Price that was on the right side of the trend EMA when the EMAs
+  crossed is still on the right side when price breaks out in that direction.
+  The re-check still earns its place for `session` and `spread`, which do change
+  while a setup waits.
+* Three refused shorts in one afternoon feels like a lot and is not evidence.
+  The same gate refuses the entries that would have been taken into the teeth
+  of a trend all year, and the full-period numbers are what that is worth.
+
+The `when` option is kept, tested and currently unused by any shipped config.
+It is how the same question gets asked of another filter without rebuilding
+this scaffolding.
+
 ## Standing caveats
 
 * A profit factor of 1.13--1.19 is thin. It survives a 240-point spread, which
