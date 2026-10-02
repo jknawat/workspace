@@ -241,6 +241,89 @@ cannot be computed identically on every bar cannot be backtested. If forward
 data ever suggests revisiting this, the scaffolding is here and does not need
 rebuilding.
 
+## More symbols: three rejected, one accepted
+
+The goal was trade count. At 125 trades in 310 days, gold alone needs about
+five months to produce the 60 settled trades `tbot review` will not draw a
+conclusion without. Four instruments were tested to shorten that.
+
+First, three levers on gold itself, all of which failed:
+
+| change | trades | per trade | half A | half B |
+|---|---|---|---|---|
+| current (1 position) | 125 | **+$12.97** | **+652, pf 1.20** | **+1784, pf 1.40** |
+| 2 positions at once | 147 | +$10.85 | +171, pf 1.04 | +1027, pf 1.20 |
+| 3 positions at once | 152 | +$9.89 | +23, pf 1.01 | +1108, pf 1.21 |
+| cooldown 6 -> 0 | 125 | *identical* | *identical* | *identical* |
+
+The extra trades allowing a second position buys are worth $2.72 each against
+an average of $12.08: the bot is already taking the good ones. And cooldown
+turns out not to bind at all -- setting it to zero changes nothing, because by
+the time it would matter there is no setup waiting.
+
+### Why most symbols cannot work here
+
+Gold's edge is thin (profit factor 1.19) while paying 4.7% of each bar's range
+in spread. The ratio of spread to ATR is therefore a hard constraint, and it is
+measurable before any backtest (`scripts/screen_symbols.py`):
+
+| symbol | spread | ATR (points) | cost ratio |
+|---|---|---|---|
+| US30m | 13 | 281 | **4.6%** |
+| USTECm | 112 | 2,422 | **4.6%** |
+| XAUUSDm | 240 | 4,429 | 5.4% |
+| USDJPYm | 10 | 47 | 21% |
+| EURUSDm | 8 | 28 | 29% |
+| XAGUSDm (silver) | 30 | 110 | 27% |
+| ETHUSDm | 100 | 408 | 25% |
+
+### The results
+
+Each symbol run alone, with gold's validated gates and its own measured ATR
+band and real spread:
+
+| symbol | full period | half A | half B | verdict |
+|---|---|---|---|---|
+| **US30m** | +8536.94, pf 1.52 | **+724.92, pf 1.10** | **+619.72, pf 1.07** | **accepted** |
+| USTECm | +574.92, pf 1.04 | **-604.24, pf 0.91** | +305.41, pf 1.03 | rejected |
+| EURUSDm | +492.55, pf 1.04 | **-1286.52, pf 0.84** | **-680.32, pf 0.91** | rejected |
+| USDJPYm | -4548.53, pf 0.64 | -1022.45, pf 0.85 | -2781.03, pf 0.61 | rejected |
+
+The cost ratio predicted all four. Both pairs lose; both indices are at least
+close; the one that passes has the cheapest ratio of any instrument screened.
+
+**Acted on: US30m enabled at weight 1.0 against gold's 3.0.** Total risk is
+unchanged at 1% -- the budget is split, not added to.
+
+### What it costs
+
+| | trades/day | net | pf | drawdown |
+|---|---|---|---|---|
+| gold alone | 0.40 | +1620.66 | 1.19 | 8.6% |
+| gold + US30 | **1.07** | +3574.82 | 1.34 | **6.1%** |
+| half A: gold alone | 0.17 | +652.32 | **1.20** | 8.8% |
+| half A: both | 0.52 | +745.29 | 1.17 | 6.3% |
+| half B: gold alone | 0.23 | **+1784.34** | **1.40** | 9.6% |
+| half B: both | 0.65 | +1318.58 | 1.23 | 5.7% |
+
+This is a trade, not a free win. US30's edge is weaker than gold's, so sharing
+the risk budget with it **dilutes** the stronger symbol -- in the second half,
+gold alone made more money than both together. What is bought is 2.7x the
+trades and a materially lower drawdown (8.6% to 6.1%), which is real
+diversification rather than an artifact.
+
+It is accepted because the immediate goal is **evidence, not profit**: 60
+settled trades in about eight weeks instead of five months, on paper money
+where a wrong answer costs nothing.
+
+### The honest caveat
+
+US30 was selected by screening roughly thirty instruments and testing four.
+Picking the best of many and then testing it once is weaker evidence than one
+pre-registered test, and the split halves (1.10 and 1.07) are much thinner than
+gold's (1.20 and 1.40). Treat US30 as a promising candidate under observation,
+not as a second validated edge.
+
 ## Standing caveats
 
 * A profit factor of 1.13--1.19 is thin. It survives a 240-point spread, which

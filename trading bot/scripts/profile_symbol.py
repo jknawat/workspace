@@ -40,7 +40,9 @@ def pct(values: list[float], q: float) -> float:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("symbol", help="exact broker symbol, e.g. XAUUSDm")
-    ap.add_argument("--bars", type=int, default=1500)
+    # 1500 M5 bars is a week. Bounds set from one week describe that week --
+    # the backtest they feed covers 310 days.
+    ap.add_argument("--bars", type=int, default=60000)
     ap.add_argument("--timeframe", default="M5")
     ap.add_argument("--atr-period", type=int, default=14)
     ap.add_argument("--ema", type=int, default=21, help="EMA the slope is measured on")
@@ -75,11 +77,20 @@ def main() -> int:
         print("not enough history for ATR", file=sys.stderr)
         return 1
     median = statistics.median(values)
+    # Print to the symbol's own precision. Two decimals is right for gold at
+    # 4.62 and rounds a 5-digit currency pair's ATR to 0.00, which then gets
+    # copied into a config as a bound that means nothing. That is how three of
+    # gold's filter bounds came to be wrong.
+    dp = max(spec.digits - 1, 2)
     print(f"\nATR({args.atr_period}):")
-    print(f"  min {min(values):.3f}   p5 {pct(values, 0.05):.3f}   "
-          f"median {median:.3f}   p95 {pct(values, 0.95):.3f}   max {max(values):.3f}")
-    print(f"  suggested [filters.atr_range]  min = {pct(values, 0.05):.2f}  "
-          f"max = {pct(values, 0.95):.2f}")
+    print(f"  min {min(values):.{dp}f}   p5 {pct(values, 0.05):.{dp}f}   "
+          f"median {median:.{dp}f}   p95 {pct(values, 0.95):.{dp}f}   "
+          f"max {max(values):.{dp}f}")
+    print(f"  in points: median {median / spec.point:,.0f}   "
+          f"p5 {pct(values, 0.05) / spec.point:,.0f}   "
+          f"p95 {pct(values, 0.95) / spec.point:,.0f}")
+    print(f"  suggested [filters.atr_range]  min = {pct(values, 0.05):.{dp}f}  "
+          f"max = {pct(values, 0.95):.{dp}f}")
 
     closes = [b.close for b in bars]
     trend = ema(closes, args.ema)
@@ -97,7 +108,7 @@ def main() -> int:
 
     stop = args.sl_atr * median
     lots = args.risk / (stop * spec.value_per_price_unit)
-    print(f"\nsizing at median ATR: {args.sl_atr}xATR stop = {stop:.2f} -> "
+    print(f"\nsizing at median ATR: {args.sl_atr}xATR stop = {stop:.{dp}f} -> "
           f"{lots:.2f} lots for {args.risk:,.0f} risk (broker minimum {spec.volume_min})")
     if lots < spec.volume_min:
         print("  WARNING: below the broker minimum -- the risk gate will decline "

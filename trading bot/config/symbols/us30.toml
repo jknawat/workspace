@@ -1,0 +1,87 @@
+# Dow Jones 30 (US30m at Exness).
+#
+# Added 2026-10-02 after gold's configuration was ported here and passed the
+# split test: +724.92 (pf 1.10) in the first half, +619.72 (pf 1.07) in the
+# second. Gold is 1.20 / 1.40 over the same test, so this is a weaker edge than
+# gold's -- it is here for the trade count as much as the profit.
+#
+# Read docs/BACKTEST_FINDINGS.md before changing anything here. Every bound is
+# measured, not chosen.
+
+symbol = "US30m"
+strategy = "ema_pullback"
+enabled = true
+weight = 1.0          # gold carries 3.0; see [risk] in bot.toml for the split
+sides = ["LONG", "SHORT"]
+
+[session]
+start = "08:00"       # UTC, always. Broker offset is handled once, in [engine].
+end = "20:00"
+weekdays = [0, 1, 2, 3, 4]
+
+# Identical to gold's, deliberately. These parameters are the ones that have
+# been tested; inventing different ones here would mean this symbol had never
+# really been validated at all.
+[params]
+ema_confirm = 5
+ema_fast = 8
+ema_medium = 21
+ema_slow = 34
+ema_trend = 200
+atr_period = 14
+use_pullback = true
+pullback_bars = 2
+pullback_max_wait = 10
+window_offset_atr = 0.4
+window_bars = 8
+sl_atr = 3.0
+tp_atr = 7.5
+cooldown_bars = 6
+slope_scale = "atr"
+slope_source = "ema_medium"
+
+[filters.session]
+
+# Measured ATR(14) over 60,000 real M5 bars: min 3.94, p5 9.59, median 24.89,
+# p95 67.34, max 204.56. These are the 5th and 95th percentiles.
+[filters.atr_range]
+min = 9.59
+max = 67.34
+
+[filters.price_vs_ema]
+series = "ema_trend"
+
+# DISABLED, same as gold and for the same reason. The point-scaled slope on
+# this symbol reads median 87.2 and p90 89.2 degrees -- close enough to
+# saturation that any threshold either passes everything or strangles it.
+[filters.angle]
+enabled = false
+
+# Real spread is 13 points. 22 leaves the same proportional headroom for news
+# that gold's 400-against-240 does.
+[filters.spread]
+max_points = 22
+
+# --------------------------------------------------------------------------- #
+# Multi-timeframe context
+# --------------------------------------------------------------------------- #
+[filters.mtf_align]
+timeframes = ["M15", "H1", "H4", "H12", "D1"]
+min_agree = 2
+max_disagree = 3
+
+# Never fight the daily. Neutral is allowed -- it is not opposition.
+[filters.mtf_required]
+timeframes = ["D1"]
+allow_neutral = true
+
+# Scoring runs in measure-only mode here too: the number is recorded and shown,
+# nothing is refused or resized by it. See the note in xauusd.toml.
+[confidence]
+enabled = true
+min_score = 0.0
+
+[[confidence.tiers]]
+min_score = 0.0
+risk_mult = 1.0
+label = "measuring"
