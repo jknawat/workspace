@@ -92,16 +92,34 @@ numbers, and a wrong one sizes every trade wrong.
 This checks the terminal connection, the symbol, the snapshot freshness and the
 config together. Fix anything it reports before running.
 
-## 8. Market data for backtesting (optional)
+## 8. The trade journal is shared automatically
 
-`data/*.csv` is not in git — the files are large and regenerable. You only need
-them to re-run backtests. Either copy `data\` across by hand, or re-export it
-on the new machine.
+`data/journal.sqlite` **is** in git, and the scripts keep it in step:
 
-`data/journal.sqlite` is also not in git. That is your trade history. **Copy it
-across if you want the record to continue**, and do it while the bot is stopped
-on both machines. If you leave it behind, the new machine starts with an empty
-journal and `tbot review` counts from zero.
+* `run.bat` fetches before starting and takes anything the other machine
+  recorded.
+* `stop.bat` waits for the bot to actually exit, then commits and pushes it.
+
+You never type a git command. Stop properly on one machine, start on the other,
+and the history follows.
+
+The waiting in `stop.bat` is not politeness. Committing or copying a SQLite
+file while the process is still writing to it is how a database gets corrupted,
+so it polls for the bot to exit and refuses to save if it is still alive after
+a minute.
+
+**If `run.bat` refuses to start**, it will be this:
+
+    STOP - both computers have history the other does not have.
+
+That means the bot ran in two places. Git cannot merge two SQLite files, so one
+of the two records has to be chosen and the other is lost. Pick the journal
+from the machine that actually placed the trades. It also means both bots were
+trading the same account — see the warning at the bottom.
+
+Market data (`data/*.csv`) is **not** shared: it is large and regenerable, and
+you only need it to re-run backtests. Copy `data\` by hand if you want it, or
+re-export on the new machine.
 
 ## 9. Run it
 
