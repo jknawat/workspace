@@ -274,3 +274,32 @@ def test_an_older_journal_gains_the_new_columns_without_losing_rows(tmp_path):
     j.record_decision(TS, "XAUUSDm", "wait", "works now")
     assert len(j.recent_decisions()) == 1
     j.close()
+
+
+def test_an_unchanged_wait_is_restated_after_an_hour(tmp_path):
+    """Suppressing forever makes a quiet week look like a stopped bot.
+
+    Someone reading the log during a long wait cannot tell "nothing has
+    changed" from "nothing is running", so an unchanged reason is restated
+    hourly. Often enough to be a pulse, rare enough not to be a flood.
+    """
+    j = journal_at(tmp_path)
+    assert j.record_decision(TS, "XAUUSDm", "wait", "waiting for a setup")
+    assert not j.record_decision(
+        TS + timedelta(minutes=55), "XAUUSDm", "wait", "waiting for a setup"
+    )
+    assert j.record_decision(
+        TS + timedelta(minutes=61), "XAUUSDm", "wait", "waiting for a setup"
+    )
+    assert len(j.recent_decisions()) == 2
+    j.close()
+
+
+def test_the_hourly_pulse_does_not_apply_to_a_changed_reason(tmp_path):
+    """A new reason is news whenever it happens, not on the hour."""
+    j = journal_at(tmp_path)
+    j.record_decision(TS, "XAUUSDm", "wait", "waiting for a setup")
+    assert j.record_decision(
+        TS + timedelta(minutes=1), "XAUUSDm", "wait", "armed LONG"
+    )
+    j.close()

@@ -113,6 +113,10 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+#: How long an unchanged "waiting" stays suppressed before being restated.
+REPEAT_A_WAIT_AFTER_SECONDS = 3600.0
+
+
 def _reason_shape(why: str) -> str:
     """The reason with its numbers removed, for de-duplication only.
 
@@ -134,9 +138,9 @@ class Journal:
         self.conn.executescript(SCHEMA)
         self._migrate()
         self.run_id: int | None = None
-        #: Last (symbol, action, why) written, so a repeated "wait" is not
-        #: logged thousands of times a day.
-        self._last_decision: dict[str, tuple[str, str, str]] = {}
+        #: Last reason written per symbol, with when, so a repeated "wait" is
+        #: neither logged thousands of times a day nor silently dropped forever.
+        self._last_decision: dict[str, tuple[tuple[str, str, str], datetime]] = {}
 
     # ------------------------------------------------------------------ #
 
@@ -233,9 +237,17 @@ class Journal:
         the rows that must never be missing.
         """
         key = (symbol, action, _reason_shape(why))
-        if action == "wait" and self._last_decision.get(symbol) == key:
-            return False
-        self._last_decision[symbol] = key
+        if action == "wait":
+            last = self._last_decision.get(symbol)
+            if last is not None and last[0] == key:
+                # Same reason as last time -- but repeat it occasionally anyway.
+                # Pure suppression made the log look dead during a quiet week,
+                # which is indistinguishable from a stopped bot to anyone
+                # reading it. An hourly restatement is a pulse, not a flood.
+                since = (ts - last[1]).total_seconds()
+                if 0 <= since < REPEAT_A_WAIT_AFTER_SECONDS:
+                    return False
+        self._last_decision[symbol] = (key, ts)
         self.conn.execute(
             """INSERT INTO decisions
                (run_id, ts, symbol, phase, action, score, risk_pct, volume,

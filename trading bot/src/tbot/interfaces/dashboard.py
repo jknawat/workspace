@@ -412,8 +412,12 @@ function render(d) {
   });
 
   const ev = el('events');
-  ev.innerHTML = (d.events || []).length ? '' : '<div class="muted">nothing yet</div>';
-  (d.events || []).slice(0, 60).forEach(e => {
+  // The once-a-minute status heartbeat says nothing the cards above do not
+  // already show, and rendering it filled this list with blank rows that
+  // pushed the real decisions off the screen. Liveness is the header dot's job.
+  const feed = (d.events || []).filter(e => e.kind !== 'status');
+  ev.innerHTML = feed.length ? '' : '<div class="muted">nothing yet</div>';
+  feed.slice(0, 60).forEach(e => {
     const row = document.createElement('div');
     row.className = 'ev';
     const when = new Date(e.ts).toLocaleTimeString();
