@@ -30,6 +30,9 @@ PROFILES: dict[str, tuple[float, int, float, float]] = {
     "USDJPY": (152.500, 3, 0.0450, 0.0000400),
     "XAUUSD": (2350.00, 2, 1.8000, 0.0040000),
     "XAGUSD": (28.500, 3, 0.0450, 0.0000300),
+    # Volatility chosen so ATR(14) sits near the 24.89 median measured on real
+    # US30m M5 bars -- inside the atr_range band in config/symbols/us30.toml.
+    "US30": (51000.0, 1, 14.0000, 0.0300000),
 }
 
 TF_MINUTES = {
