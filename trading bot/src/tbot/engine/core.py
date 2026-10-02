@@ -322,18 +322,22 @@ class TradeEngine:
     # MT5 structure snapshots
     # ------------------------------------------------------------------ #
 
-    def refresh_mtf(self, symbol: str, feed, bars_per_timeframe: int = 260) -> MultiTimeframe:
+    def refresh_mtf(self, symbol: str, feed, bars_per_timeframe: int = 0) -> MultiTimeframe:
         """Rebuild a symbol's higher/lower timeframe context from the feed.
 
         One failure per timeframe is survivable: a timeframe that cannot be
         fetched is simply absent, and the gates treat absent as "not ready"
         rather than as agreement.
+
+        Fetch depth comes from ``[engine].context_bars``, which is deliberately
+        far more than the 200 bars the trend EMA needs -- see the note there.
         """
         rt = self._runtime(symbol)
+        count = bars_per_timeframe or self.config.engine.context_bars
         views = {}
         for tf in self.config.engine.context_timeframes:
             try:
-                bars = feed.history(rt.cfg.symbol, tf, bars_per_timeframe)
+                bars = feed.history(rt.cfg.symbol, tf, count)
             except Exception as exc:  # noqa: BLE001 - one timeframe must not stop the rest
                 self.log.warning(
                     "context timeframe %s unavailable for %s: %s", tf, symbol, exc,

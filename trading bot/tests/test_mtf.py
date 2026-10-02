@@ -371,3 +371,36 @@ def test_timeframes_are_reported_fine_to_coarse():
         "H4": bars_from_closes(closes, minutes=240),
     })
     assert hist.timeframes == ["M15", "H4", "D1"]
+
+
+def test_context_depth_must_let_the_trend_ema_converge():
+    """A 200-bar EMA reached at bar 200 is still its own seed.
+
+    The config refuses a depth that would make the trend EMA a stale average
+    wearing the name of a trend -- the same class of mistake as the angle gate,
+    where an indicator silently did not mean what it said.
+    """
+    from tbot.config.models import ConfigError, EngineConfig
+
+    with pytest.raises(ConfigError, match="context_bars"):
+        EngineConfig.from_dict({"context_bars": 210})
+
+    seed_weight = (1 - 2 / 201) ** (1200 - 200)
+    assert seed_weight < 1e-3, "1200 bars should wash the seed out"
+
+
+def test_the_summary_says_unknown_rather_than_flat():
+    """"Balanced" and "no idea" are different answers.
+
+    Gold has ~101 monthly bars at the broker, so MN1 can never satisfy a
+    200-bar trend EMA. Rendering that as "flat" puts a verdict in the decision
+    panel where there is none.
+    """
+    views = {
+        "H1": TimeframeView("H1", 300, 1.0, "bearish", "test", ready=True),
+        "MN1": TimeframeView("MN1", 101, 1.0, "neutral", "only 101 bars", ready=False),
+    }
+    summary = MultiTimeframe(views).summary()
+    assert "H1 bear" in summary
+    assert "MN1 n/a" in summary
+    assert "MN1 flat" not in summary

@@ -125,6 +125,14 @@ class EngineConfig:
     #: inform. MT5 has no 5h or 10h -- its ladder is M1..M30, H1..H4, H6, H8,
     #: H12, D1, W1, MN1 -- so H4 and H12 stand in for those.
     context_timeframes: tuple[str, ...] = ()
+    #: Bars fetched per context timeframe. Must comfortably exceed the 200-bar
+    #: trend EMA, not merely reach it: that EMA is seeded with the SMA of its
+    #: first 200 bars, and after only 60 further bars ~55% of the value is
+    #: still the seed -- a "trend EMA" that is really a stale average, which is
+    #: how a gate ends up vetoing trades for the wrong reason. 1200 leaves the
+    #: seed's weight at ~1e-4. Timeframes with less history available (MN1)
+    #: simply return what exists and stay "not ready" until they have 200.
+    context_bars: int = 1200
     #: Touch this file to stop the bot after its current cycle. stop.bat
     #: writes it; run.bat clears it on start.
     stop_file: str = "data/STOP"
@@ -149,6 +157,7 @@ class EngineConfig:
                 "start_balance",
                 "journal_path",
                 "context_timeframes",
+                "context_bars",
                 "stop_file",
                 "mirror_account_balance",
             },
@@ -163,6 +172,11 @@ class EngineConfig:
             raise ConfigError(
                 f"[engine].context_timeframes: {unknown_tf} not supported by MT5; "
                 f"choose from {sorted(TIMEFRAMES)}"
+            )
+        if cfg.context_bars < 250:
+            raise ConfigError(
+                f"[engine].context_bars = {cfg.context_bars} is too few for a "
+                "200-bar trend EMA to converge; use at least 250, 1200 preferred"
             )
         if cfg.timeframe.upper() not in TIMEFRAMES:
             raise ConfigError(

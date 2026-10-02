@@ -176,9 +176,17 @@ class MultiTimeframe:
         return counts
 
     def summary(self) -> str:
-        """One line, coarsest last: ``M1 bull | M15 flat | H1 bear``."""
+        """One line, coarsest last: ``M1 bull | M15 flat | H1 bear | MN1 n/a``.
+
+        A timeframe without enough history reads ``n/a``, not ``flat``. They are
+        different statements -- "balanced" versus "unknown" -- and the decision
+        panel exists to answer why the bot is waiting, so it must not present a
+        missing answer as a neutral one.
+        """
         short = {BULLISH: "bull", BEARISH: "bear", NEUTRAL: "flat"}
-        return " | ".join(f"{v.timeframe} {short[v.direction]}" for v in self)
+        return " | ".join(
+            f"{v.timeframe} {short[v.direction] if v.ready else 'n/a'}" for v in self
+        )
 
     def to_dict(self) -> dict[str, object]:
         return {
