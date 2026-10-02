@@ -1,4 +1,4 @@
-# Gold on Exness. The only enabled symbol, so it carries the whole 1% budget.
+# Gold on Exness. Shares the 1% budget with US30 by weight, 3.0 against 1.0.
 #
 # Filter bounds below are measured from 1,500 live M5 bars (2026-09-22 to
 # 09-29, price ~4,150), not guessed. Re-measure after any major regime change:
@@ -7,7 +7,7 @@
 symbol = "XAUUSDm"
 strategy = "ema_pullback"
 enabled = true
-weight = 2.0
+weight = 3.0
 sides = ["LONG", "SHORT"]   # both directions: bull and bear
 
 [session]
