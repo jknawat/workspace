@@ -1,4 +1,4 @@
-﻿# tbot
+# tbot
 
 A modular, broker-agnostic trading bot for MetaTrader 5 โ€” built so that the
 strategy logic, the risk rules and the execution path can each be tested on

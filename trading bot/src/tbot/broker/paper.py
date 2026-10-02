@@ -1,4 +1,4 @@
-﻿"""Deterministic simulated broker, used by both paper mode and the backtester.
+"""Deterministic simulated broker, used by both paper mode and the backtester.
 
 Because the same object serves both, a backtest and a paper-trading session
 cannot diverge in their fill logic. Fills are pessimistic on purpose:

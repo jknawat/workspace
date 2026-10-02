@@ -14,6 +14,10 @@ dependencies = []                    # the core runs on the standard library alo
 [project.optional-dependencies]
 mt5 = ["MetaTrader5>=5.0.45"]        # Windows only; needed for live/real data
 dev = ["pytest>=7.4", "ruff>=0.5", "mypy>=1.8"]
+# Only for scripts/llm_score_test.py, which asks whether an LLM rates signals
+# better than the arithmetic scorer does. Nothing the bot does while trading
+# imports this, and the core still runs on the standard library alone.
+llm = ["anthropic>=0.40"]
 
 [project.scripts]
 tbot = "tbot.cli:main"
