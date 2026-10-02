@@ -20,11 +20,15 @@ Design constraints, all deliberate:
 from __future__ import annotations
 
 import json
+import sqlite3
 import threading
 from collections import deque
+from contextlib import closing
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs
 
 from ..engine.events import Event
 from ..obs import log as obs_log
@@ -35,11 +39,50 @@ MAX_EVENTS = 300
 class DashboardState:
     """Thread-safe snapshot the web thread reads and the trading thread writes."""
 
-    def __init__(self, max_events: int = MAX_EVENTS) -> None:
+    def __init__(
+        self, max_events: int = MAX_EVENTS, journal_path: str | Path | None = None
+    ) -> None:
         self._lock = threading.Lock()
         self._status: dict[str, Any] = {"started": False}
         self._events: deque[dict[str, Any]] = deque(maxlen=max_events)
         self._equity: deque[dict[str, Any]] = deque(maxlen=2000)
+        #: Read from a separate connection per request. The trading thread owns
+        #: the writing one, and sqlite handles are not safe to share across
+        #: threads; opening read-only also makes it impossible for the web page
+        #: to alter the record it is displaying.
+        self._journal_path = Path(journal_path) if journal_path else None
+
+    def log_rows(
+        self, limit: int = 200, symbol: str = "", action: str = ""
+    ) -> dict[str, Any]:
+        """Decision history from the journal, newest first."""
+        if self._journal_path is None or not self._journal_path.exists():
+            return {"rows": [], "note": "no journal configured"}
+        try:
+            uri = f"file:{self._journal_path.as_posix()}?mode=ro"
+            with closing(sqlite3.connect(uri, uri=True, timeout=2.0)) as conn:
+                conn.row_factory = sqlite3.Row
+                sql = ["SELECT * FROM decisions WHERE 1=1"]
+                args: list[Any] = []
+                if symbol:
+                    sql.append("AND symbol = ?")
+                    args.append(symbol)
+                if action:
+                    sql.append("AND action = ?")
+                    args.append(action)
+                sql.append("ORDER BY id DESC LIMIT ?")
+                args.append(max(1, min(limit, 1000)))
+                rows = [dict(r) for r in conn.execute(" ".join(sql), args)]
+                totals = {
+                    r["action"]: r["n"]
+                    for r in conn.execute(
+                        "SELECT action, COUNT(*) n FROM decisions GROUP BY action"
+                    )
+                }
+            return {"rows": rows, "totals": totals}
+        except sqlite3.Error as exc:
+            # A locked or half-written journal must not take the page down.
+            return {"rows": [], "note": f"journal unavailable: {exc}"}
 
     def update_status(self, status: dict[str, Any]) -> None:
         with self._lock:
@@ -88,6 +131,17 @@ class _Handler(BaseHTTPRequestHandler):
             self._send(PAGE.encode("utf-8"), "text/html; charset=utf-8")
         elif path == "/api/state":
             body = json.dumps(self.state.payload(), default=str).encode("utf-8")
+            self._send(body, "application/json; charset=utf-8")
+        elif path == "/api/log":
+            q = parse_qs(self.path.split("?", 1)[1] if "?" in self.path else "")
+            body = json.dumps(
+                self.state.log_rows(
+                    limit=int((q.get("limit") or ["200"])[0] or 200),
+                    symbol=(q.get("symbol") or [""])[0],
+                    action=(q.get("action") or [""])[0],
+                ),
+                default=str,
+            ).encode("utf-8")
             self._send(body, "application/json; charset=utf-8")
         elif path == "/healthz":
             self._send(b'{"ok":true}', "application/json")
@@ -178,6 +232,21 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute
 .tag.closed{color:var(--up);border-color:var(--up)}
 .tag.declined,.tag.error{color:var(--down);border-color:var(--down)}
 #spark{width:100%;height:56px;display:block}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
+.filters button{font:inherit;font-size:12px;padding:3px 10px;border-radius:99px;
+     border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer}
+.filters button.on{color:var(--accent);border-color:var(--accent)}
+.filters .count{font-variant-numeric:tabular-nums;opacity:.7}
+#logbody td{white-space:normal}
+#logbody td.when,#logbody td.num{white-space:nowrap;font-variant-numeric:tabular-nums}
+.act{font-size:11px;padding:1px 7px;border-radius:99px;border:1px solid var(--line);
+     text-transform:uppercase;letter-spacing:.04em}
+.act.buy{color:var(--up);border-color:var(--up)}
+.act.sell{color:var(--down);border-color:var(--down)}
+.act.wait{color:var(--muted)}
+.act.closed{color:var(--accent);border-color:var(--accent)}
+.bar{display:inline-block;height:6px;border-radius:3px;background:var(--accent);
+     vertical-align:middle;margin-right:6px}
 footer{padding:0 20px 24px;color:var(--muted);font-size:12px}
 </style></head><body>
 <header>
@@ -215,6 +284,24 @@ footer{padding:0 20px 24px;color:var(--muted);font-size:12px}
     <tbody></tbody></table></div></div>
 
   <div class="card"><h2>Recent activity</h2><div id="events"></div></div>
+
+  <div class="card"><h2>Decision log</h2>
+    <div class="filters" id="logfilters">
+      <button data-action="" class="on">All</button>
+      <button data-action="buy">Buy</button>
+      <button data-action="sell">Sell</button>
+      <button data-action="wait">Waiting</button>
+      <button data-action="closed">Closed</button>
+    </div>
+    <div class="scroll"><table>
+      <thead><tr><th>When</th><th>Action</th><th>Score</th><th>Risk</th>
+        <th>Lots</th><th>Price</th><th>Why</th></tr></thead>
+      <tbody id="logbody"></tbody></table></div>
+    <div class="muted" id="lognote" style="margin-top:8px">
+      Every order, and every change of mind. A repeated "waiting" is not logged
+      again until the reason changes, so this reads as what the bot noticed
+      rather than a tick-by-tick heartbeat.
+    </div></div>
 </main>
 <footer>Read-only view. Commands go through Telegram. Refreshes every 2s.</footer>
 <script>
@@ -348,6 +435,70 @@ function render(d) {
   sparkline(d.equity || []);
 }
 
+let logAction = '';
+
+function esc(v) {
+  return String(v === null || v === undefined ? '' : v)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function renderLog(d) {
+  const body = el('logbody');
+  body.innerHTML = '';
+  const rows = d.rows || [];
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="7" class="muted">'
+      + esc(d.note || 'nothing logged yet') + '</td></tr>';
+  }
+  rows.forEach(r => {
+    const tr = document.createElement('tr');
+    // Width in proportion to the score, so the strong and weak signals are
+    // distinguishable without reading every number.
+    const bar = r.score === null || r.score === undefined ? ''
+      : `<span class="bar" style="width:${Math.max(2, Math.round(r.score / 2))}px"></span>`;
+    const score = r.score === null || r.score === undefined ? '–'
+      : bar + fmt(r.score, 0) + '/100';
+    const risk = r.risk_pct === null || r.risk_pct === undefined ? '–'
+      : fmt(r.risk_pct, 2) + '%';
+    tr.innerHTML =
+      `<td class="when muted">${esc((r.ts || '').replace('T', ' ').slice(0, 16))}</td>
+       <td><span class="act ${esc(r.action)}">${esc(r.action)}</span></td>
+       <td class="num">${score}</td>
+       <td class="num">${risk}</td>
+       <td class="num">${r.volume === null || r.volume === undefined ? '–' : fmt(r.volume, 2)}</td>
+       <td class="num">${r.price === null || r.price === undefined ? '–' : fmt(r.price, 2)}</td>
+       <td>${esc(r.why)}</td>`;
+    body.appendChild(tr);
+  });
+  const t = d.totals || {};
+  const parts = ['buy', 'sell', 'wait', 'closed']
+    .filter(k => t[k]).map(k => `${t[k]} ${k}`);
+  if (parts.length) {
+    el('lognote').innerHTML = 'Recorded so far: <span class="count">'
+      + esc(parts.join(' · ')) + '</span>. A repeated "waiting" is not logged '
+      + 'again until the reason changes.';
+  }
+}
+
+document.getElementById('logfilters').addEventListener('click', ev => {
+  const b = ev.target.closest('button');
+  if (!b) return;
+  logAction = b.dataset.action || '';
+  [...ev.currentTarget.children].forEach(c => c.classList.toggle('on', c === b));
+  tickLog();
+});
+
+async function tickLog() {
+  try {
+    const q = new URLSearchParams({limit: '200'});
+    if (logAction) q.set('action', logAction);
+    const r = await fetch('/api/log?' + q, {cache: 'no-store'});
+    renderLog(await r.json());
+  } catch (e) {
+    el('lognote').textContent = 'log unavailable';
+  }
+}
+
 async function tick() {
   try {
     const r = await fetch('/api/state', {cache: 'no-store'});
@@ -358,5 +509,7 @@ async function tick() {
   }
 }
 tick(); setInterval(tick, 2000);
+// The log is history, not live state -- it does not need a 2-second poll.
+tickLog(); setInterval(tickLog, 10000);
 </script></body></html>
 """

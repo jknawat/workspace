@@ -172,3 +172,42 @@ is reported and skipped. The bot still trades.
 | Telegram commands ignored | `accept_commands = false`, or you are messaging from a different account than the configured `chat_id` |
 | overlay panel says "no state file" | `[overlay].enabled = false`, the bot is not running, or `InpFolder` does not match the config |
 | overlay markers at the wrong times | `broker_utc_offset_hours` is wrong — the same setting that governs bars and snapshots |
+
+## The decision log
+
+The dashboard's **Decision log** card is the full record: every order, and
+every time the bot changed its mind. Columns are when, action (buy / sell /
+wait / closed), the confidence score, the share of the account actually risked,
+lots, price, and the reasoning in words.
+
+Filter it with the buttons. `Buy`/`Sell` are the orders; `Waiting` is why it
+held off; `Closed` is how each trade ended.
+
+A repeated "still waiting" is **not** written again until the reason changes,
+and two reasons that differ only by a number -- a session gate naming the
+bar's own clock time, a cap naming the current count -- count as the same
+reason. Without that the log was ~1,600 rows per 41 days of replay, nearly all
+of them identical; with it, 725, and consecutive rows actually say different
+things. The row that does get written keeps its exact wording.
+
+It is read from `data/journal.sqlite` over a **read-only** connection, so the
+page cannot alter the record it is showing, and it survives restarts.
+
+## Reviewing what the bot learned
+
+    .venv\Scripts\python.exe -m tbot.cli review
+
+This reads the journal and reports what each band of the confidence score
+actually earned -- win rate, net, and expectancy per trade. Every signal, taken
+or declined, is recorded with its score and its component breakdown, and the
+outcome is attached when the position settles.
+
+**It will refuse to give you a verdict under 60 settled trades**, and say so.
+That is the point of it. The strategy wins about 30% of its trades, so twenty
+of them can say almost anything; a tool that printed a confident conclusion on
+twenty would be worse than no tool. It also checks whether expectancy *rises*
+with the score rather than just looking at the best band, because a score that
+reads good, then bad, then good is not ranking anything.
+
+Once the bands do line up on enough trades, the tiers in
+`config/symbols/xauusd.toml` are how you act on it.

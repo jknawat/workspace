@@ -39,6 +39,20 @@ from .events import CLOSED, DECISION, DECLINED, EXIT, ORDER, SCORED, SIGNAL, Eve
 from .exits import AppliedExit, ExitManager
 
 
+def _features_of(score: Score | None) -> dict[str, float]:
+    """A rated signal flattened to named numbers, for later analysis.
+
+    Fractions rather than raw points, so a change to a component's weight does
+    not silently rewrite the meaning of rows already recorded.
+    """
+    if score is None:
+        return {}
+    out: dict[str, float] = {"points": round(score.points, 2)}
+    for c in score.components:
+        out[c.name] = round(c.fraction, 4)
+    return out
+
+
 @dataclass(slots=True)
 class SymbolRuntime:
     cfg: SymbolConfig
@@ -205,6 +219,14 @@ class TradeEngine:
             signal=bool(signal),
         )
         if signal is None:
+            if self.journal:
+                self.journal.record_decision(
+                    bar.ts, rt.cfg.symbol, "wait",
+                    self.explain(rt.cfg.symbol, decorated=False),
+                    phase=str(rt.strategy.state_summary().get("phase", "")),
+                    price=bar.close,
+                    mtf=rt.mtf.summary() if len(rt.mtf) else "",
+                )
             return out
         out.signal = signal
         self.events.publish(
@@ -249,6 +271,15 @@ class TradeEngine:
                 out.decision = weak
                 if self.journal:
                     self.journal.record_signal(signal, weak, None)
+                    self.journal.record_observation(
+                        signal, taken=False, score=score.points,
+                        features=_features_of(score),
+                    )
+                    self.journal.record_decision(
+                        bar.ts, rt.cfg.symbol, "wait", score.explain(),
+                        phase="SIGNAL", score=score.points, price=signal.price,
+                        mtf=rt.mtf.summary() if len(rt.mtf) else "",
+                    )
                 self.events.publish(
                     DECLINED, signal.symbol,
                     side=signal.side.value, reason=weak.reason,
@@ -308,6 +339,33 @@ class TradeEngine:
             sl=order.sl, tp=order.tp, ok=result.ok, message=result.message,
             risk_money=decision.detail.get("risk_money"), reason=signal.reason,
         )
+        if self.journal:
+            risk_money = decision.detail.get("risk_money")
+            risk_pct = (
+                float(risk_money) / account.balance * 100.0
+                if isinstance(risk_money, (int, float)) and account.balance
+                else None
+            )
+            why = f"{signal.reason}"
+            if out.score is not None:
+                why = f"{out.score.explain()}; {why}"
+            self.journal.record_decision(
+                bar.ts, rt.cfg.symbol,
+                "buy" if signal.side.value.upper() == "LONG" else "sell",
+                why,
+                phase="ENTRY",
+                score=out.score.points if out.score else None,
+                risk_pct=risk_pct,
+                volume=order.volume,
+                price=result.price if result.ok else signal.price,
+                mtf=rt.mtf.summary() if len(rt.mtf) else "",
+            )
+            if result.ok:
+                self.journal.record_observation(
+                    signal, taken=True,
+                    score=out.score.points if out.score else None,
+                    features=_features_of(out.score),
+                )
         return out
 
     # ------------------------------------------------------------------ #
@@ -328,6 +386,15 @@ class TradeEngine:
         self.risk.record_close(trade.pnl, trade.closed_at.date())
         if self.journal:
             self.journal.record_trade(trade)
+            # Label the example this trade came from. Without this the features
+            # are recorded but never scored against an outcome, which is a
+            # dataset that can teach nothing.
+            self.journal.resolve_observation(trade)
+            self.journal.record_decision(
+                trade.closed_at, trade.symbol, "closed",
+                f"{trade.reason}, pnl {trade.pnl:+.2f}",
+                phase="EXIT", price=trade.exit_price, volume=trade.volume,
+            )
         self.log.info(
             "closed %s %s %.2f lots pnl %.2f (%s)",
             trade.symbol, trade.side, trade.volume, trade.pnl, trade.reason,
@@ -397,12 +464,18 @@ class TradeEngine:
         rt.mtf = MultiTimeframe(views)
         return rt.mtf
 
-    def explain(self, symbol: str) -> str:
+    def explain(self, symbol: str, decorated: bool = True) -> str:
         """Why this symbol is doing what it is doing, in one line.
 
         The dashboard and the journal both need a plain answer to "why buy, why
         sell, why wait", and the strategies already know -- this just asks them
         and adds the context read.
+
+        ``decorated=False`` leaves off the timeframe summary and the last
+        rating. The journal stores both in their own columns, and including
+        them in the sentence made every bar look like a new reason, which
+        defeated the de-duplication and filled the log with near-identical
+        rows.
         """
         rt = self._runtime(symbol)
         state = rt.strategy.state_summary()
@@ -424,6 +497,8 @@ class TradeEngine:
             why = "waiting for a setup"
             if reject:
                 why += f"; last one was turned down because {reject}"
+        if not decorated:
+            return why
         if rt.last_score is not None:
             why += f"  |  last signal: {rt.last_score.explain()}"
         if len(rt.mtf):

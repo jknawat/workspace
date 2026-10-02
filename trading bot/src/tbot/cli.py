@@ -24,6 +24,7 @@ import json
 import os
 import sys
 from datetime import datetime, timezone
+from itertools import pairwise
 from pathlib import Path
 
 from . import __version__
@@ -625,6 +626,92 @@ def cmd_report(args: argparse.Namespace) -> int:
     return 0
 
 
+#: Bands the review reports. Matched to scripts/score_report.py so live and
+#: backtested figures are directly comparable.
+SCORE_BANDS = ((0, 30), (30, 45), (45, 60), (60, 75), (75, 88), (88, 101))
+
+#: Below this many settled trades the review states plainly that it cannot
+#: tell. Five bands need enough in each for a difference to be visible, and at
+#: a ~30% win rate noise dominates well past the point it looks convincing.
+MIN_TRADES_FOR_A_VERDICT = 60
+
+
+def cmd_review(args: argparse.Namespace) -> int:
+    """What the bot's own record says about its decisions.
+
+    This is the feedback loop, and its most important job is refusing to draw a
+    conclusion from too few trades. Thirty percent of trades win, so a run of
+    eight tells you nothing at all, and a tool that printed a confident verdict
+    on eight trades would be worse than no tool.
+    """
+    journal = Journal(args.journal)
+    stats = journal.stats(args.run)
+    print(f"journal     {args.journal}")
+    print(f"trades      {stats['trades']} ({stats['wins']} wins, "
+          f"{stats['win_rate']:.1f}%)")
+    print(f"net pnl     {stats['net_pnl']:+,.2f}")
+
+    bands = journal.score_bands(SCORE_BANDS)
+    settled = sum(b["trades"] for b in bands)
+    print()
+    print(f"scored and settled: {settled} trades")
+
+    if settled == 0:
+        print()
+        print("  Nothing to review yet. Scores are recorded from the moment")
+        print("  the bot trades; come back once it has.")
+        journal.close()
+        return 0
+
+    header = (f"  {'band':>8} {'trades':>7} {'win%':>7} {'net':>11} "
+              f"{'per trade':>10} {'pf':>6}")
+    print()
+    print(header)
+    print("  " + "-" * (len(header) - 2))
+    for b in bands:
+        if not b["trades"]:
+            print(f"  {b['band']:>8} {0:>7} {'-':>7} {'-':>11} {'-':>10} {'-':>6}")
+            continue
+        pf = f"{b['profit_factor']:.2f}" if b["profit_factor"] else "inf"
+        print(f"  {b['band']:>8} {b['trades']:>7} {b['win_rate']:>6.1f}% "
+              f"{b['net']:>+11.2f} {b['per_trade']:>+10.2f} {pf:>6}")
+
+    print()
+    if settled < MIN_TRADES_FOR_A_VERDICT:
+        need = MIN_TRADES_FOR_A_VERDICT - settled
+        print(f"  Too early to act on this. {need} more settled trades before the")
+        print(f"  bands mean anything ({MIN_TRADES_FOR_A_VERDICT} minimum, and more is better) --")
+        print("  at a ~30% win rate, small samples swing wildly.")
+    else:
+        rising = _is_rising([b["per_trade"] for b in bands if b["trades"] >= 10])
+        if rising:
+            print("  Expectancy rises with the score, on enough trades to mean")
+            print("  something. Staking more on the higher bands is now")
+            print("  defensible: see the tiers in the symbol config.")
+        else:
+            print("  Expectancy does not rise with the score. Until it does, the")
+            print("  score is not ranking trades and sizing to it would stake")
+            print("  money on a pattern that is not there.")
+
+    rejections = journal.rejection_counts(args.run)
+    if rejections:
+        print()
+        print("why signals were declined:")
+        for symbol, reason, n in rejections[:10]:
+            print(f"  {n:>5}x  {symbol:<9} {reason[:84]}")
+    journal.close()
+    return 0
+
+
+def _is_rising(values: list[float]) -> bool:
+    """Is expectancy monotonically non-decreasing across the bands?
+
+    Deliberately strict. A score that is good, then bad, then good is not a
+    ranking, however attractive its best band looks in isolation.
+    """
+    return len(values) >= 2 and all(b >= a for a, b in pairwise(values))
+
+
 def cmd_defaults(args: argparse.Namespace) -> int:
     print("built-in simulated specs (used when no --specs file is given):")
     for name, s in DEFAULT_SPECS.items():
@@ -709,6 +796,11 @@ def build_parser() -> argparse.ArgumentParser:
     rp.add_argument("--journal", default="data/journal.sqlite")
     rp.add_argument("--run", type=int, help="restrict to one run id")
     rp.set_defaults(func=cmd_report)
+
+    rv = sub.add_parser("review", help="what the journal says about the score bands")
+    rv.add_argument("--journal", default="data/journal.sqlite")
+    rv.add_argument("--run", type=int, help="restrict to one run id")
+    rv.set_defaults(func=cmd_review)
 
     sub.add_parser("simspecs", help="show the built-in simulated specs").set_defaults(
         func=cmd_defaults

@@ -129,7 +129,7 @@ def build(cfg: BotConfig, snapshot_dir: str | None = None) -> InterfaceBundle:
 
     if cfg.dashboard.enabled:
         try:
-            bundle.dashboard_state = DashboardState()
+            bundle.dashboard_state = DashboardState(journal_path=cfg.engine.journal_path)
             bundle.dashboard = DashboardServer(
                 bundle.dashboard_state, host=cfg.dashboard.host, port=cfg.dashboard.port
             )
