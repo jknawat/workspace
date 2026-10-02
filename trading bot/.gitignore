@@ -31,3 +31,4 @@ desktop.ini
 
 # exported market data and split sets
 data/_split/
+data/tbot.lock

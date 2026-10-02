@@ -38,6 +38,7 @@ from .data.snapshot import SnapshotError
 from .data.snapshot_store import SnapshotStore
 from .engine import Runner, run_backtest
 from .engine.exits import ExitManager
+from .engine.lock import AlreadyRunning, InstanceLock
 from .interfaces import build as build_interfaces
 from .interfaces.telegram import TelegramClient, TelegramError, discover_chat_id
 from .journal import Journal
@@ -228,6 +229,10 @@ def cmd_backtest(args: argparse.Namespace) -> int:
 
 def _run_session(args, cfg, mode: str) -> int:
     """Start the broker, watchers and runner for a paper or live session."""
+    # One bot at a time. Two instances each enforce the risk cap on what
+    # they can see, so the account quietly carries double.
+    lock = InstanceLock(Path(cfg.engine.journal_path).parent / "tbot.lock")
+    lock.acquire()
     broker, feed, extra = _build_runtime(cfg, args.config, getattr(args, "data", None))
     snapshots = _build_snapshots(cfg)
     interfaces = build_interfaces(
@@ -259,6 +264,7 @@ def _run_session(args, cfg, mode: str) -> int:
         broker.disconnect()
         if extra:
             extra.disconnect()
+        lock.release()
     return 0
 
 
@@ -695,7 +701,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         return int(args.func(args))
     except (
-        ConfigError, BrokerError, SnapshotError, TelegramError, FileNotFoundError, ValueError
+        ConfigError, BrokerError, SnapshotError, TelegramError, AlreadyRunning,
+        FileNotFoundError, ValueError,
     ) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
