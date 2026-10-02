@@ -186,3 +186,101 @@ class MultiTimeframe:
             "summary": self.summary(),
             "views": [v.to_dict() for v in self],
         }
+
+
+# --------------------------------------------------------------------------- #
+# Point-in-time context, for replay
+# --------------------------------------------------------------------------- #
+
+#: Minutes per timeframe, used to work out when a context bar actually closed.
+TIMEFRAME_MINUTES = {
+    "M1": 1, "M2": 2, "M3": 3, "M4": 4, "M5": 5, "M6": 6, "M10": 10, "M12": 12,
+    "M15": 15, "M20": 20, "M30": 30,
+    "H1": 60, "H2": 120, "H3": 180, "H4": 240, "H6": 360, "H8": 480, "H12": 720,
+    "D1": 1440, "W1": 10080, "MN1": 43200,
+}
+
+
+def _direction_of(close: float, fast, slow, trend) -> tuple[str, str]:
+    """Shared by the live and historical paths, so they cannot disagree."""
+    if fast is None or slow is None or trend is None:
+        return NEUTRAL, "not enough history"
+    above, stacked = close > trend, fast > slow
+    if above and stacked:
+        return BULLISH, "price above trend EMA and fast above slow"
+    if not above and not stacked:
+        return BEARISH, "price below trend EMA and fast below slow"
+    return NEUTRAL, (
+        "price above trend EMA but fast below slow" if above
+        else "price below trend EMA but fast above slow"
+    )
+
+
+class HistoricalMtf:
+    """Replays context timeframes without letting the future leak in.
+
+    For a trading bar at time *T*, a higher-timeframe bar stamped *T* has only
+    *opened* — it will not close for another hour, or day. Using it would hand
+    the strategy information it could not have had, and multi-timeframe
+    backtests flatter themselves exactly this way. So a context bar counts only
+    once ``open time + duration <= T``.
+
+    Indicators are computed once per timeframe and indexed, rather than
+    recomputed per bar, which keeps a 60,000-bar replay across eight timeframes
+    quick enough to iterate on.
+    """
+
+    def __init__(
+        self,
+        per_timeframe: dict[str, list[Bar]],
+        fast: int = 21,
+        slow: int = 50,
+        trend: int = 200,
+        atr_period: int = 14,
+    ) -> None:
+        self.trend = trend
+        self._data: dict[str, dict[str, object]] = {}
+        for tf, bars in per_timeframe.items():
+            if not bars:
+                continue
+            closes = [b.close for b in bars]
+            minutes = TIMEFRAME_MINUTES.get(tf.upper(), 1)
+            self._data[tf.upper()] = {
+                "bars": bars,
+                # The moment each bar is safe to read: when it closed.
+                "closed_at": [b.ts.timestamp() + minutes * 60 for b in bars],
+                "fast": ema(closes, fast),
+                "slow": ema(closes, slow),
+                "trend": ema(closes, trend),
+                "atr": atr_of(bars, atr_period),
+            }
+
+    @property
+    def timeframes(self) -> list[str]:
+        return sorted(self._data, key=ladder_key)
+
+    def at(self, moment: datetime) -> MultiTimeframe:
+        """The context as it stood at ``moment``, and no later."""
+        import bisect
+
+        cutoff = moment.timestamp()
+        views: dict[str, TimeframeView] = {}
+        for tf, d in self._data.items():
+            closed_at: list[float] = d["closed_at"]  # type: ignore[assignment]
+            i = bisect.bisect_right(closed_at, cutoff) - 1
+            if i < 0:
+                views[tf] = TimeframeView(tf, 0, 0.0, NEUTRAL, "no closed bars yet",
+                                          ready=False)
+                continue
+            bars: list[Bar] = d["bars"]  # type: ignore[assignment]
+            bar = bars[i]
+            f, s, t = d["fast"][i], d["slow"][i], d["trend"][i]  # type: ignore[index]
+            a = d["atr"][i]  # type: ignore[index]
+            direction, why = _direction_of(bar.close, f, s, t)
+            ready = None not in (f, s, t)
+            views[tf] = TimeframeView(
+                timeframe=tf, bars=i + 1, close=bar.close, direction=direction,
+                reason=why if ready else f"only {i + 1} bars, needs {self.trend}",
+                ts=bar.ts, ema_fast=f, ema_slow=s, ema_trend=t, atr=a, ready=ready,
+            )
+        return MultiTimeframe(views)

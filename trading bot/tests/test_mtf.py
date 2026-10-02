@@ -8,12 +8,19 @@ trend EMA, and counting that as confirmation lets an unknowable timeframe vote.
 from __future__ import annotations
 
 import dataclasses
+from datetime import timedelta
 
 import pytest
-from conftest import bars_from_closes, n_shape, v_shape
+from conftest import START, bars_from_closes, n_shape, v_shape
 
 from tbot.core.types import Side
-from tbot.data.mtf import MultiTimeframe, TimeframeView, ladder_key, view_for
+from tbot.data.mtf import (
+    HistoricalMtf,
+    MultiTimeframe,
+    TimeframeView,
+    ladder_key,
+    view_for,
+)
 from tbot.strategy.base import BarContext
 from tbot.strategy.filters import build_chain
 
@@ -265,3 +272,102 @@ def test_a_strategy_sees_the_context(symbol_cfg, spec_eurusd):
     ctx = ctx_with(cfg, spec_eurusd, mtf_of(H1="bullish"))
     assert ctx.mtf is not None
     assert build_chain(cfg.filters).evaluate(ctx, Side.LONG)
+
+
+# --------------------------------------------------------------------------- #
+# Point-in-time replay
+# --------------------------------------------------------------------------- #
+#
+# The property worth defending: a higher-timeframe bar stamped T has only
+# *opened* at T. A backtest that reads it is reading the next hour's close, and
+# multi-timeframe backtests flatter themselves in exactly this way.
+
+
+def test_an_open_bar_is_not_read_until_it_closes():
+    """The whole point. An H1 bar stamped 03:00 must not be visible at 03:00."""
+    h1 = bars_from_closes([1.0 + 0.001 * i for i in range(300)], minutes=60)
+    hist = HistoricalMtf({"H1": h1})
+
+    opened = h1[250].ts  # the 03:00-style boundary: this bar just opened
+    at_open = hist.at(opened)
+    assert at_open.get("H1").bars == 250, "an only-just-opened bar was counted"
+    assert at_open.get("H1").close == h1[249].close
+
+    just_closed = opened + timedelta(minutes=60)
+    assert hist.at(just_closed).get("H1").bars == 251
+    assert hist.at(just_closed).get("H1").close == h1[250].close
+
+
+def test_a_bar_mid_formation_is_not_read_either():
+    """Halfway through an H1 bar, the newest usable close is still the last one."""
+    h1 = bars_from_closes([1.0 + 0.001 * i for i in range(300)], minutes=60)
+    hist = HistoricalMtf({"H1": h1})
+    mid = h1[250].ts + timedelta(minutes=59)
+    assert hist.at(mid).get("H1").close == h1[249].close
+
+
+def test_before_any_context_bar_closes_the_view_is_neutral_and_not_ready():
+    """Not bullish, not bearish: unknown. A gate must fail closed here."""
+    h1 = bars_from_closes([1.0 + 0.001 * i for i in range(300)], minutes=60)
+    hist = HistoricalMtf({"H1": h1})
+    view = hist.at(h1[0].ts).get("H1")
+    assert view.direction == "neutral"
+    assert not view.ready
+    assert not view.agrees_with(Side.LONG.value)
+
+
+def test_replay_and_live_agree_on_the_same_closed_bars():
+    """Two code paths reading one market must not reach two conclusions.
+
+    If these ever diverge, a backtest stops being a statement about the bot
+    that will trade.
+    """
+    for series in (rising(300), falling(300)):
+        bars = bars_from_closes([b.close for b in series], minutes=60)
+        hist = HistoricalMtf({"H1": bars})
+        # Everything through bars[-1] has closed by this moment.
+        replayed = hist.at(bars[-1].ts + timedelta(minutes=60)).get("H1")
+        live = view_for("H1", bars)
+        assert replayed.direction == live.direction
+        assert replayed.close == live.close
+        assert replayed.bars == live.bars
+        assert replayed.ready == live.ready
+
+
+def test_too_little_history_is_not_ready_in_replay_either():
+    h1 = bars_from_closes([1.0 + 0.001 * i for i in range(40)], minutes=60)
+    hist = HistoricalMtf({"H1": h1})
+    view = hist.at(h1[-1].ts + timedelta(minutes=60)).get("H1")
+    assert not view.ready
+    assert view.direction == "neutral"
+    assert "needs 200" in view.reason
+
+
+def test_each_timeframe_closes_on_its_own_clock():
+    """A D1 bar and an M15 bar stamped alike become readable a day apart."""
+    closes = [1.0 + 0.001 * i for i in range(300)]
+    hist = HistoricalMtf({
+        "M15": bars_from_closes(closes, minutes=15),
+        "D1": bars_from_closes(closes, minutes=1440),
+    })
+    # One hour into the shared start: three M15 bars have closed, no D1 bar has.
+    view = hist.at(START + timedelta(minutes=60))
+    assert view.get("M15").bars == 4
+    assert view.get("D1").bars == 0
+    assert not view.get("D1").ready
+
+
+def test_an_empty_timeframe_is_dropped_rather_than_faked():
+    hist = HistoricalMtf({"H1": bars_from_closes([1.0] * 300, minutes=60), "W1": []})
+    assert hist.timeframes == ["H1"]
+    assert hist.at(START).get("W1") is None
+
+
+def test_timeframes_are_reported_fine_to_coarse():
+    closes = [1.0] * 300
+    hist = HistoricalMtf({
+        "D1": bars_from_closes(closes, minutes=1440),
+        "M15": bars_from_closes(closes, minutes=15),
+        "H4": bars_from_closes(closes, minutes=240),
+    })
+    assert hist.timeframes == ["M15", "H4", "D1"]

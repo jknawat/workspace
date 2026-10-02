@@ -21,6 +21,7 @@ from ..broker.paper import PaperBroker
 from ..config.models import BotConfig
 from ..core.types import Bar, SymbolSpec
 from ..data.feed import BarFeed
+from ..data.mtf import HistoricalMtf
 from ..journal import Journal
 from ..obs import log as obs_log
 from ..risk import RiskManager
@@ -164,6 +165,7 @@ def run_backtest(
     engine = TradeEngine(config, broker, journal=journal, risk=RiskManager(config))
 
     series: dict[str, list[Bar]] = {}
+    history: dict[str, HistoricalMtf] = {}
     for scfg in config.active_symbols:
         if scfg.symbol not in wanted:
             continue
@@ -174,6 +176,22 @@ def run_backtest(
         rt = engine.register(scfg, broker.symbol_spec(scfg.symbol))
         rt.ingest(bars)
         series[scfg.symbol] = bars
+
+        # Context timeframes, replayed point-in-time. Without this, any gate
+        # reading ctx.mtf fails closed and the backtest reports zero trades --
+        # which looks like a verdict on the strategy and is really a missing feed.
+        if config.engine.context_timeframes:
+            per_tf: dict[str, list[Bar]] = {}
+            for tf in config.engine.context_timeframes:
+                try:
+                    per_tf[tf] = feed.history(scfg.symbol, tf, 0)
+                except (FileNotFoundError, ValueError) as exc:
+                    log.warning(
+                        "no %s history for %s: %s", tf, scfg.symbol, exc,
+                        extra={"symbol": scfg.symbol},
+                    )
+            if per_tf:
+                history[scfg.symbol] = HistoricalMtf(per_tf)
 
     if not series:
         raise ValueError("backtest has no data for any configured symbol")
@@ -187,7 +205,13 @@ def run_backtest(
     ]
     timeline.sort(key=lambda t: (t[0], t[1]))
 
-    for _, symbol, i in timeline:
+    for ts, symbol, i in timeline:
+        if symbol in history:
+            # Cut the context off at the trading bar's *open* time, not its
+            # close. That is up to one trading bar pessimistic -- an H1 bar
+            # closing on this M5 bar's close is held back until the next one --
+            # and pessimistic is the only safe direction to be wrong in here.
+            engine.runtimes[symbol].mtf = history[symbol].at(ts)
         result = engine.step(symbol, i)
         report.bars += 1
         if result.signal:
