@@ -10,6 +10,7 @@ from . import (  # noqa: F401
     ema_pullback,
     ict_confluence,
     ict_filters,
+    mtf_filters,
 )
 from .base import BarContext, Strategy, available, create, get
 

@@ -16,6 +16,7 @@ from typing import Any, ClassVar
 from ..config.models import ConfigError, SymbolConfig
 from ..core.indicators import Series
 from ..core.types import Bar, Side, Signal, SymbolSpec
+from ..data.mtf import MultiTimeframe
 from ..data.snapshot import Snapshot
 
 
@@ -33,6 +34,9 @@ class BarContext:
     #: ``None`` means unavailable, stale or not configured -- gates that depend
     #: on it must fail closed rather than assume agreement.
     snapshot: Snapshot | None = None
+    #: Higher and lower timeframe context. ``None`` means it was not
+    #: gathered; gates that read it must fail closed, not assume agreement.
+    mtf: MultiTimeframe | None = None
     notes: list[str] = field(default_factory=list)
 
     @property

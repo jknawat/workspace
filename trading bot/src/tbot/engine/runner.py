@@ -28,6 +28,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from ..broker.base import Broker
@@ -130,8 +131,27 @@ class Runner:
     # Remote control
     # ------------------------------------------------------------------ #
 
+    def stop_file_present(self) -> bool:
+        """True once the stop file exists.
+
+        This is the whole mechanism behind stop.bat: the batch file writes a
+        file, and the loop notices on its next cycle and finishes cleanly --
+        closing nothing, cancelling nothing, just declining to start anything
+        new. Killing the process would be faster and would leave the journal
+        mid-write.
+        """
+        path = self.config.engine.stop_file
+        return bool(path) and Path(path).exists()
+
     def apply_control(self) -> None:
         """Read operator flags and act on them, on this thread."""
+        if self.stop_file_present():
+            if not self._stop:
+                self.log.warning(
+                    "stop file %s found, finishing this cycle",
+                    self.config.engine.stop_file, extra={"event": "stop_file"},
+                )
+            self._stop = True
         if self.control is None:
             return
         if self.control.take("close_all_requested"):
@@ -257,6 +277,8 @@ class Runner:
                 continue  # same closed bar as last poll: nothing to decide
             self._last_seen[symbol] = latest
             rt.ingest(bars)
+            if self.config.engine.context_timeframes:
+                self.engine.refresh_mtf(symbol, self.feed)
 
             try:
                 result = self.engine.step(symbol)
@@ -272,6 +294,11 @@ class Runner:
                 self.stats.signals += 1
             if result.entered:
                 self.stats.orders += 1
+            if result.why:
+                self.log.info(
+                    "%s", result.why,
+                    extra={"symbol": symbol, "event": "decision"},
+                )
 
         if self.config.engine.mode == "live":
             self.engine.reconcile_live_positions()

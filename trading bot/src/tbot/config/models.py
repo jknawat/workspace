@@ -14,6 +14,15 @@ from typing import Any
 
 from ..core.types import same_symbol
 
+#: Timeframes MetaTrader 5 actually offers. Note the gaps: there is no H5 or
+#: H10, so "about five hours" means H4 or H6 and "about ten" means H8 or H12.
+TIMEFRAMES = frozenset(
+    {
+        "M1", "M2", "M3", "M4", "M5", "M6", "M10", "M12", "M15", "M20", "M30",
+        "H1", "H2", "H3", "H4", "H6", "H8", "H12", "D1", "W1", "MN1",
+    }
+)
+
 
 class ConfigError(ValueError):
     """Raised for any malformed or unknown configuration key."""
@@ -111,6 +120,14 @@ class EngineConfig:
     broker_utc_offset_hours: float = 0.0
     start_balance: float = 10_000.0
     journal_path: str = "data/journal.sqlite"
+    #: Higher and lower timeframes read for context on every decision. The
+    #: trading timeframe above stays the one that triggers entries; these only
+    #: inform. MT5 has no 5h or 10h -- its ladder is M1..M30, H1..H4, H6, H8,
+    #: H12, D1, W1, MN1 -- so H4 and H12 stand in for those.
+    context_timeframes: tuple[str, ...] = ()
+    #: Touch this file to stop the bot after its current cycle. stop.bat
+    #: writes it; run.bat clears it on start.
+    stop_file: str = "data/STOP"
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> EngineConfig:
@@ -125,10 +142,26 @@ class EngineConfig:
                 "broker_utc_offset_hours",
                 "start_balance",
                 "journal_path",
+                "context_timeframes",
+                "stop_file",
             },
             "[engine]",
         )
+        if "context_timeframes" in d:
+            d = {**d, "context_timeframes": tuple(str(x).upper() for x in
+                                                  d["context_timeframes"])}
         cfg = cls(**d)
+        unknown_tf = [tf for tf in cfg.context_timeframes if tf not in TIMEFRAMES]
+        if unknown_tf:
+            raise ConfigError(
+                f"[engine].context_timeframes: {unknown_tf} not supported by MT5; "
+                f"choose from {sorted(TIMEFRAMES)}"
+            )
+        if cfg.timeframe.upper() not in TIMEFRAMES:
+            raise ConfigError(
+                f"[engine].timeframe {cfg.timeframe!r} not supported; "
+                f"choose from {sorted(TIMEFRAMES)}"
+            )
         if cfg.mode not in {"paper", "live", "backtest"}:
             raise ConfigError(f"[engine].mode '{cfg.mode}' not in paper|live|backtest")
         if cfg.broker not in {"paper", "mt5"}:

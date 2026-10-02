@@ -26,6 +26,7 @@ from ..core.types import (
     SymbolSpec,
     same_symbol,
 )
+from ..data.mtf import MultiTimeframe, view_for
 from ..data.snapshot import Snapshot
 from ..data.snapshot_store import SnapshotStore
 from ..journal import Journal
@@ -33,7 +34,7 @@ from ..obs import log as obs_log
 from ..risk import RiskManager
 from ..strategy import Strategy, create
 from ..strategy.base import BarContext
-from .events import CLOSED, DECLINED, EXIT, ORDER, SIGNAL, EventBus
+from .events import CLOSED, DECISION, DECLINED, EXIT, ORDER, SIGNAL, EventBus
 from .exits import AppliedExit, ExitManager
 
 
@@ -45,6 +46,7 @@ class SymbolRuntime:
     exits: ExitManager = field(default_factory=lambda: ExitManager([]))
     bars: list[Bar] = field(default_factory=list)
     ind: dict[str, Series] = field(default_factory=dict)
+    mtf: MultiTimeframe = field(default_factory=MultiTimeframe)
 
     def ingest(self, bars: list[Bar]) -> None:
         self.bars = bars
@@ -56,6 +58,7 @@ class SymbolRuntime:
         return BarContext(
             cfg=self.cfg, spec=self.spec, bars=self.bars, i=i, ind=self.ind,
             spread_points=spread_points, snapshot=snapshot,
+            mtf=self.mtf if len(self.mtf) else None,
         )
 
 
@@ -70,6 +73,7 @@ class StepResult:
     closed: list[ClosedTrade] = field(default_factory=list)
     snapshot: Snapshot | None = None
     exits: list[AppliedExit] = field(default_factory=list)
+    why: str = ""
 
     @property
     def entered(self) -> bool:
@@ -180,6 +184,16 @@ class TradeEngine:
 
         # 3. Strategy decision, with MT5's structure snapshot when one is fresh.
         signal = rt.strategy.on_bar(ctx)
+        out.why = self.explain(rt.cfg.symbol)
+        self.events.publish(
+            DECISION, rt.cfg.symbol,
+            why=out.why,
+            phase=str(rt.strategy.state_summary().get("phase", "?")),
+            price=bar.close,
+            bar_ts=bar.ts.isoformat(),
+            mtf=rt.mtf.summary() if len(rt.mtf) else "",
+            signal=bool(signal),
+        )
         if signal is None:
             return out
         out.signal = signal
@@ -308,6 +322,59 @@ class TradeEngine:
     # MT5 structure snapshots
     # ------------------------------------------------------------------ #
 
+    def refresh_mtf(self, symbol: str, feed, bars_per_timeframe: int = 260) -> MultiTimeframe:
+        """Rebuild a symbol's higher/lower timeframe context from the feed.
+
+        One failure per timeframe is survivable: a timeframe that cannot be
+        fetched is simply absent, and the gates treat absent as "not ready"
+        rather than as agreement.
+        """
+        rt = self._runtime(symbol)
+        views = {}
+        for tf in self.config.engine.context_timeframes:
+            try:
+                bars = feed.history(rt.cfg.symbol, tf, bars_per_timeframe)
+            except Exception as exc:  # noqa: BLE001 - one timeframe must not stop the rest
+                self.log.warning(
+                    "context timeframe %s unavailable for %s: %s", tf, symbol, exc,
+                    extra={"symbol": symbol, "event": "mtf_unavailable"},
+                )
+                continue
+            views[tf] = view_for(tf, bars)
+        rt.mtf = MultiTimeframe(views)
+        return rt.mtf
+
+    def explain(self, symbol: str) -> str:
+        """Why this symbol is doing what it is doing, in one line.
+
+        The dashboard and the journal both need a plain answer to "why buy, why
+        sell, why wait", and the strategies already know -- this just asks them
+        and adds the context read.
+        """
+        rt = self._runtime(symbol)
+        state = rt.strategy.state_summary()
+        phase = str(state.get("phase", "?"))
+        side = state.get("side")
+        reject = str(state.get("last_reject") or "")
+
+        if phase == "COOLDOWN":
+            why = "resting after the last trade"
+        elif phase == "ARMED":
+            pulled = state.get("pullback_count")
+            why = f"armed {side}, waiting for the pullback"
+            if pulled is not None:
+                why += f" ({pulled} bar(s) so far)"
+        elif phase == "WINDOW":
+            trigger = state.get("trigger")
+            why = f"armed {side}, waiting for a break of {trigger}"
+        else:
+            why = "waiting for a setup"
+            if reject:
+                why += f"; last one was turned down because {reject}"
+        if len(rt.mtf):
+            why += f"  [{rt.mtf.summary()}]"
+        return why
+
     def snapshot_for(self, symbol: str, now: datetime | None = None) -> Snapshot | None:
         """The symbol's SMC/ICT snapshot, only if present, usable and fresh.
 
@@ -347,6 +414,9 @@ class TradeEngine:
         out: dict[str, dict[str, object]] = {}
         for sym, rt in self.runtimes.items():
             summary = dict(rt.strategy.state_summary())
+            summary["why"] = self.explain(sym)
+            if len(rt.mtf):
+                summary["mtf"] = rt.mtf.to_dict()
             if sym in snapshots:
                 summary["snapshot"] = snapshots[sym]
             out[sym] = summary

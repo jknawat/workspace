@@ -88,3 +88,7 @@ class EventBus:
                     extra={"event": "subscriber_error", "subscriber": name},
                 )
         return event
+
+# A plain-language decision line for every bar, signal or not: the dashboard
+# and journal both need an answer to "why buy, why sell, why wait".
+DECISION = "decision"

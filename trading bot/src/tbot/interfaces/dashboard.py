@@ -160,6 +160,16 @@ table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
 th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
 th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
 .scroll{overflow-x:auto}
+.why{padding:8px 0;border-bottom:1px solid var(--line)}
+.why:last-child{border-bottom:0}
+.why b{font-size:13px}
+.why .line{color:var(--muted);margin-top:2px}
+.tf{display:inline-block;min-width:52px;text-align:center;margin:2px 3px 0 0;
+    padding:2px 6px;border-radius:5px;font-size:11px;border:1px solid var(--line)}
+.tf.bull{color:var(--up);border-color:var(--up)}
+.tf.bear{color:var(--down);border-color:var(--down)}
+.tf.flat{color:var(--muted)}
+.tf.stale{opacity:.45}
 .ev{display:grid;grid-template-columns:64px 78px 1fr;gap:10px;padding:6px 0;
     border-bottom:1px solid var(--line);align-items:baseline}
 .tag{font-size:11px;padding:1px 7px;border-radius:99px;border:1px solid var(--line);
@@ -189,6 +199,16 @@ footer{padding:0 20px 24px;color:var(--muted);font-size:12px}
   <div class="card"><h2>Positions</h2><div class="scroll"><table id="positions">
     <thead><tr><th>Symbol</th><th>Side</th><th>Volume</th><th>Entry</th>
     <th>SL</th><th>TP</th><th>Open P/L</th></tr></thead><tbody></tbody></table></div></div>
+
+  <div class="card"><h2>Why it is doing that</h2><div id="why"></div></div>
+
+  <div class="card"><h2>Timeframes</h2><div class="scroll">
+    <table id="mtf"><thead><tr><th>Symbol</th><th id="tfhead">Timeframes</th></tr></thead>
+    <tbody></tbody></table></div>
+    <div class="muted" style="margin-top:8px">
+      Bull needs price above the trend EMA <em>and</em> fast above slow. Anything
+      else reads flat — the honest answer, not a coin flip.
+    </div></div>
 
   <div class="card"><h2>Strategy state</h2><div class="scroll"><table id="phases">
     <thead><tr><th>Symbol</th><th>Phase</th><th>Structure</th><th>Last rejection</th></tr></thead>
@@ -251,6 +271,45 @@ function render(d) {
     pb.appendChild(tr);
   });
 
+  // Why it is doing that -- the plain-language answer per symbol.
+  const whyBox = el('why');
+  const phaseKeys = Object.keys(s.phases || {});
+  whyBox.innerHTML = phaseKeys.length ? '' : '<div class="muted">not running</div>';
+  phaseKeys.forEach(k => {
+    const v = (s.phases || {})[k] || {};
+    const div = document.createElement('div');
+    div.className = 'why';
+    const phase = v.phase || '-';
+    div.innerHTML = `<b>${k}</b> <span class="muted">${phase}</span>
+      <div class="line">${v.why || '-'}</div>`;
+    whyBox.appendChild(div);
+  });
+
+  // Timeframe agreement, coarsest last.
+  const mb = document.querySelector('#mtf tbody');
+  mb.innerHTML = '';
+  let anyMtf = false;
+  phaseKeys.forEach(k => {
+    const views = (((s.phases || {})[k] || {}).mtf || {}).views || [];
+    if (!views.length) return;
+    anyMtf = true;
+    const cells = views.map(v => {
+      const cls = v.direction === 'bullish' ? 'bull'
+                : v.direction === 'bearish' ? 'bear' : 'flat';
+      const stale = v.ready ? '' : ' stale';
+      const label = v.direction === 'bullish' ? 'bull'
+                  : v.direction === 'bearish' ? 'bear' : 'flat';
+      const tip = v.ready ? v.reason : `${v.reason} (ignored)`;
+      return `<span class="tf ${cls}${stale}" title="${tip}">${v.timeframe} ${label}</span>`;
+    }).join('');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${k}</td><td>${cells}</td>`;
+    mb.appendChild(tr);
+  });
+  if (!anyMtf) {
+    mb.innerHTML = '<tr><td colspan="2" class="muted">no context timeframes</td></tr>';
+  }
+
   const phases = s.phases || {};
   const fb = document.querySelector('#phases tbody');
   const keys = Object.keys(phases);
@@ -278,6 +337,7 @@ function render(d) {
       : e.kind === 'declined' ? e.reason
       : e.kind === 'exit' ? e.reason
       : e.kind === 'signal' ? `${e.side} @ ${e.price} RR ${e.rr}`
+      : e.kind === 'decision' ? e.why
       : (e.message || e.reason || '');
     row.innerHTML = `<span class="muted">${when}</span>
       <span class="tag ${e.kind}">${e.kind}</span>

@@ -8,7 +8,7 @@ symbol = "XAUUSDm"
 strategy = "ema_pullback"
 enabled = true
 weight = 2.0
-sides = ["LONG"]
+sides = ["LONG", "SHORT"]   # both directions: bull and bear
 
 [session]
 start = "08:00"       # UTC. Exness server time is UTC+0, so these match.
@@ -74,3 +74,25 @@ min_degrees = 3.0
 # One observation at 10:20 UTC -- watch the rejection counts in `tbot report`.
 [filters.spread]
 max_points = 400
+
+# --------------------------------------------------------------------------- #
+# Multi-timeframe context
+# --------------------------------------------------------------------------- #
+# M5 triggers the entry; these decide whether the wider picture agrees. A
+# timeframe counts as bullish only when price is above its trend EMA *and* its
+# fast EMA is above its slow one -- otherwise it reads neutral, which is the
+# honest answer rather than a coin flip. Works identically for shorts.
+
+# At least two context timeframes must point the same way as the trade, and no
+# more than three may point against it. Disagreement is counted separately from
+# agreement because neutral is neither, and two timeframes actively opposing a
+# trade matters more than four being undecided.
+[filters.mtf_align]
+timeframes = ["M15", "H1", "H4", "H12", "D1"]
+min_agree = 2
+max_disagree = 3
+
+# Never fight the daily. Neutral is allowed -- it is not opposition.
+[filters.mtf_required]
+timeframes = ["D1"]
+allow_neutral = true

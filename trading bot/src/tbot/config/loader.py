@@ -115,7 +115,8 @@ def load_credentials(path: str | Path | None = None) -> dict[str, Any]:
     creds: dict[str, Any] = {}
     if path is not None and Path(path).is_file():
         creds.update(_read_toml(Path(path)).get("mt5", {}))
-    for key in ("login", "password", "server", "terminal_path"):
+    for key in ("login", "password", "server", "terminal_path",
+                "expect_login", "expect_server"):
         env = os.environ.get(f"{ENV_PREFIX}MT5_{key.upper()}")
         if env:
             creds[key] = env

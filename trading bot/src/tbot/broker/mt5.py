@@ -24,14 +24,17 @@ from ..core.types import (
 from ..obs import log as obs_log
 from .base import Broker, BrokerError
 
+# The full ladder MT5 offers. Note the gaps that catch people out: there is no
+# H5 and no H10, so "about five hours" means H4 or H6 and "about ten" means H8
+# or H12. Anything missing here is silently unavailable as context, so keep it
+# complete.
 TIMEFRAMES = {
-    "M1": "TIMEFRAME_M1",
-    "M5": "TIMEFRAME_M5",
-    "M15": "TIMEFRAME_M15",
-    "M30": "TIMEFRAME_M30",
-    "H1": "TIMEFRAME_H1",
-    "H4": "TIMEFRAME_H4",
-    "D1": "TIMEFRAME_D1",
+    name: f"TIMEFRAME_{name}"
+    for name in (
+        "M1", "M2", "M3", "M4", "M5", "M6", "M10", "M12", "M15", "M20", "M30",
+        "H1", "H2", "H3", "H4", "H6", "H8", "H12",
+        "D1", "W1", "MN1",
+    )
 }
 
 
@@ -87,6 +90,39 @@ class MT5Broker(Broker):
                 mt5.shutdown()
                 raise BrokerError(f"mt5.login failed for {login}: {mt5.last_error()}")
         self._mt5 = mt5
+        self._verify_account()
+
+    def _verify_account(self) -> None:
+        """Refuse to trade the wrong account.
+
+        A terminal holding several saved logins can open a different one than
+        expected, which changes the symbol names and the server's UTC offset.
+        Without this check the first symptom is "symbol not available in Market
+        Watch" -- which sounds like a config typo and is actually a $5,000 demo
+        standing in for a $100,000 one, or worse, a live account standing in for
+        a demo. Set expect_login / expect_server in credentials.toml.
+        """
+        want_login = self.credentials.get("expect_login")
+        want_server = self.credentials.get("expect_server")
+        if not want_login and not want_server:
+            return
+        info = self._mt5.account_info()
+        if info is None:
+            raise BrokerError(
+                "no account is logged in to the terminal; expected "
+                f"{want_login or ''}@{want_server or ''}"
+            )
+        if want_login and int(want_login) != int(info.login):
+            raise BrokerError(
+                f"terminal is on account {info.login}@{info.server}, expected "
+                f"{want_login}@{want_server or info.server}. Launch MT5 with "
+                f"mt5/start_gold.ini to pin it, or update credentials.toml."
+            )
+        if want_server and str(want_server) != str(info.server):
+            raise BrokerError(
+                f"terminal is on server {info.server}, expected {want_server}. "
+                f"Symbol names and the UTC offset differ between servers."
+            )
 
     def disconnect(self) -> None:
         if self._mt5 is not None:

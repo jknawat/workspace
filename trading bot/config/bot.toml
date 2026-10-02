@@ -17,6 +17,12 @@ warmup_bars = 500               # history handed to the strategy each poll
 broker_utc_offset_hours = 0.0
 start_balance = 10000.0         # paper/backtest only
 journal_path = "data/journal.sqlite"
+stop_file = "data/STOP"        # stop.bat writes this; run.bat clears it
+
+# Entries still trigger on [engine].timeframe above (M5). These are read for
+# context only -- they inform, they never signal. MT5 has no 5h or 10h, so H4
+# stands in for "about five hours" and H12 for "about ten".
+context_timeframes = ["M1", "M15", "H1", "H4", "H12", "D1", "W1", "MN1"]
 
 [risk]
 risk_per_trade_pct = 1.0        # total, split across symbols by weight
@@ -55,7 +61,7 @@ require_fresh = true       # stale or missing structure blocks ICT gates
 # flags the trading thread acts on itself. None of them can bypass the risk gate.
 
 [dashboard]
-enabled = false            # local web view of state, positions and activity
+enabled = true             # local web view of state, positions and activity
 host = "127.0.0.1"         # loopback only; changing this exposes your balance
 port = 8787
 
