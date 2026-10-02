@@ -24,7 +24,9 @@ stop_file = "data/STOP"        # stop.bat writes this; run.bat clears it
 # Entries still trigger on [engine].timeframe above (M5). These are read for
 # context only -- they inform, they never signal. MT5 has no 5h or 10h, so H4
 # stands in for "about five hours" and H12 for "about ten".
-context_timeframes = ["M1", "M15", "H1", "H4", "H12", "D1", "W1", "MN1"]
+# M1 removed: it voted on nothing and a 1-minute read is mostly noise from
+# inside the M5 bar being traded anyway.
+context_timeframes = ["M15", "H1", "H4", "H12", "D1", "W1", "MN1"]
 # Bars per context timeframe. Far more than the 200-bar trend EMA needs,
 # on purpose: at 260 bars that EMA is still ~55% its own seed value.
 context_bars = 1200
