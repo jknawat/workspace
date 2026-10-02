@@ -57,9 +57,14 @@ DEFAULT_CONFIG = "config/bot.toml"
 # --------------------------------------------------------------------------- #
 
 
-def _load(args: argparse.Namespace) -> BotConfig:
+def _load(args: argparse.Namespace, log_name: str | None = None) -> BotConfig:
     cfg = load_config(args.config)
-    obs_log.setup(cfg.log_level, cfg.log_file)
+    log_file = cfg.log_file
+    if log_file and log_name:
+        # A replay's fills are not the bot's. Written into the live log they
+        # read as real trades, and the dashboard's activity feed shows them.
+        log_file = str(Path(log_file).with_name(log_name))
+    obs_log.setup(cfg.log_level, log_file)
     return cfg
 
 
@@ -214,7 +219,7 @@ def cmd_strategies(args: argparse.Namespace) -> int:
 
 
 def cmd_backtest(args: argparse.Namespace) -> int:
-    cfg = _load(args)
+    cfg = _load(args, log_name="backtest.jsonl")
     feed = CsvFeed(args.data)
     journal = Journal(args.journal) if args.journal else None
     if journal:

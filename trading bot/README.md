@@ -24,14 +24,16 @@ is a statement about the code that will actually trade.
 # 0. check the environment first -- nothing here has ever been run
 python -m tbot.cli doctor -c config/bot.toml
 
-# 1. (optional) synthetic data so you can try the backtester straight away
-python scripts/gen_sample_data.py --symbols EURUSD XAUUSD USDJPY --bars 6000
+# 1. (optional) synthetic data so you can try the backtester straight away.
+#    Name the symbol as the config does (XAUUSDm); the higher-timeframe files
+#    the multi-timeframe gates need are written alongside.
+python scripts/gen_sample_data.py --symbols XAUUSDm --bars 60000
 
 # 2. check the config and see the resolved risk budgets
 python -m tbot.cli validate -c config/bot.toml
 
 # 3. replay it
-python -m tbot.cli backtest -c config/bot.toml --symbol EURUSD --trades
+python -m tbot.cli backtest -c config/bot.toml --symbol XAUUSDm --spread 240 --trades
 
 # 4. paper trade (simulated fills; CSV bars, or live MT5 bars if configured)
 python -m tbot.cli paper -c config/bot.toml --data data
@@ -211,7 +213,7 @@ cannot be constructed is logged and skipped: losing the dashboard is an
 inconvenience, refusing to trade because of it would be a bug.
 
 Setup, including `tbot telegram-setup` and installing `mql5/Indicators/TbotOverlay.mq5`:
-**[docs/WATCHING_THE_BOT.md](docs/WATCHING_THE_BOT.md)**.
+**[docs/WATCHING_THE_BOT.md](docs/WATCHING_THE_BOT.md)**.
 - [Running it on another computer](docs/SECOND_MACHINE.md) - moving it to a second PC, and why not to run both at once
 
 ---
@@ -251,7 +253,7 @@ pip tables get wrong), the simulator's fill and stop/target rules, the risk
 gate, and two end-to-end backtests through the journal. Nothing in it requires
 MetaTrader 5, so it runs in CI on Linux.
 
-**Status: 306 tests, all passing on Python 3.12.** `ruff check` is clean, and
+**Status: 443 tests, all passing on Python 3.12 and 3.14.** `ruff check` is clean, and
 `tbot backtest` runs the full pipeline end to end on synthetic data.
 
 The suite was written before an interpreter was available; its first run found

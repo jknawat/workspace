@@ -1,6 +1,6 @@
 # First run
 
-The suite has been run: **306 tests, all passing on Python 3.12.10**, with
+The suite has been run: **443 tests, all passing on Python 3.12 and 3.14**, with
 `ruff check` clean and a full backtest completing on synthetic data. This page
 is the path from a fresh checkout to paper trading.
 
@@ -69,10 +69,15 @@ rather than a knock-on effect.
 ## 5. Try a backtest
 
 ```powershell
-python scripts\gen_sample_data.py --symbols EURUSD --bars 6000
+python scripts\gen_sample_data.py --symbols XAUUSDm --bars 60000
 tbot validate
-tbot backtest --symbol EURUSD --trades
+tbot backtest --symbol XAUUSDm --spread 240 --trades
 ```
+
+Name the symbol as the config does (`XAUUSDm`, not `XAUUSD`). The generator
+also writes the higher-timeframe files the multi-timeframe gates read; without
+them every setup is refused and the backtest reports zero trades. Backtests log
+to `logs/backtest.jsonl`, not the live bot's `logs/tbot.jsonl`.
 
 The data is synthetic and seeded — good for proving the plumbing works, useless
 as evidence about a strategy. A profitable result here means nothing.
