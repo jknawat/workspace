@@ -15,7 +15,9 @@ warmup_bars = 500               # history handed to the strategy each poll
 # ever switch. This one setting governs bar timestamps, session filters,
 # snapshot freshness and the chart overlay.
 broker_utc_offset_hours = 0.0
-start_balance = 10000.0         # paper/backtest only
+start_balance = 10000.0         # backtest only -- paper mode mirrors the real
+                                # account instead, see mirror_account_balance
+mirror_account_balance = true   # size against money that actually exists
 journal_path = "data/journal.sqlite"
 stop_file = "data/STOP"        # stop.bat writes this; run.bat clears it
 

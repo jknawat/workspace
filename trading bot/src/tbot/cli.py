@@ -107,6 +107,26 @@ def _build_runtime(
         data_broker.connect()
         for scfg in cfg.active_symbols:  # trade the broker's real contract specs
             exec_broker.specs[scfg.symbol] = data_broker.symbol_spec(scfg.symbol)
+        if cfg.engine.mirror_account_balance:
+            # Size against the money that actually exists. Otherwise the paper
+            # account runs on a number from a config file, and every lot is
+            # wrong by the ratio between them.
+            try:
+                live = data_broker.account()
+            except BrokerError as exc:
+                obs_log.get("cli").warning(
+                    "could not read the live balance, using start_balance %.2f: %s",
+                    exec_broker.balance, exc,
+                )
+            else:
+                if live.balance > 0:
+                    print(
+                        f"paper account mirrors {data_broker.name}: "
+                        f"{live.balance:,.2f} {live.currency} "
+                        f"(config start_balance {cfg.engine.start_balance:,.2f} ignored)"
+                    )
+                    exec_broker.balance = live.balance
+                    exec_broker.currency = live.currency
         return exec_broker, BrokerFeed(data_broker), data_broker
     return exec_broker, CsvFeed(data_dir or "data"), None
 

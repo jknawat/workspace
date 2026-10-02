@@ -128,6 +128,12 @@ class EngineConfig:
     #: Touch this file to stop the bot after its current cycle. stop.bat
     #: writes it; run.bat clears it on start.
     stop_file: str = "data/STOP"
+    #: In paper mode on a live feed, start the simulated account at the real
+    #: account's balance instead of start_balance. On by default because
+    #: position size is derived from the balance: simulating $10,000 against a
+    #: $5,000 account sizes every trade twice too large, and nothing about the
+    #: paper results would then carry over to live.
+    mirror_account_balance: bool = True
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> EngineConfig:
@@ -144,6 +150,7 @@ class EngineConfig:
                 "journal_path",
                 "context_timeframes",
                 "stop_file",
+                "mirror_account_balance",
             },
             "[engine]",
         )
