@@ -1,10 +1,13 @@
-# secrets
+﻿# secrets
 config/credentials.toml
 .env
 
 # runtime output
 logs/
 data/*.sqlite
+# ...except the journal, which is the shared trade history. It is small (a few
+# KB compressed per save) and run.bat/stop.bat keep it in step between machines.
+!data/journal.sqlite
 data/*.csv
 !data/.gitkeep
 
