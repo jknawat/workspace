@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from tbot.broker.paper import PaperBroker
-from tbot.engine.chartdata import _next_close
+from tbot.engine.chartdata import _next_close, _trigger_state
 
 TF = "M5"
 
@@ -100,3 +100,60 @@ def test_the_countdown_reports_the_timeframe_it_used():
     out = _next_close(datetime.now(timezone.utc) - timedelta(minutes=90), "H1")
     assert out["timeframe"] == "H1"
     assert 0 < out["seconds_left"] <= 60 * 60
+
+
+# --------------------------------------------------------------------------- #
+# Permission is not intention
+# --------------------------------------------------------------------------- #
+#
+# Every gate green while the bot sits still looks broken, and reads as "it is
+# about to trade". It is not: the strategy arms on the *moment* the fast EMAs
+# cross, so once they have crossed and stayed crossed there is nothing to act
+# on however green the checklist is.
+
+
+class _Rt:
+    """Just enough runtime for the trigger reading."""
+
+    def __init__(self, confirm, fast):
+        self.ind = {"ema_confirm": confirm, "ema_fast": fast}
+
+
+def test_a_fresh_cross_down_is_reported_as_a_live_trigger():
+    out = _trigger_state(_Rt([5.0, 3.0], [4.0, 4.0]))
+    assert out["ready"] and out["crossed"]
+    assert out["would_be"] == "SHORT"
+    assert "sell" in out["note"]
+
+
+def test_a_fresh_cross_up_is_reported_as_a_live_trigger():
+    out = _trigger_state(_Rt([3.0, 5.0], [4.0, 4.0]))
+    assert out["crossed"] and out["would_be"] == "LONG"
+    assert "buy" in out["note"]
+
+
+def test_already_below_without_a_cross_is_not_a_trigger():
+    """The exact case that confused things: gates green, nothing happening."""
+    out = _trigger_state(_Rt([3.0, 2.5], [4.0, 4.0]))
+    assert out["ready"]
+    assert not out["crossed"]
+    assert out["would_be"] == "SHORT"
+    assert "has not just crossed" in out["note"]
+
+
+def test_already_above_without_a_cross_is_not_a_trigger():
+    out = _trigger_state(_Rt([5.0, 5.5], [4.0, 4.0]))
+    assert not out["crossed"]
+    assert out["would_be"] == "LONG"
+
+
+def test_touching_without_crossing_is_not_a_cross():
+    """Equal EMAs count as 'not above', so this must not flip twice."""
+    out = _trigger_state(_Rt([3.0, 4.0], [4.0, 4.0]))
+    assert not out["crossed"]
+
+
+def test_unready_emas_do_not_claim_a_direction():
+    assert not _trigger_state(_Rt([None, None], [4.0, 4.0]))["ready"]
+    assert not _trigger_state(_Rt([], []))["ready"]
+    assert not _trigger_state(_Rt([4.0], [4.0]))["ready"]

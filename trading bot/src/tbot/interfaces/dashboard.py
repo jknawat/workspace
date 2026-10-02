@@ -777,6 +777,12 @@ function renderStages(d) {
     else if (at > i && d.phase !== 'SCANNING') cls += ' done';
     div.className = cls;
     let hint = s.hint;
+    if (i === at && s.key === 'SCANNING' && d.trigger_state
+        && d.trigger_state.ready && !d.trigger_state.crossed) {
+      hint = 'no cross yet - the 5-EMA is already '
+        + (d.trigger_state.would_be === 'LONG' ? 'above' : 'below')
+        + ' the 8-EMA';
+    }
     if (i === at && s.key === 'ARMED' && d.pullback_count !== null
         && d.pullback_count !== undefined) {
       hint = d.pullback_count + ' of 2 pullback bars so far';
@@ -815,21 +821,34 @@ function renderGates(d) {
 
   const v = el('verdict');
   v.innerHTML = '';
+  const ts = d.trigger_state || {};
   ['LONG', 'SHORT'].forEach(side => {
     const r = prov[side];
     const span = document.createElement('span');
+    const word = side === 'LONG' ? 'Buy' : 'Sell';
     if (!r || !r.configured) {
       span.className = ''; span.textContent = side + ': not traded';
     } else if (!r.blocked_by || !r.blocked_by.length) {
-      span.className = 'allow';
-      span.textContent = (side === 'LONG' ? 'Buy' : 'Sell') + ' is allowed';
+      // Gates green is a permission, not an intention. Saying "allowed" alone
+      // read as "about to trade", and it is not: the strategy still needs a
+      // crossover to arm on.
+      const live = ts.ready && ts.crossed && ts.would_be === side;
+      span.className = live ? 'allow' : '';
+      span.textContent = live
+        ? word + ': every check passes and a setup is starting now'
+        : word + ': every check passes, but nothing has triggered';
     } else {
       span.className = 'block';
-      span.textContent = (side === 'LONG' ? 'Buy' : 'Sell') + ' blocked by '
-        + r.blocked_by.join(', ');
+      span.textContent = word + ' blocked by ' + r.blocked_by.join(', ');
     }
     v.appendChild(span);
   });
+  if (ts.note) {
+    const span = document.createElement('span');
+    span.style.flexBasis = '100%';
+    span.textContent = 'Trigger: ' + ts.note;
+    v.appendChild(span);
+  }
 
   // The honest footnote: these readings are from the bar still forming, and
   // the bot only acts when one closes.

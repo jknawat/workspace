@@ -98,6 +98,40 @@ def _next_close(last_ts: datetime, timeframe: str) -> dict[str, Any]:
     }
 
 
+def _trigger_state(rt: SymbolRuntime) -> dict[str, Any]:
+    """Whether a setup can even begin right now.
+
+    Passing every filter is not the same as being about to trade, and the panel
+    read as though it were. The strategy arms on the *moment* the fast EMAs
+    cross; once they have crossed and stayed crossed there is nothing to act
+    on, however green the gates look. This says which of the two is true.
+    """
+    confirm = (rt.ind.get("ema_confirm") or [])
+    fast = (rt.ind.get("ema_fast") or [])
+    if len(confirm) < 2 or len(fast) < 2:
+        return {"ready": False, "note": "not enough history yet"}
+    c0, f0 = confirm[-1], fast[-1]
+    c1, f1 = confirm[-2], fast[-2]
+    if None in (c0, f0, c1, f1):
+        return {"ready": False, "note": "EMAs not ready yet"}
+    above_now, above_prev = c0 > f0, c1 > f1
+    crossed = above_now != above_prev
+    side = "LONG" if above_now else "SHORT"
+    if crossed:
+        note = ("the 5-EMA just crossed "
+                + ("above" if above_now else "below")
+                + " the 8-EMA - a " + ("buy" if above_now else "sell")
+                + " setup is being considered now")
+    else:
+        note = ("the 5-EMA is already " + ("above" if above_now else "below")
+                + " the 8-EMA and has not just crossed, so no new setup can "
+                + "start - it must cross back and then cross again")
+    return {
+        "ready": True, "crossed": crossed, "would_be": side, "note": note,
+        "ema_confirm": c0, "ema_fast": f0,
+    }
+
+
 def chart_payload(engine: TradeEngine, journal: Any = None) -> dict[str, Any]:
     """Everything the chart and panel render, for every registered symbol."""
     out: dict[str, Any] = {}
@@ -172,6 +206,7 @@ def chart_payload(engine: TradeEngine, journal: Any = None) -> dict[str, Any]:
             "positions": positions,
             "bar_clock": _next_close(bars[-1].ts, engine.config.engine.timeframe),
             "gates": {"provisional": provisional, "confirmed": confirmed},
+            "trigger_state": _trigger_state(rt),
             "mtf": rt.mtf.to_dict() if len(rt.mtf) else None,
             "score": rt.last_score.to_dict() if rt.last_score else None,
             "digits": rt.spec.digits,
