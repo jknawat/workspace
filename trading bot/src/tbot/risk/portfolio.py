@@ -66,9 +66,21 @@ class RiskManager:
                 return weight
         return None
 
-    def budget_for(self, symbol: str, balance: float) -> float:
+    def budget_for(self, symbol: str, balance: float, risk_mult: float = 1.0) -> float:
+        """Money at risk for one trade.
+
+        ``risk_mult`` is the confidence scorer's share of the budget. It scales
+        the *risk*, not the lot size: scaling lots directly would mean a trade
+        with a wide stop risked proportionally more, which is the one thing
+        position sizing exists to prevent.
+        """
         weight = self.weight_for(symbol) or 0.0
-        return balance * (self.cfg.risk.risk_per_trade_pct / 100.0) * weight
+        return (
+            balance
+            * (self.cfg.risk.risk_per_trade_pct / 100.0)
+            * weight
+            * max(risk_mult, 0.0)
+        )
 
     def daily_loss_limit(self, balance: float) -> float:
         return balance * (self.cfg.risk.max_daily_loss_pct / 100.0)
@@ -96,6 +108,7 @@ class RiskManager:
         spec: SymbolSpec,
         account: AccountState,
         positions: list[Position],
+        risk_mult: float = 1.0,
     ) -> tuple[Decision, OrderRequest | None]:
         self.roll_day(signal.ts.date())
         risk_cfg = self.cfg.risk
@@ -136,7 +149,7 @@ class RiskManager:
                 f"{sorted(self.cfg.normalised_weights)}"
             ), None
 
-        budget = self.budget_for(signal.symbol, account.balance)
+        budget = self.budget_for(signal.symbol, account.balance, risk_mult)
         sizing: SizingResult = lot_for_risk(spec, budget, signal.sl_distance)
         if not sizing.ok:
             return Decision.no(f"sizing: {sizing.reason}", budget=budget), None

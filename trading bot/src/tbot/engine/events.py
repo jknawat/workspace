@@ -30,6 +30,7 @@ from ..obs import log as obs_log
 # rather than treated as errors, so new ones can be added without breaking one.
 SIGNAL = "signal"        # a strategy proposed a trade
 DECLINED = "declined"    # the risk gate refused it
+SCORED = "scored"        # a signal was rated, with the tier it earned
 ORDER = "order"          # an order was sent (check data["ok"])
 EXIT = "exit"            # an exit policy modified or closed a position
 CLOSED = "closed"        # a position settled, with realised pnl

@@ -34,7 +34,8 @@ from ..obs import log as obs_log
 from ..risk import RiskManager
 from ..strategy import Strategy, create
 from ..strategy.base import BarContext
-from .events import CLOSED, DECISION, DECLINED, EXIT, ORDER, SIGNAL, EventBus
+from ..strategy.confidence import ConfidenceScorer, Score
+from .events import CLOSED, DECISION, DECLINED, EXIT, ORDER, SCORED, SIGNAL, EventBus
 from .exits import AppliedExit, ExitManager
 
 
@@ -47,6 +48,9 @@ class SymbolRuntime:
     bars: list[Bar] = field(default_factory=list)
     ind: dict[str, Series] = field(default_factory=dict)
     mtf: MultiTimeframe = field(default_factory=MultiTimeframe)
+    scorer: ConfidenceScorer | None = None
+    #: The most recent rating, kept so the panel can show it between bars.
+    last_score: Score | None = None
 
     def ingest(self, bars: list[Bar]) -> None:
         self.bars = bars
@@ -74,6 +78,7 @@ class StepResult:
     snapshot: Snapshot | None = None
     exits: list[AppliedExit] = field(default_factory=list)
     why: str = ""
+    score: Score | None = None
 
     @property
     def entered(self) -> bool:
@@ -115,6 +120,11 @@ class TradeEngine:
             spec=resolved,
             strategy=strategy,
             exits=ExitManager.from_config(scfg.exits),
+            scorer=(
+                ConfidenceScorer(scfg.confidence)
+                if scfg.confidence is not None and scfg.confidence.enabled
+                else None
+            ),
         )
         self.runtimes[scfg.symbol] = rt
         self.log.info(
@@ -217,10 +227,49 @@ class TradeEngine:
             )
             return out
 
-        # 4. Risk gate.
+        # 4. Rate the signal, and let the rating decide the stake.
+        #
+        # This runs after the gates, not instead of them: the chain says
+        # whether a trade is allowed, this says what it is worth. A signal
+        # below the floor is declined here rather than sized down to nothing,
+        # so the journal records "not good enough" instead of a sizing error.
+        risk_mult = 1.0
+        if rt.scorer is not None:
+            score = rt.scorer.score(signal, ctx, signal.side)
+            out.score = score
+            rt.last_score = score
+            self.events.publish(
+                SCORED, signal.symbol,
+                side=signal.side.value, points=round(score.points, 1),
+                tier=score.tier, risk_mult=score.risk_mult,
+                detail=score.explain(),
+            )
+            if not score.tradeable:
+                weak = Decision.no(score.explain(), trace={"confidence": score.to_dict()})
+                out.decision = weak
+                if self.journal:
+                    self.journal.record_signal(signal, weak, None)
+                self.events.publish(
+                    DECLINED, signal.symbol,
+                    side=signal.side.value, reason=weak.reason,
+                )
+                self.log.info(
+                    "signal declined %s %s: %s",
+                    signal.symbol, signal.side.value, weak.reason,
+                    extra={
+                        "symbol": signal.symbol, "event": "low_confidence",
+                        "score": round(score.points, 1),
+                    },
+                )
+                return out
+            risk_mult = score.risk_mult
+
+        # 5. Risk gate.
         account = self.broker.account()
         positions: list[Position] = self.broker.positions()
-        decision, order = self.risk.approve(signal, rt.spec, account, positions)
+        decision, order = self.risk.approve(
+            signal, rt.spec, account, positions, risk_mult=risk_mult
+        )
         out.decision, out.order = decision, order
         if self.journal:
             self.journal.record_signal(signal, decision, order)
@@ -236,7 +285,7 @@ class TradeEngine:
             )
             return out
 
-        # 5. Route.
+        # 6. Route.
         result = self.broker.market_order(order)
         out.order_result = result
         level = self.log.info if result.ok else self.log.error
@@ -375,6 +424,8 @@ class TradeEngine:
             why = "waiting for a setup"
             if reject:
                 why += f"; last one was turned down because {reject}"
+        if rt.last_score is not None:
+            why += f"  |  last signal: {rt.last_score.explain()}"
         if len(rt.mtf):
             why += f"  [{rt.mtf.summary()}]"
         return why
@@ -421,6 +472,8 @@ class TradeEngine:
             summary["why"] = self.explain(sym)
             if len(rt.mtf):
                 summary["mtf"] = rt.mtf.to_dict()
+            if rt.last_score is not None:
+                summary["score"] = rt.last_score.to_dict()
             if sym in snapshots:
                 summary["snapshot"] = snapshots[sym]
             out[sym] = summary

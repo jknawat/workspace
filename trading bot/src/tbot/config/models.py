@@ -242,6 +242,9 @@ class SymbolConfig:
     filters: dict[str, dict[str, Any]] = field(default_factory=dict)
     exits: dict[str, dict[str, Any]] = field(default_factory=dict)
     session: SessionConfig = field(default_factory=SessionConfig)
+    #: Signal rating and size tiering. Disabled by default, so an existing
+    #: config keeps sizing every trade at the full risk budget.
+    confidence: Any = None
 
     @classmethod
     def from_dict(cls, d: dict[str, Any], where: str) -> SymbolConfig:
@@ -257,6 +260,7 @@ class SymbolConfig:
                 "filters",
                 "exits",
                 "session",
+                "confidence",
             },
             where,
         )
@@ -278,7 +282,19 @@ class SymbolConfig:
             filters={k: dict(v) for k, v in d.get("filters", {}).items()},
             exits={k: dict(v) for k, v in d.get("exits", {}).items()},
             session=SessionConfig.from_dict(d.get("session", {}), f"{where}.session"),
+            confidence=_confidence_from(d.get("confidence", {}), f"{where}.confidence"),
         )
+
+
+def _confidence_from(d: dict[str, Any], where: str):
+    """Build the confidence config without a circular import.
+
+    ``strategy.confidence`` needs ``ConfigError`` from this module, so the
+    import has to happen inside the call rather than at module level.
+    """
+    from ..strategy.confidence import ConfidenceConfig
+
+    return ConfidenceConfig.from_dict(dict(d or {}), where)
 
 
 @dataclass(frozen=True, slots=True)

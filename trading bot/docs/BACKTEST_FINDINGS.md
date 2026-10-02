@@ -93,12 +93,62 @@ both bear and bull markets is justified, not just symmetric-looking.
 still open, so `max_open_positions` is currently shaping returns more than any
 filter bound. Untested, and the obvious next question.
 
+## Signal rating: built, measured, and not yet trusted with money
+
+The scorer rates each passing signal 0--100 on five weighted components (MTF
+support 35, reward/risk 25, ATR band position 15, entry tightness 15, spread
+cost 10). The question it has to answer before it can size anything: **do
+higher-scoring trades actually earn more?**
+
+Measured with gating off, so every signal traded and every one was scored
+(`scripts/score_report.py`):
+
+| band | trades | win% | net | per trade | pf |
+|---|---|---|---|---|---|
+| 30--44 | 9 | 22.2% | -218.11 | -24.23 | 0.70 |
+| 45--59 | 40 | 35.0% | +1021.47 | +25.54 | **1.40** |
+| 60--74 | 54 | 27.8% | +166.79 | +3.09 | **1.04** |
+| 75--87 | 22 | 36.4% | +650.51 | +29.57 | **1.51** |
+
+**Expectancy does not rise with the score.** The 60s band is the weakest of the
+three that trade, sitting between two strong ones. A ranking that is not
+monotonic is not a ranking, and sizing to it would stake money on a pattern
+that is not in the data.
+
+No trade has ever scored above 87, so any tier at 90 or 95 would never fire.
+
+Gating at 45 was tried, since the lowest band does lose:
+
+| variant | full period | half A | half B |
+|---|---|---|---|
+| scoring off | +1620.66, pf 1.19 | +652.32, pf 1.20 | +1784.34, pf 1.40 |
+| floor at 45 | +1897.90, pf 1.25 | **+380.64, pf 1.12** | +1865.35, pf 1.43 |
+| floor 45 + size tiers | +950.89, pf 1.20 | -7.64, pf 1.00 | +973.32, pf 1.44 |
+
+Better over the full period, worse in the first half. The same signature as
+`mtf_required`: one favourable stretch carrying a full-period number. The size
+tiers are worse everywhere, which is what should be expected -- scaling risk
+down scales returns down, and that only pays if the bands really differ.
+
+**Acted on: scoring runs in measure-only mode.** `min_score = 0` with a single
+full-size tier, so behaviour is byte-identical to having no scorer (verified:
+both report +1620.66), while the score is computed, shown in the decision panel
+and written to the journal. That accumulates the forward record needed to judge
+the bands on data nobody has optimised against.
+
+The components could no doubt be reweighted until the bands line up on these
+310 days. That is the definition of curve fitting, and the angle gate already
+demonstrated what it costs. The weights stay as first written.
+
 ## Standing caveats
 
 * A profit factor of 1.13--1.19 is thin. It survives a 240-point spread, which
   is the real one, but not much more than that.
 * Win rate sits near 30%: the strategy makes money from a few large winners, so
   expect long losing streaks and do not read one as a malfunction.
+* The confidence score is not a win probability, and nothing in the code or
+  the panel calls it one. The strategy wins ~30% of its trades; a score of
+  80 means "most of the evidence lines up", never "80% likely to win".
 * `ict_confluence` **cannot be backtested here.** The MT5 snapshot describes
   structure as it stands *now*; there is no historical series of it to replay.
   Any claim about that strategy has to come from forward trading.

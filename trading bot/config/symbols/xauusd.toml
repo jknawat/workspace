@@ -96,3 +96,54 @@ max_disagree = 3
 [filters.mtf_required]
 timeframes = ["D1"]
 allow_neutral = true
+
+# --------------------------------------------------------------------------- #
+# Signal rating
+# --------------------------------------------------------------------------- #
+#
+# Every signal that clears the gates is scored 0-100 on the evidence behind it,
+# and the score can scale the stake. Right now it only *measures*: min_score 0
+# with a single full-size tier means behaviour is identical to having no
+# scoring at all, while the number is computed, shown in the panel and written
+# to the journal.
+#
+# That is deliberate. Measured over the 310-day gold set (scripts/score_report.py):
+#
+#     band    trades   win%        net   per trade    pf
+#     30-44        9  22.2%    -218.11      -24.23  0.70
+#     45-59       40  35.0%   +1021.47      +25.54  1.40
+#     60-74       54  27.8%    +166.79       +3.09  1.04
+#     75-87       22  36.4%    +650.51      +29.57  1.51
+#
+# Expectancy does not rise with the score -- the 60s band is the weakest of the
+# three that trade. So the score does not yet rank trades reliably, and sizing
+# to it would be staking money on a pattern that is not there. Gating at 45 was
+# also tried: better over the full period (+1898 vs +1621) but worse in the
+# first half of it (+381 vs +652), which is the signature of one lucky stretch.
+#
+# No band above 87 has ever occurred, so a "90%" or "95%" tier would never fire.
+#
+# To stake on the score once forward trading has produced uncontaminated
+# evidence, raise min_score and add tiers. The shape, for when that day comes:
+#
+#   min_score = 45
+#   [[confidence.tiers]]
+#   min_score = 45
+#   risk_mult = 0.4      # 0.4 of [risk].risk_per_trade_pct, not 0.4 lots
+#   label = "lean"
+#   [[confidence.tiers]]
+#   min_score = 75
+#   risk_mult = 1.0
+#   label = "strong"
+#
+# risk_mult scales the *risk*, not the lot count: a 0.02-lot trade with a
+# double-width stop risks twice as much, so sizing by lots would quietly break
+# the 1% rule. Lots are still worked out from the stop distance.
+[confidence]
+enabled = true
+min_score = 0.0          # measure only; nothing is refused for a low score
+
+[[confidence.tiers]]
+min_score = 0.0
+risk_mult = 1.0
+label = "measuring"
