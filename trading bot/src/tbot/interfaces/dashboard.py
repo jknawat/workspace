@@ -325,6 +325,7 @@ footer{padding:0 20px 24px;color:var(--muted);font-size:12px}
   <div class="card"><h2>Recent activity</h2><div id="events"></div></div>
 
   <div class="card"><h2>Live chart <span id="chartsym" class="muted"></span></h2>
+    <div class="filters" id="symtabs"></div>
     <div class="px">
       <span class="mid" id="pxmid">-</span>
       <span class="leg">bid <b id="pxbid">-</b></span>
@@ -553,7 +554,9 @@ function renderLog(d) {
   const parts = ['buy', 'sell', 'wait', 'closed']
     .filter(k => t[k]).map(k => `${t[k]} ${k}`);
   if (parts.length) {
-    el('lognote').innerHTML = 'Recorded so far: <span class="count">'
+    const scope = (chartData && chartData.symbol)
+      ? ' for <b>' + esc(chartData.symbol) + '</b>' : '';
+    el('lognote').innerHTML = 'Recorded so far' + scope + ': <span class="count">'
       + esc(parts.join(' · ')) + '</span>. A repeated "waiting" is not logged '
       + 'again until the reason changes.';
   }
@@ -571,6 +574,11 @@ async function tickLog() {
   try {
     const q = new URLSearchParams({limit: '200'});
     if (logAction) q.set('action', logAction);
+    // Scoped to whichever symbol the chart is showing, so the two cards agree
+    // about what you are looking at.
+    if (chartSymbol && chartData && chartData.symbol) {
+      q.set('symbol', chartData.symbol);
+    }
     const r = await fetch('/api/log?' + q, {cache: 'no-store'});
     renderLog(await r.json());
   } catch (e) {
@@ -903,11 +911,52 @@ function drawScores(d) {
   });
 }
 
+let chartSymbol = '';
+let lastChart = null;
+
+// Kept per browser, so reopening the page lands on the symbol you were
+// watching. Wrapped because storage throws in a private window and a
+// remembered tab is not worth a blank page.
+try {
+  chartSymbol = localStorage.getItem('tbot.symbol') || '';
+} catch (e) { chartSymbol = ''; }
+
+function renderSymbolTabs(syms) {
+  const host = el('symtabs');
+  const keys = Object.keys(syms);
+  // One symbol needs no picker; showing a single dead tab is just clutter.
+  if (keys.length < 2) { host.innerHTML = ''; return; }
+  if (host.dataset.keys === keys.join(',')) {
+    [...host.children].forEach(b =>
+      b.classList.toggle('on', b.dataset.sym === chartSymbol));
+    return;
+  }
+  host.dataset.keys = keys.join(',');
+  host.innerHTML = '';
+  keys.forEach(k => {
+    const b = document.createElement('button');
+    b.dataset.sym = k;
+    b.textContent = syms[k].symbol || k;
+    b.className = k === chartSymbol ? 'on' : '';
+    b.addEventListener('click', () => {
+      chartSymbol = k;
+      try { localStorage.setItem('tbot.symbol', k); } catch (e) { /* fine */ }
+      if (lastChart) renderChart(lastChart);
+      tickLog();          // the log follows the chart
+    });
+    host.appendChild(b);
+  });
+}
+
 function renderChart(payload) {
   const syms = payload.symbols || {};
-  const key = Object.keys(syms)[0];
-  if (!key) return;
-  const d = syms[key];
+  const keys = Object.keys(syms);
+  if (!keys.length) return;
+  lastChart = payload;
+  // A remembered symbol that is no longer configured must not blank the page.
+  if (!chartSymbol || !syms[chartSymbol]) chartSymbol = keys[0];
+  renderSymbolTabs(syms);
+  const d = syms[chartSymbol];
   chartData = d;
   txt('chartsym', d.symbol + ' ' + d.timeframe);
 
@@ -947,7 +996,7 @@ tickChart(); setInterval(tickChart, 5000);
 // The countdown is pure arithmetic on the client, so it can tick smoothly
 // without asking the bot anything.
 setInterval(tickClock, 1000);
-window.addEventListener('resize', () => { if (chartData) renderChart({symbols: {x: chartData}}); });
+window.addEventListener('resize', () => { if (lastChart) renderChart(lastChart); });
 // The log is history, not live state -- it does not need a 2-second poll.
 tickLog(); setInterval(tickLog, 10000);
 </script></body></html>
