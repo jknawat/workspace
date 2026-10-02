@@ -55,7 +55,7 @@ filename = "tbot_state.json"
 
 Then install the indicator:
 
-1. In MT5: **File → Open Data Folder**, and copy `mql5/TbotOverlay.mq5` into
+1. In MT5: **File → Open Data Folder**, and copy `mql5/Indicators/TbotOverlay.mq5` into
    `MQL5/Indicators/`.
 2. Compile it in MetaEditor (F7).
 3. Drag it onto a chart. Set `InpFolder` to the same folder as `[overlay]`

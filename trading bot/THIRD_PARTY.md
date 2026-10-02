@@ -7,14 +7,27 @@
 - Used for: the in-terminal detection of SMC/ICT structures and the JSON
   snapshot contract that `tbot.data.snapshot` reads.
 
-The MQL5 library itself is **not vendored** into this repository; it is
-installed into MetaTrader 5 separately (see `docs/MT5_SNAPSHOT_SETUP.md`). What
-this project contains is an independent Python reader written against the
-library's published JSON Schema and data contract, plus a test fixture authored
-here in that format.
+Most of the MQL5 library is **not vendored**; it is installed into MetaTrader 5
+separately (see `docs/MT5_SNAPSHOT_SETUP.md`). What this project contains is an
+independent Python reader written against the library's published JSON Schema
+and data contract, plus a test fixture authored here in that format.
 
-If MQL5 source from that project is ever vendored, its MIT notice must be kept
-with the copied files.
+**Three files are vendored**, under `mql5/`, and keep the MIT notice they
+carry:
+
+| file | why it is pinned here |
+|---|---|
+| `Experts/SMC_Snapshot_Export.mq5` | publishes the snapshot the bot reads |
+| `Include/SMC/Core/SmcSnapshot.mqh` | defines the schema version and contract |
+| `Include/SMC/Utils/SnapshotExporter.mqh` | writes the JSON the reader parses |
+
+These three *are* the contract `tbot.data.snapshot` is written against, so an
+upstream change to them silently changes what the bot reads. Pinning them means
+a fresh clone on another machine compiles the same exporter this one runs,
+rather than whatever upstream happens to hold that day. The rest of the library
+is still installed from upstream.
+
+MIT permits this; the copyright notice stays with the files.
 
 ## Repositories studied, not copied
 

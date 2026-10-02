@@ -235,7 +235,7 @@ Each stage is independently useful and independently testable.
 | 3 | **ICT strategy + filters** — DONE | seven `ict_*` filters usable on any strategy, plus the `ict_confluence` strategy (zone entry, structural stop, liquidity target); `docs/ICT_STRATEGY.md`. Built to serve every branch of the open strategy decision rather than waiting on it | 2 |
 | 4 | **Guard chain** | composable risk guards: daily DD, total DD (equity-based), correlation, spread, news blackout, restart-safe state | 1, account decision |
 | 5 | **Exit policies** — DONE | break_even, trailing_atr, trailing_structure, partial_tp, time_stop; Broker port gained modify_position and partial close, implemented by both adapters | 1 |
-| 6 | **Operator surface** — DONE | local dashboard (loopback, read-only), Telegram alerts + commands via flags the trading thread applies, MT5 chart overlay (mql5/TbotOverlay.mq5), `tbot telegram-setup`, `tbot doctor`; `docs/WATCHING_THE_BOT.md` | 5 |
+| 6 | **Operator surface** — DONE | local dashboard (loopback, read-only), Telegram alerts + commands via flags the trading thread applies, MT5 chart overlay (mql5/Indicators/TbotOverlay.mq5), `tbot telegram-setup`, `tbot doctor`; `docs/WATCHING_THE_BOT.md` | 5 |
 | 7 | **ML scoring** | feature engine, triple-barrier labeller over the journal, trained model, score-gated entries and score-scaled sizing | 3–5 plus real journal history |
 
 Only stage 4 is still gated on a decision (account type). Stage 7 is gated on

@@ -1,6 +1,6 @@
-# tbot
+﻿# tbot
 
-A modular, broker-agnostic trading bot for MetaTrader 5 — built so that the
+A modular, broker-agnostic trading bot for MetaTrader 5 โ€” built so that the
 strategy logic, the risk rules and the execution path can each be tested on
 their own, on any machine, with no terminal running and no market open.
 
@@ -9,7 +9,7 @@ only. `MetaTrader5` is needed just for live data and live orders, and is
 imported lazily in exactly one file.
 
 ```
-bars → indicators → strategy → risk gate → broker → journal
+bars โ’ indicators โ’ strategy โ’ risk gate โ’ broker โ’ journal
 ```
 
 One pipeline, three modes: `backtest`, `paper`, `live`. They share the same
@@ -43,13 +43,13 @@ Installing the package (`pip install -e .`) adds a `tbot` entry point, so
 ### Going live
 
 1. `pip install MetaTrader5`
-2. Copy `config/credentials.example.toml` → `config/credentials.toml`, or set
+2. Copy `config/credentials.example.toml` โ’ `config/credentials.toml`, or set
    `TBOT_MT5_LOGIN` / `TBOT_MT5_PASSWORD` / `TBOT_MT5_SERVER`.
 3. Capture your broker's real contract specs and keep them for backtests:
    `tbot specs --save config/specs.toml`
 4. Set `mode = "live"` and `broker = "mt5"` in `config/bot.toml`, and set
    `broker_utc_offset_hours` to your server's offset.
-5. `tbot live -c config/bot.toml --yes` — the `--yes` is mandatory; without it
+5. `tbot live -c config/bot.toml --yes` โ€” the `--yes` is mandatory; without it
    the command refuses to send real orders.
 
 Use a demo account first. Then use it for longer than feels necessary.
@@ -104,7 +104,7 @@ max = 0.0020
 min_degrees = 15.0
 ```
 
-Unknown keys are a **startup error**, not a silent no-op — a typo in
+Unknown keys are a **startup error**, not a silent no-op โ€” a typo in
 `pullback_bars` can otherwise cost you a live session's worth of trades.
 Run `tbot strategies` to see every legal parameter and filter option.
 
@@ -129,9 +129,9 @@ Other gates: `max_daily_loss_pct` (kill-switch for the UTC day),
 ```
 src/tbot/
   core/        Bar, Signal, SymbolSpec, Decision + pure-python indicators
-  config/      TOML → validated dataclasses (rejects unknown keys)
+  config/      TOML โ’ validated dataclasses (rejects unknown keys)
   strategy/    Strategy base + registry, composable filters,
-               ema_pullback (crossover → pullback → breakout window),
+               ema_pullback (crossover โ’ pullback โ’ breakout window),
                ict_confluence (MT5 structure: zone entry, structural stop),
                ict_filters (bias, killzone, zone, liquidity, premium/discount),
                donchian (third strategy, proves the engine is generic)
@@ -157,8 +157,8 @@ a broker; only `broker/mt5.py` knows MetaTrader exists.
 
 `tbot` does not re-implement Smart Money Concepts in Python. The MIT-licensed
 [SMC/ICT library](https://github.com/xxvw/ICT_Library_MQ5) runs *inside* MT5,
-detects structure on closed candles — order blocks, FVGs, BOS/CHoCH, liquidity,
-killzones, displacement, MSS, SMT, PO3 — and publishes a schema-versioned JSON
+detects structure on closed candles โ€” order blocks, FVGs, BOS/CHoCH, liquidity,
+killzones, displacement, MSS, SMT, PO3 โ€” and publishes a schema-versioned JSON
 snapshot. `tbot` reads that file, so the bot trades exactly what your chart
 draws, with no second implementation to drift out of agreement.
 
@@ -175,13 +175,13 @@ tbot snapshot -c config/bot.toml --symbol EURUSD    # modules and every record
 
 Snapshot timestamps are broker wall-clock with no timezone; they are converted
 to UTC with the same `broker_utc_offset_hours` used for bars. A snapshot that is
-missing, degraded or older than `max_age_minutes` is dropped with a warning —
+missing, degraded or older than `max_age_minutes` is dropped with a warning โ€”
 stale structure is worse than none, because it looks authoritative while
 describing a market that has moved.
 
 Setup, troubleshooting and the timezone trap: **[docs/MT5_SNAPSHOT_SETUP.md](docs/MT5_SNAPSHOT_SETUP.md)**.
 
-Strategies receive it as `ctx.snapshot` (`None` when unavailable — gates that
+Strategies receive it as `ctx.snapshot` (`None` when unavailable โ€” gates that
 depend on it fail closed). The `ict_confluence` strategy and the `ict_*` filters
 trade on it: see **[docs/ICT_STRATEGY.md](docs/ICT_STRATEGY.md)**.
 
@@ -190,10 +190,10 @@ trade on it: see **[docs/ICT_STRATEGY.md](docs/ICT_STRATEGY.md)**.
 ## Watching and controlling it
 
 Three read-only views plus one narrow control path, all on the standard library
-— no FastAPI, no Redis, no Node.
+โ€” no FastAPI, no Redis, no Node.
 
 ```toml
-[dashboard]                     # http://127.0.0.1:8787 — loopback only
+[dashboard]                     # http://127.0.0.1:8787 โ€” loopback only
 enabled = true
 
 [telegram]                      # alerts on your phone, plus remote commands
@@ -204,14 +204,15 @@ enabled = true
 ```
 
 Telegram accepts `/status`, `/positions`, `/pause`, `/resume`, `/closeall` and
-`/stop`, restricted to your chat id — anyone else gets no reply at all. Commands
+`/stop`, restricted to your chat id โ€” anyone else gets no reply at all. Commands
 only set flags; the trading thread reads them and acts on them itself, so there
 is still exactly one thread touching positions. A watcher that fails, hangs or
 cannot be constructed is logged and skipped: losing the dashboard is an
 inconvenience, refusing to trade because of it would be a bug.
 
-Setup, including `tbot telegram-setup` and installing `mql5/TbotOverlay.mq5`:
-**[docs/WATCHING_THE_BOT.md](docs/WATCHING_THE_BOT.md)**.
+Setup, including `tbot telegram-setup` and installing `mql5/Indicators/TbotOverlay.mq5`:
+**[docs/WATCHING_THE_BOT.md](docs/WATCHING_THE_BOT.md)**.
+- [Running it on another computer](docs/SECOND_MACHINE.md) - moving it to a second PC, and why not to run both at once
 
 ---
 
@@ -282,8 +283,8 @@ MetaTrader5, the snapshot folder, the journal and the watchers in one pass.
 
 ## Risk warning
 
-This software places real orders when you tell it to. Backtest results — on
-synthetic data especially — say nothing about future performance. Run on a demo
+This software places real orders when you tell it to. Backtest results โ€” on
+synthetic data especially โ€” say nothing about future performance. Run on a demo
 account, understand every parameter you change, and never risk money you cannot
 afford to lose.
 
