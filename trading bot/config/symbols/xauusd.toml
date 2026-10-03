@@ -1,4 +1,5 @@
-# Gold on Exness. Shares the 1% budget with US30 by weight, 3.0 against 1.0.
+# Gold on Exness. Shares the 1% budget with US30 and JP225 by weight, 3.0
+# against 1.0 each.
 #
 # Filter bounds below are measured from 1,500 live M5 bars (2026-09-22 to
 # 09-29, price ~4,150), not guessed. Re-measure after any major regime change:
@@ -10,8 +11,16 @@ enabled = true
 weight = 3.0
 sides = ["LONG", "SHORT"]   # both directions: bull and bear
 
+# Widened from 08:00 on 2026-10-03 to take the Asian session as well. Run on
+# their own, the 01:00-08:00 hours made money in all three periods tested --
+# pf 1.46 / 1.21 / 1.81 -- including seven months (2025-05 to 2025-11) that no
+# earlier test had touched. Every start hour from 00:00 to 04:00 beat 08:00 in
+# both known halves, so this is a plateau and not one lucky hour. About 45%
+# more gold trades. The cost: gold's own drawdown rises (from 5-9% to 9-10%).
+# The hours after 20:00 were tested too and are not worth having.
+# See docs/BACKTEST_FINDINGS.md, "More hours and one more symbol".
 [session]
-start = "08:00"       # UTC. Exness server time is UTC+0, so these match.
+start = "01:00"       # UTC. Exness server time is UTC+0, so these match.
 end = "20:00"
 
 [params]

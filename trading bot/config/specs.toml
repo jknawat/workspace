@@ -23,6 +23,10 @@ volume_min = 0.05
 volume_step = 0.01
 volume_max = 500.0
 contract_size = 1.0
+# What 1.0 lot earns per 1.0 of price movement, as the broker
+# itself calculates it. Authoritative: tick_value/tick_size is
+# wrong by 10x on this server's gold.
+money_per_price_unit = 1.0
 
 [symbols.US30m]
 digits = 1
@@ -37,3 +41,31 @@ contract_size = 1.0
 # itself calculates it. Authoritative: tick_value/tick_size is
 # wrong by 10x on this server's gold.
 money_per_price_unit = 1.0
+
+[symbols.JP225m]
+digits = 1
+point = 0.1
+tick_size = 0.1
+tick_value = 0.0006335971209346825
+volume_min = 3.0
+volume_step = 0.01
+volume_max = 5000.0
+contract_size = 1.0
+# What 1.0 lot earns per 1.0 of price movement, as the broker
+# itself calculates it. Authoritative: tick_value/tick_size is
+# wrong by 10x on this server's gold.
+money_per_price_unit = 0.006336
+
+[symbols.DE30m]
+digits = 1
+point = 0.1
+tick_size = 0.1
+tick_value = 0.11258
+volume_min = 0.07
+volume_step = 0.01
+volume_max = 300.0
+contract_size = 1.0
+# What 1.0 lot earns per 1.0 of price movement, as the broker
+# itself calculates it. Authoritative: tick_value/tick_size is
+# wrong by 10x on this server's gold.
+money_per_price_unit = 1.1258000000000001

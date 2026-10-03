@@ -324,6 +324,146 @@ pre-registered test, and the split halves (1.10 and 1.07) are much thinner than
 gold's (1.20 and 1.40). Treat US30 as a promising candidate under observation,
 not as a second validated edge.
 
+## More hours and one more symbol (2026-10-03)
+
+The goal was again trade count, with the constraint that risk must not rise.
+Full write-up, including what other systems do and why: `docs/RESEARCH_2026-10-03.md`.
+Everything below is repeatable with `scripts/research/night_2026_10_03.py`.
+
+### A period nobody had looked at
+
+The terminal serves 99,999 M5 bars, back to 2025-05-07. Every result above
+starts on 2025-11-26, so the seven months before it had never been queried by
+anything. That makes three periods, each restarted flat at 10,000:
+
+* **H** 2025-05-07 .. 2025-11-26 -- the holdout
+* **A** 2025-11-26 .. 2026-05-01
+* **B** 2026-05-01 .. 2026-10-02
+
+The harness reproduces the gold result above to the cent (125 trades,
++1620.66, pf 1.19) before being trusted with anything else.
+
+The first thing the holdout was asked is whether the existing edge was ever
+real, since it had been tuned on A and B:
+
+| | H (unseen) | A | B |
+|---|---|---|---|
+| gold alone | 68 trades, +3148, pf **1.74** | +442, pf 1.12 | +1271, pf 1.28 |
+| US30 alone | 110 trades, +1374, pf **1.19** | +1687, pf 1.36 | +3139, pf 1.55 |
+| gold 3 + US30 1 | 178 trades, +2608, pf **1.53** | +740, pf 1.20 | +1648, pf 1.35 |
+
+Both symbols made money on data they were not fitted to. That is the best
+single piece of evidence in this file, and it is one period.
+
+(The halves here differ from the tables further up -- gold A reads +442 where
+they say +652 -- although the full-period figure is identical. The split files
+those halves were run on are not in the repo, so how they were cut could not be
+checked. Compare halves within one table, not across the two.)
+
+### Tuning: 62 variants, nothing adopted
+
+31 single changes on each symbol: session edges, every pullback-stage
+parameter, stop and target multiples, and all five exit policies (time stop,
+break-even, ATR trail, partial take-profit), plus two positions per symbol.
+
+To be adopted a variant had to beat the current profit factor in A, in B and
+in H. Nine beat it in A and B. **Two beat it in all three**, both on US30
+(`window_offset_atr = 0.25`, and a 144-bar time stop). With 62 variants and
+three periods, chance alone passes about eight. Two is fewer than noise would
+produce, and neither held on gold.
+
+**Acted on: nothing.** No parameter and no exit policy changes. The exit
+policies in particular look like free money in one half each and are not:
+break-even at 1R takes gold A from +442 to -116.
+
+Also settled here: two positions per symbol was only ever tested on gold. On
+US30 it takes the holdout drawdown from 13% to 26%.
+
+### Added trades are a different question
+
+A wider session or a new symbol does not change which trades the current
+config takes; it adds others. So the test is whether the *added* trades make
+money on their own, in every period:
+
+| stream, alone | H | A | B | |
+|---|---|---|---|---|
+| gold 01:00-08:00 | 28 trades, pf 1.46 | 38, pf 1.21 | 47, pf 1.81 | **adopted** |
+| gold 20:00-24:00 | pf 0.43 | pf 1.02 | pf 2.46 | rejected |
+| US30 00:00-08:00 | pf 1.11 | pf 0.92 | pf 0.78 | rejected |
+| US30 20:00-24:00 | pf 0.50 | pf 0.32 | pf 1.07 | rejected |
+| JP225m 08:00-20:00 | 90 trades, pf 1.15 | 73, pf 1.22 | 81, pf 1.26 | **adopted** |
+| DE30m 08:00-20:00 | pf 0.96 | pf 1.41 | pf 0.75 | rejected |
+| USTECm 08:00-20:00 | pf 0.96 | pf 1.49 | pf 0.63 | rejected |
+
+Two of seven. A stream with no edge passes this about one time in eight, so
+seven tries should produce about one pass by luck. This is evidence, not proof,
+and the two are not equally good:
+
+* **Gold's Asian session** is the stronger. Over 17 months its 114 trades have
+  a t-statistic of 2.1, against 1.8 for the 08:00-20:00 trades the bot already
+  takes. Every start hour from 00:00 to 04:00 beats 08:00 in both A and B, so
+  it is a plateau rather than one fortunate hour. Against that: with the hours
+  added, gold's profit factor in H is 1.69 where it was 1.74.
+* **JP225** is the weaker. t-statistic 1.4 over 246 trades -- not significant
+  by itself -- and it is the one survivor of three indices tried. It carries
+  gold's parameters unchanged and one session chosen before looking;
+  neighbouring sessions and ATR bands are all profitable in all three periods,
+  if thinly (09:00-20:00 is pf 1.02 in H). Candidate under observation.
+
+### What it does to the portfolio
+
+Total risk 1% throughout. Gold 3, US30 1, and JP225 1 where present.
+
+| | trades/day | H | A | B |
+|---|---|---|---|---|
+| before | 1.27 | +2608, pf 1.53, dd 7.1% | +740, pf 1.20, dd 6.5% | +1648, pf 1.35, dd 4.3% |
+| gold from 01:00 | 1.51 | +3147, pf 1.54, dd 8.8% | +1414, pf 1.28, dd 5.2% | +2927, pf 1.42, dd 5.8% |
+| + JP225 only | 1.94 | +2249, pf 1.44, dd 6.2% | +730, pf 1.19, dd 4.1% | +1644, pf 1.34, dd 3.9% |
+| **both** | **2.18** | +2667, pf 1.46, dd 7.5% | +1317, pf 1.26, dd 4.9% | +2614, pf 1.40, dd 4.2% |
+
+The two changes pull in opposite directions and that is why they go together.
+Gold's extra hours add profit and add drawdown. JP225 adds trades and takes
+drawdown away, by diluting -- the same trade US30 was. Together: 72% more
+trades, more profit in all three periods, and a drawdown within half a point
+of where it was. At the 5,000 the paper account actually holds, drawdown is
+lower in all three (6.4 / 4.5 / 3.8% against 6.7 / 7.0 / 4.2%).
+
+**Acted on: gold's session starts at 01:00, and JP225m is enabled at weight
+1.0.** Gold's share of the budget goes from 75% to 60%.
+
+### The simulator charges half the spread
+
+Fills pay half the spread on entry and nothing on exit. A real round trip pays
+all of it, so every figure in this file is on half costs. Rerun at double and
+triple the spread:
+
+| | H | A | B |
+|---|---|---|---|
+| as simulated | pf 1.46 | pf 1.26 | pf 1.40 |
+| spreads x2 (a real round trip) | pf 1.44 | pf 1.25 | pf 1.38 |
+| spreads x3 | pf 1.42 | pf 1.23 | pf 1.36 |
+
+It barely matters: the stop is three ATRs wide, so the spread is about 2% of
+what each trade risks. Worth knowing in the other direction too -- at 5% of
+ATR, cost is not what decides whether a symbol works. DE30 screens as cheap as
+US30 and lost in two periods of three.
+
+### A different entry, same everything else
+
+Donchian channel breakouts (20, 48 and 96 bars) under the same filters, stops
+and risk, on all three symbols: positive in some periods, negative in others,
+with drawdowns up to 26%. Six variants on gold and US30, none profitable in
+all three periods; the three on JP225 were, at pf 1.02-1.32. The pullback entry is doing real work, and a second strategy
+is not an easy win.
+
+### One bug found on the way
+
+`order_calc_profit` rounds to the cent. One lot of JP225m earns $0.0063 a
+point, so asking about one lot returned $0.01 -- 58% high, which would have
+sized every JP225 position 37% too small. `MT5Broker` now asks about enough
+lots that the cent does not matter. Gold, US30 and USTEC were unaffected
+(their figures are whole dollars); DE30 moved from 1.13 to 1.1258.
+
 ## Standing caveats
 
 * A profit factor of 1.13--1.19 is thin. It survives a 240-point spread, which

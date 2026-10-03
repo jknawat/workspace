@@ -44,7 +44,15 @@ def export(mt5, symbol: str, timeframe: str, days: int, offset_hours: float,
     # history for a 200-bar trend EMA to converge, not just enough to cover
     # the test period.
     wanted = max(int(days * 24 * 60 / minutes) + 50, 1500)
-    wanted = min(wanted, 200_000)
+    # The terminal refuses outright ("Invalid params") when asked for more
+    # than its "Max bars in chart" setting, rather than returning what it has.
+    # At the default 100,000 that is about 347 days of M5.
+    info = mt5.terminal_info()
+    ceiling = int(getattr(info, "maxbars", 0) or 100_000) - 1
+    if wanted > ceiling:
+        print(f"  {timeframe:<4} asked for {wanted:,} bars, terminal serves at most "
+              f"{ceiling:,}; taking those")
+        wanted = ceiling
 
     rates = mt5.copy_rates_from_pos(symbol, tf, 0, wanted)
     if rates is None or len(rates) == 0:

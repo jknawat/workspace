@@ -1,0 +1,98 @@
+# Nikkei 225 (JP225m at Exness).
+#
+# Added 2026-10-03 for the same reason US30 was: trade count. It screens at a
+# 3.7% spread-to-ATR ratio, the only untested index under gold's 5.3%, and with
+# gold's configuration ported unchanged it was profitable in all three periods
+# tested: pf 1.15 (2025-05 to 2025-11, never used before), 1.22 and 1.26.
+#
+# That is a thin edge and weaker evidence than gold's. Over the full 17 months
+# its per-trade result has a t-statistic of 1.4 -- not significant by itself --
+# and it was one of three indices tried that night (DE30 and USTEC both lost in
+# two periods of three). Treat it as a candidate under observation, exactly as
+# US30 is. What it buys is about 0.65 more trades a day and a lower portfolio
+# drawdown, at the price of diluting gold's share of the 1% budget from 75% to
+# 60%.
+#
+# Read docs/BACKTEST_FINDINGS.md before changing anything here.
+
+symbol = "JP225m"
+strategy = "ema_pullback"
+enabled = true
+weight = 1.0          # gold carries 3.0, US30 1.0
+sides = ["LONG", "SHORT"]
+
+# Same hours as gold had and US30 has, chosen before looking. 00:00-20:00 also
+# passed and trades half as much again, but it takes entries through the Tokyo
+# open, where the M5 range is three times normal and the spread is not 31.
+[session]
+start = "08:00"       # UTC, always. Broker offset is handled once, in [engine].
+end = "20:00"
+weekdays = [0, 1, 2, 3, 4]
+
+# Identical to gold's, deliberately -- see the note in us30.toml.
+[params]
+ema_confirm = 5
+ema_fast = 8
+ema_medium = 21
+ema_slow = 34
+ema_trend = 200
+atr_period = 14
+use_pullback = true
+pullback_bars = 2
+pullback_max_wait = 10
+window_offset_atr = 0.4
+window_bars = 8
+sl_atr = 3.0
+tp_atr = 7.5
+cooldown_bars = 6
+slope_scale = "atr"
+slope_source = "ema_medium"
+
+[filters.session]
+
+# Measured ATR(14) over 99,999 real M5 bars (2025-05 to 2026-10): p5 19.67,
+# median 54.39, p95 145.54. These are the 5th and 95th percentiles.
+#
+# Sizing has little room here. One lot earns $0.0063 a point and the minimum
+# is 3 lots, so at a $10 budget (5,000 balance, this weight) a 3-ATR stop
+# cannot be sized above ATR 175. That is outside this band today; a smaller
+# balance or a smaller weight brings it inside, and the high-volatility entries
+# are then declined rather than rounded up.
+[filters.atr_range]
+min = 19.67
+max = 145.54
+
+[filters.price_vs_ema]
+series = "ema_trend"
+
+# DISABLED, same as gold and US30 and for the same reason.
+[filters.angle]
+enabled = false
+
+# Real spread is 31-35 points. 60 leaves the same proportional headroom for
+# news that gold's 400-against-240 does.
+[filters.spread]
+max_points = 60
+
+# --------------------------------------------------------------------------- #
+# Multi-timeframe context
+# --------------------------------------------------------------------------- #
+[filters.mtf_align]
+timeframes = ["M15", "H1", "H4", "H12", "D1"]
+min_agree = 2
+max_disagree = 3
+
+# Never fight the daily. Neutral is allowed -- it is not opposition.
+[filters.mtf_required]
+timeframes = ["D1"]
+allow_neutral = true
+
+# Scoring runs in measure-only mode here too. See the note in xauusd.toml.
+[confidence]
+enabled = true
+min_score = 0.0
+
+[[confidence.tiers]]
+min_score = 0.0
+risk_mult = 1.0
+label = "measuring"
