@@ -8,6 +8,7 @@ knows MT5 exists.
 
 from __future__ import annotations
 
+import math
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -191,11 +192,27 @@ class MT5Broker(Broker):
         price = float(getattr(tick, "bid", 0.0) or 0.0) if tick else 0.0
         if price <= 0:
             return None
-        profit = self.mt5.order_calc_profit(
-            self.mt5.ORDER_TYPE_BUY, sym, 1.0, price, price + 1.0
-        )
-        if profit is None or profit <= 0:
+        def calc(lots: float) -> float | None:
+            value = self.mt5.order_calc_profit(
+                self.mt5.ORDER_TYPE_BUY, sym, lots, price, price + 1.0
+            )
+            return float(value) if value is not None and value > 0 else None
+
+        profit = calc(1.0)
+        if profit is None:
             return None
+
+        # The terminal rounds its answer to the account currency's cent. Where
+        # one lot earns less than a few dollars per unit of price, that rounding
+        # is most of the answer: JP225m at Exness earns $0.0063 and came back as
+        # $0.01, 58% high, which sizes every position 37% too small. Ask again
+        # with enough lots that the cent no longer matters, and divide.
+        if profit < 10.0:
+            lots = min(float(info.volume_max or 1.0), float(math.ceil(1000.0 / profit)))
+            if lots > 1.0:
+                scaled = calc(lots)
+                if scaled is not None:
+                    profit = scaled / lots
 
         derived = float(info.trade_tick_value) / float(info.trade_tick_size or info.point or 1)
         if derived > 0 and abs(profit - derived) / max(profit, derived) > 0.01:

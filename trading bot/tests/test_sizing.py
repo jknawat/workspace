@@ -93,6 +93,52 @@ def test_brokers_own_figure_overrides_the_tick_value_derivation():
     assert lot_for_risk(derived_only, 100.0, 5.00).volume == pytest.approx(2.0)
 
 
+class _CentRoundingTerminal:
+    """Stands in for MetaTrader 5: prices profit, then rounds it to the cent."""
+
+    ORDER_TYPE_BUY = 0
+
+    def __init__(self, per_lot_per_unit: float) -> None:
+        self.per_lot_per_unit = per_lot_per_unit
+
+    def symbol_info_tick(self, symbol):
+        from types import SimpleNamespace
+
+        return SimpleNamespace(bid=69650.5)
+
+    def order_calc_profit(self, order_type, symbol, lots, price_open, price_close):
+        return round(self.per_lot_per_unit * lots * (price_close - price_open), 2)
+
+
+def _per_price_unit(per_lot_per_unit: float, volume_max: float) -> float | None:
+    from types import SimpleNamespace
+
+    from tbot.broker.mt5 import MT5Broker
+
+    broker = MT5Broker()
+    broker._mt5 = _CentRoundingTerminal(per_lot_per_unit)  # noqa: SLF001 - no terminal in tests
+    info = SimpleNamespace(
+        trade_tick_value=per_lot_per_unit * 0.1, trade_tick_size=0.1, point=0.1,
+        volume_max=volume_max,
+    )
+    return broker._money_per_price_unit("JP225m", info)  # noqa: SLF001
+
+
+def test_cent_rounding_does_not_set_the_value_of_a_cheap_contract():
+    """Measured on Exness: one lot of JP225m earns $0.0063 per index point.
+
+    The terminal rounds profit to the cent, so asking about one lot returned
+    $0.01 -- 58% high. Lot size is risk divided by this number, so every
+    position would have been 37% smaller than the budget intended.
+    """
+    assert _per_price_unit(0.006336, volume_max=5000.0) == pytest.approx(0.006336, rel=0.01)
+
+
+def test_contracts_already_priced_in_dollars_are_left_alone():
+    assert _per_price_unit(100.0, volume_max=200.0) == pytest.approx(100.0)   # gold
+    assert _per_price_unit(1.1258, volume_max=300.0) == pytest.approx(1.1258, rel=0.001)  # DE30
+
+
 def test_a_non_positive_broker_figure_is_rejected():
     spec = SymbolSpec(
         "BAD", 2, 0.01, 0.01, 1.0, 0.01, 0.01, 10.0, 100.0, money_per_price_unit=0.0
