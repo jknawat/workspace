@@ -286,14 +286,35 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute
 .verdict .allow{border-color:var(--up);color:var(--up)}
 .verdict .block{border-color:var(--down);color:var(--down)}
 .prov{font-size:11px;color:var(--muted);margin-top:8px}
+.nav{display:flex;gap:4px;margin-left:16px}
+.nav button{display:flex;align-items:center;gap:6px;font:inherit;font-size:13px;
+     padding:5px 12px;border-radius:8px;border:1px solid transparent;
+     background:transparent;color:var(--muted);cursor:pointer}
+.nav button:hover{border-color:var(--line)}
+.nav button.on{color:var(--accent);border-color:var(--accent)}
+.nav svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8;
+     stroke-linecap:round;stroke-linejoin:round}
+.nav .badge{font-size:11px;padding:0 6px;border-radius:99px;background:var(--line);
+     color:var(--fg);font-variant-numeric:tabular-nums}
 footer{padding:0 20px 24px;color:var(--muted);font-size:12px}
 </style></head><body>
 <header>
   <h1>tbot</h1>
   <span><span class="dot" id="dot"></span> <span id="mode" class="muted">connecting…</span></span>
+  <nav class="nav" id="nav">
+    <button data-view="overview" class="on">
+      <svg viewBox="0 0 24 24"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>
+      Overview
+    </button>
+    <button data-view="log">
+      <svg viewBox="0 0 24 24"><path d="M4 5h16M4 10h16M4 15h10M4 20h7"/></svg>
+      Trade log <span class="badge" id="logbadge">0</span>
+    </button>
+  </nav>
   <span class="muted" id="clock" style="margin-left:auto"></span>
 </header>
 <main>
+<div id="view-overview">
   <div class="grid">
     <div class="card"><h2>Balance</h2><div class="big" id="balance">–</div>
       <div class="muted" id="equity"></div></div>
@@ -361,6 +382,9 @@ footer{padding:0 20px 24px;color:var(--muted);font-size:12px}
     </div>
   </div>
 
+</div>
+
+<div id="view-log" hidden>
   <div class="card"><h2>Decision log</h2>
     <div class="filters" id="logfilters">
       <button data-action="" class="on">All</button>
@@ -378,6 +402,7 @@ footer{padding:0 20px 24px;color:var(--muted);font-size:12px}
       again until the reason changes, so this reads as what the bot noticed
       rather than a tick-by-tick heartbeat.
     </div></div>
+</div>
 </main>
 <footer>Read-only view. Commands go through Telegram. Refreshes every 2s.</footer>
 <script>
@@ -493,7 +518,9 @@ function render(d) {
   // pushed the real decisions off the screen. Liveness is the header dot's job.
   const feed = (d.events || []).filter(e => e.kind !== 'status');
   ev.innerHTML = feed.length ? '' : '<div class="muted">nothing yet</div>';
-  feed.slice(0, 60).forEach(e => {
+  // Five. The feed is a glance, not a record -- everything it could show is
+  // in the trade log, which keeps it across restarts and can be filtered.
+  feed.slice(0, 5).forEach(e => {
     const row = document.createElement('div');
     row.className = 'ev';
     const when = new Date(e.ts).toLocaleTimeString();
@@ -516,6 +543,25 @@ function render(d) {
 }
 
 let logAction = '';
+let view = 'overview';
+
+function showView(name) {
+  view = name;
+  el('view-overview').hidden = name !== 'overview';
+  el('view-log').hidden = name !== 'log';
+  [...el('nav').children].forEach(b =>
+    b.classList.toggle('on', b.dataset.view === name));
+  try { localStorage.setItem('tbot.view', name); } catch (e) { /* fine */ }
+  // The chart cannot size itself while its container is hidden, so it is
+  // redrawn on the way back rather than left collapsed.
+  if (name === 'overview' && lastChart) renderChart(lastChart);
+  if (name === 'log') tickLog();
+}
+
+document.getElementById('nav').addEventListener('click', ev => {
+  const b = ev.target.closest('button');
+  if (b) showView(b.dataset.view);
+});
 
 function esc(v) {
   return String(v === null || v === undefined ? '' : v)
@@ -551,6 +597,8 @@ function renderLog(d) {
     body.appendChild(tr);
   });
   const t = d.totals || {};
+  const orders = (t.buy || 0) + (t.sell || 0);
+  txt('logbadge', orders);
   const parts = ['buy', 'sell', 'wait', 'closed']
     .filter(k => t[k]).map(k => `${t[k]} ${k}`);
   if (parts.length) {
@@ -988,6 +1036,11 @@ async function tickChart() {
     renderChart(await r.json());
   } catch (e) { /* leave the last good picture up */ }
 }
+
+try {
+  const saved = localStorage.getItem('tbot.view');
+  if (saved === 'log') showView('log');
+} catch (e) { /* fine */ }
 
 tick(); setInterval(tick, 2000);
 // The chart is rebuilt on the trading thread each poll; fetching faster than

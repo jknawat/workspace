@@ -67,11 +67,20 @@ def main() -> int:
             if wanted and not any(w in name.upper() for w in wanted):
                 continue
             # A symbol absent from Market Watch returns no rates. Select it
-            # first, or the screen silently reports only what happens to be
-            # on screen already.
-            if not info.visible and not mt5.symbol_select(name, True):
-                continue
-            rates = mt5.copy_rates_from_pos(name, mt5.TIMEFRAME_M5, 0, args.bars)
+            # first, or the screen silently reports only what happens to be on
+            # screen already -- then put it back, because a screen that leaves
+            # 200 instruments in someone's terminal is a screen they will not
+            # run twice.
+            added = False
+            if not info.visible:
+                if not mt5.symbol_select(name, True):
+                    continue
+                added = True
+            try:
+                rates = mt5.copy_rates_from_pos(name, mt5.TIMEFRAME_M5, 0, args.bars)
+            finally:
+                if added:
+                    mt5.symbol_select(name, False)
             if rates is None or len(rates) < 100:
                 continue
             bars = [
