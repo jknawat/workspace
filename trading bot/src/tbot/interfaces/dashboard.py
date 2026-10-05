@@ -60,7 +60,7 @@ class DashboardState:
     ) -> dict[str, Any]:
         """Decision history from the journal, newest first."""
         if self._journal_path is None or not self._journal_path.exists():
-            return {"rows": [], "note": "no journal configured"}
+            return {"rows": [], "symbols": [], "note": "no journal configured"}
         try:
             uri = f"file:{self._journal_path.as_posix()}?mode=ro"
             with closing(sqlite3.connect(uri, uri=True, timeout=2.0)) as conn:
@@ -76,16 +76,34 @@ class DashboardState:
                 sql.append("ORDER BY id DESC LIMIT ?")
                 args.append(max(1, min(limit, 1000)))
                 rows = [dict(r) for r in conn.execute(" ".join(sql), args)]
+                # Totals must obey the same filter as the rows. Counting
+                # everything while showing a subset is how a log reports
+                # trades you cannot find in it.
+                tsql = ["SELECT action, COUNT(*) n FROM decisions WHERE 1=1"]
+                targs: list[Any] = []
+                if symbol:
+                    tsql.append("AND symbol = ?")
+                    targs.append(symbol)
+                tsql.append("GROUP BY action")
                 totals = {
                     r["action"]: r["n"]
-                    for r in conn.execute(
-                        "SELECT action, COUNT(*) n FROM decisions GROUP BY action"
-                    )
+                    for r in conn.execute(" ".join(tsql), targs)
                 }
-            return {"rows": rows, "totals": totals}
+                # The header badge is about the account, not the current
+                # filter, so it gets its own unfiltered number.
+                orders_all = conn.execute(
+                    "SELECT COUNT(*) FROM decisions WHERE action IN ('buy','sell')"
+                ).fetchone()[0]
+                symbols = [
+                    r[0] for r in conn.execute(
+                        "SELECT DISTINCT symbol FROM decisions ORDER BY symbol"
+                    )
+                ]
+            return {"rows": rows, "totals": totals, "orders_all": orders_all,
+                    "symbols": symbols}
         except sqlite3.Error as exc:
             # A locked or half-written journal must not take the page down.
-            return {"rows": [], "note": f"journal unavailable: {exc}"}
+            return {"rows": [], "symbols": [], "note": f"journal unavailable: {exc}"}
 
     def update_chart(self, payload: dict[str, Any]) -> None:
         """Receive a finished chart snapshot from the trading thread."""
@@ -386,6 +404,7 @@ footer{padding:0 20px 24px;color:var(--muted);font-size:12px}
 
 <div id="view-log" hidden>
   <div class="card"><h2>Decision log</h2>
+    <div class="filters" id="logsymbols"></div>
     <div class="filters" id="logfilters">
       <button data-action="" class="on">All</button>
       <button data-action="buy">Buy</button>
@@ -543,6 +562,7 @@ function render(d) {
 }
 
 let logAction = '';
+let logSymbol = '';          // '' means every symbol
 let view = 'overview';
 
 function showView(name) {
@@ -568,7 +588,28 @@ function esc(v) {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+function renderLogSymbols(d) {
+  const host = el('logsymbols');
+  const syms = d.symbols || [];
+  if (syms.length < 2) { host.innerHTML = ''; return; }
+  const key = syms.join(',');
+  if (host.dataset.keys !== key) {
+    host.dataset.keys = key;
+    host.innerHTML = '';
+    [['', 'All symbols'], ...syms.map(s => [s, s])].forEach(([val, label]) => {
+      const b = document.createElement('button');
+      b.dataset.sym = val;
+      b.textContent = label;
+      b.addEventListener('click', () => { logSymbol = val; tickLog(); });
+      host.appendChild(b);
+    });
+  }
+  [...host.children].forEach(b =>
+    b.classList.toggle('on', b.dataset.sym === logSymbol));
+}
+
 function renderLog(d) {
+  renderLogSymbols(d);
   const body = el('logbody');
   body.innerHTML = '';
   const rows = d.rows || [];
@@ -597,13 +638,13 @@ function renderLog(d) {
     body.appendChild(tr);
   });
   const t = d.totals || {};
-  const orders = (t.buy || 0) + (t.sell || 0);
-  txt('logbadge', orders);
+  txt('logbadge', d.orders_all === undefined
+    ? (t.buy || 0) + (t.sell || 0) : d.orders_all);
   const parts = ['buy', 'sell', 'wait', 'closed']
     .filter(k => t[k]).map(k => `${t[k]} ${k}`);
   if (parts.length) {
-    const scope = (chartData && chartData.symbol)
-      ? ' for <b>' + esc(chartData.symbol) + '</b>' : '';
+    const scope = logSymbol ? ' for <b>' + esc(logSymbol) + '</b>'
+      : ' across all symbols';
     el('lognote').innerHTML = 'Recorded so far' + scope + ': <span class="count">'
       + esc(parts.join(' · ')) + '</span>. A repeated "waiting" is not logged '
       + 'again until the reason changes.';
@@ -622,11 +663,10 @@ async function tickLog() {
   try {
     const q = new URLSearchParams({limit: '200'});
     if (logAction) q.set('action', logAction);
-    // Scoped to whichever symbol the chart is showing, so the two cards agree
-    // about what you are looking at.
-    if (chartSymbol && chartData && chartData.symbol) {
-      q.set('symbol', chartData.symbol);
-    }
+    // The log has its own symbol filter and defaults to all of them. Tying it
+    // to the chart hid every trade whenever the chart happened to be showing a
+    // symbol that had not traded yet.
+    if (logSymbol) q.set('symbol', logSymbol);
     const r = await fetch('/api/log?' + q, {cache: 'no-store'});
     renderLog(await r.json());
   } catch (e) {
@@ -990,7 +1030,6 @@ function renderSymbolTabs(syms) {
       chartSymbol = k;
       try { localStorage.setItem('tbot.symbol', k); } catch (e) { /* fine */ }
       if (lastChart) renderChart(lastChart);
-      tickLog();          // the log follows the chart
     });
     host.appendChild(b);
   });

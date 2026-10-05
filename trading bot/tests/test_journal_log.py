@@ -303,3 +303,61 @@ def test_the_hourly_pulse_does_not_apply_to_a_changed_reason(tmp_path):
         TS + timedelta(minutes=1), "XAUUSDm", "wait", "armed LONG"
     )
     j.close()
+
+
+# --------------------------------------------------------------------------- #
+# The log must not hide the record
+# --------------------------------------------------------------------------- #
+
+
+def test_the_log_defaults_to_every_symbol(tmp_path):
+    """It once followed the chart's symbol, so a chart showing an instrument
+    that had not traded made the whole log look empty."""
+    from tbot.interfaces.dashboard import DashboardState
+
+    j = journal_at(tmp_path)
+    j.record_decision(TS, "XAUUSDm", "sell", "breakout", volume=0.02)
+    j.record_decision(TS, "JP225m", "wait", "waiting for a setup")
+    j.conn.commit()
+    j.close()
+
+    state = DashboardState(journal_path=tmp_path / "j.sqlite")
+    rows = state.log_rows()["rows"]
+    assert {r["symbol"] for r in rows} == {"XAUUSDm", "JP225m"}
+
+
+def test_the_totals_obey_the_same_filter_as_the_rows(tmp_path):
+    """Counting everything while showing a subset reports trades that cannot
+    be found in the list below the count."""
+    from tbot.interfaces.dashboard import DashboardState
+
+    j = journal_at(tmp_path)
+    j.record_decision(TS, "XAUUSDm", "sell", "a", volume=0.02)
+    j.record_decision(TS, "XAUUSDm", "buy", "b", volume=0.02)
+    j.record_decision(TS, "JP225m", "wait", "c")
+    j.conn.commit()
+    j.close()
+
+    state = DashboardState(journal_path=tmp_path / "j.sqlite")
+    gold = state.log_rows(symbol="XAUUSDm")
+    assert gold["totals"] == {"sell": 1, "buy": 1}
+    assert "wait" not in gold["totals"]
+
+    jp = state.log_rows(symbol="JP225m")
+    assert jp["totals"] == {"wait": 1}
+    # The header badge is about the account, not the filter.
+    assert jp["orders_all"] == 2
+
+
+def test_the_log_reports_which_symbols_it_knows(tmp_path):
+    """So the filter buttons can be built from the record itself."""
+    from tbot.interfaces.dashboard import DashboardState
+
+    j = journal_at(tmp_path)
+    for sym in ("US30m", "XAUUSDm", "JP225m"):
+        j.record_decision(TS, sym, "wait", "waiting")
+    j.conn.commit()
+    j.close()
+
+    state = DashboardState(journal_path=tmp_path / "j.sqlite")
+    assert state.log_rows()["symbols"] == ["JP225m", "US30m", "XAUUSDm"]
