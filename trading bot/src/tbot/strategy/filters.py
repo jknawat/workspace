@@ -377,3 +377,75 @@ class CandlePatternFilter(Filter):
         if not supporting:
             return Decision.no(note or "no pattern backs this side", note=note)
         return Decision.ok(supporting[0].note, note=note)
+
+
+@register
+class SupportResistanceRoomFilter(Filter):
+    """Is there room to reach the target, or is a level in the way?
+
+    The strategy risks ``sl_atr`` to make ``tp_atr`` -- on gold, 3 ATR against
+    7.5. That target only pays if price can actually travel the distance, and a
+    swing high sitting two ATR above the entry is a concrete reason it might
+    not: the market turned there before, and the orders that turned it may
+    still be sitting there.
+
+    ``min_room`` is the share of the target distance that must be clear. 1.0
+    demands the whole way, which almost nothing will satisfy; 0.5 asks that the
+    trade can at least reach halfway before meeting resistance.
+
+    Nothing in the way is the best case, not a missing answer -- a signal with
+    no level between it and its target passes.
+    """
+
+    name = "sr_room"
+    defaults: ClassVar[dict[str, Any]] = {
+        "min_room": 0.5,
+        "left": 3,
+        "right": 3,
+        "lookback": 300,
+        # Levels this close together are the same level seen twice; keeping
+        # both would let one swing veto a trade it has already vetoed.
+        "merge_atr": 0.25,
+    }
+
+    def check(self, ctx: BarContext, side: Side) -> Decision:
+        from .levels import room_toward, swings
+
+        atr = ctx.value("atr")
+        if not atr:
+            return Decision.no("atr not ready")
+
+        # The target the strategy will ask for, from its own parameters --
+        # the filter runs before the signal exists, so it cannot read tp.
+        tp_atr = float(ctx.cfg.params.get("tp_atr", 0.0) or 0.0)
+        if tp_atr <= 0:
+            return Decision.ok("strategy has no atr target to protect")
+        target = tp_atr * atr
+        needed = float(self.opt["min_room"]) * target
+
+        found = swings(
+            ctx.bars, ctx.i,
+            left=int(self.opt["left"]),
+            right=int(self.opt["right"]),
+            lookback=int(self.opt["lookback"]),
+        )
+        merge = float(self.opt["merge_atr"]) * atr
+        price = ctx.bar.close
+        # Drop levels within a hair of price: the bar that just closed is
+        # often itself near a pivot, and that is not resistance to a move.
+        found = [lv for lv in found if lv.distance_from(price) > merge]
+
+        room = room_toward(found, price, side.value)
+        if room is None:
+            return Decision.ok("clear to target", room="unlimited")
+        if room < needed:
+            return Decision.no(
+                f"only {room / atr:.1f} ATR of room, needs "
+                f"{needed / atr:.1f} ({room / target:.0%} of target)",
+                room_atr=round(room / atr, 2),
+                needed_atr=round(needed / atr, 2),
+            )
+        return Decision.ok(
+            f"{room / atr:.1f} ATR of room to the first level",
+            room_atr=round(room / atr, 2),
+        )

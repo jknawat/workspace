@@ -464,6 +464,51 @@ sized every JP225 position 37% too small. `MT5Broker` now asks about enough
 lots that the cent does not matter. Gold, US30 and USTEC were unaffected
 (their figures are whole dollars); DE30 moved from 1.13 to 1.1258.
 
+## Support and resistance: the levels are the point, not the obstacle
+
+The strategy reads *dynamic* support and resistance -- the EMAs it pulls back
+to, the swing extreme it breaks out from -- but never the horizontal kind. The
+ICT filters do, richly, and cannot be backtested: MT5's snapshot describes
+structure only as it stands now, so there is no history of it to replay.
+
+Swing points can be computed from bars alone, so this one could be tested.
+`strategy/levels.py` finds pivot highs and lows, and `sr_room` refuses a trade
+when a prior level sits between the entry and the target -- the idea being that
+a 7.5 ATR target has to punch through anything in the way.
+
+Merged into the live three-symbol config, every other gate unchanged:
+
+| variant | full period | half A | half B |
+|---|---|---|---|
+| current | 602 trades, +5386.30, pf 1.36 | **+1218.33, pf 1.20** | **+1894.98, pf 1.26** |
+| veto, 30% of target clear | 25 trades, +71.84, pf 1.17 | -24.58, pf 0.92 | -164.90, pf 0.37 |
+| veto, 50% clear | 12 trades, -17.36, pf 0.92 | **-206.39, pf 0.00** | -33.19, pf 0.75 |
+| veto, 80% clear | 10 trades, +19.00, pf 1.11 | **-190.26, pf 0.00** | -33.19, pf 0.75 |
+| voter, 2 of 3, 50% clear | 613 trades, +5736.87, pf 1.38 | +1185.92, pf 1.19 | +1716.64, pf 1.23 |
+
+**Acted on: nothing.** As a veto it removes 96--98% of trades and the survivors
+lose in both halves -- two variants managed *zero* winning trades in half A. As
+a voter it looks marginally better over the full period (1.38 against 1.36) and
+is worse in **both** halves, which is the path artifact that has now appeared
+four times.
+
+### Why it fails, which is the useful part
+
+Requiring even 30% of a 7.5 ATR target to be clear of prior swing points
+eliminates almost every setup. On a 5-minute chart, pivots at 3 bars either
+side occur constantly; there is nearly always one within a couple of ATR.
+
+That is not a tuning problem. **This is a momentum strategy, and for momentum
+the levels are what you are trying to break.** A mean-reversion system fades
+resistance and should care where it is; a breakout system trades through it by
+design, and filtering for a clear path selects precisely the setups with no
+energy behind them. The near-zero win rates when the filter is strictest say
+so plainly.
+
+The code is kept -- tested, enabled nowhere -- because the measurement is worth
+more than the hour it took, and because if a mean-reversion strategy is ever
+added, this is the filter it will want.
+
 ## Standing caveats
 
 * A profit factor of 1.13--1.19 is thin. It survives a 240-point spread, which
