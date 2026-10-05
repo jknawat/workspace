@@ -127,3 +127,51 @@ path: in a bear market the same rules that would block a long permit a short.
 
 Run `tbot doctor` for a full check of interpreter, config, MT5, snapshots,
 journal and watchers.
+
+## Leaving it running
+
+The market runs around the clock from Sunday night to Friday night, so the bot
+is meant to be left alone. Two things make that work.
+
+### It restarts itself after a crash
+
+`run.bat` supervises the bot. If it exits unexpectedly it waits 30 seconds and
+starts it again, bringing MetaTrader back up too if that went down with it. A
+crash at 3am used to mean the bot was simply off until someone noticed.
+
+Restarts are capped at 20, and there is a deliberate distinction:
+
+| exit code | meaning | restarted? |
+|---|---|---|
+| 0 | asked to stop, or finished | no |
+| 1 | crashed | **yes** |
+| 2 | could not start: bad config, missing file, another bot already running | **no** |
+
+Exit 2 is never retried. A bot spinning on a config error looks exactly like a
+bot that is running, which is the worst of both.
+
+To stop it for real, use `stop.bat` -- closing the window also works, but then
+the journal is not pushed.
+
+### It can start when you log in
+
+Double-click `autostart.bat` once. Run it again to undo.
+
+It schedules `run.bat` at **logon**, not at boot, and that is a real limit:
+MetaTrader 5 needs a desktop to draw on, so the machine must be switched on
+*and* logged in. A locked screen is fine; a logged-out machine is not.
+
+If you want it trading while the computer is off, that is what a VPS is for --
+a small Windows VPS runs MT5 and the bot continuously and costs a few dollars a
+month. Nothing in the setup changes; it is the same `run.bat`.
+
+### What it still will not survive
+
+* **Stopping while a position is open.** In paper mode that position is held in
+  memory and disappears, and the trade never reaches the journal -- not as a
+  win, not as a loss. Check the open-position count on the dashboard before
+  stopping. (Live mode is safe: the position sits at the broker with its stop
+  and target, and MetaTrader enforces them with the bot off.)
+* **MetaTrader logging out.** The bot will report errors and keep retrying, but
+  it cannot log the terminal back in.
+* **The machine sleeping.** Check that sleep is set to never.

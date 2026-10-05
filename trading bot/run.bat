@@ -104,8 +104,66 @@ echo   Dashboard:  http://127.0.0.1:8787
 echo   To stop:    double-click stop.bat
 echo.
 
-".venv\Scripts\python.exe" -m tbot.cli paper -c "config\bot.toml"
+REM -------------------------------------------------------------------
+REM  Keep it running.  The market runs 24 hours a day from Sunday night
+REM  to Friday night; a crash at 3am used to mean the bot was simply off
+REM  until someone noticed.  This restarts it, and stops properly when
+REM  stop.bat asks.
+REM
+REM  Restarts are capped.  A bot that cannot start - bad config, no MT5,
+REM  expired login - would otherwise spin forever retrying something that
+REM  cannot work, and look like it is running when it never is.
+REM -------------------------------------------------------------------
+set /a RESTARTS=0
 
+:supervise
+".venv\Scripts\python.exe" -m tbot.cli paper -c "config\bot.toml"
+set EXITCODE=%ERRORLEVEL%
+
+REM Asked to stop: that is not a crash.
+if exist "data\STOP" goto :finished
+if "%EXITCODE%"=="0" goto :finished
+
+REM Exit 2 means it could not start at all: bad config, missing file, or
+REM another bot already holding this account.  Restarting cannot fix any of
+REM those, and a bot stuck in a retry loop looks like a bot that is running.
+if "%EXITCODE%"=="2" (
+    echo.
+    echo   tbot could not start.  Most often this means another copy is
+    echo   already running, or the config has an error.  Not restarting -
+    echo   read the message above.
+    echo.
+    pause
+    exit /b 1
+)
+
+set /a RESTARTS+=1
+if %RESTARTS% GEQ 20 (
+    echo.
+    echo   tbot has crashed 20 times.  Something is wrong that restarting
+    echo   will not fix.  Check logs\tbot.jsonl and the window above.
+    echo.
+    pause
+    exit /b 1
+)
+
+echo.
+echo   tbot exited unexpectedly ^(code %EXITCODE%^).  Restart %RESTARTS% of 20
+echo   in 30 seconds.  Close this window to stop it coming back.
+timeout /t 30 >nul
+
+REM MetaTrader may have gone down with it.
+tasklist /fi "imagename eq terminal64.exe" 2>nul | find /i "terminal64.exe" >nul
+if errorlevel 1 (
+    if exist "%MT5%" (
+        echo   Restarting MetaTrader 5 too...
+        start "" "%MT5%" /config:"%~dp0mt5\start_gold.ini"
+        timeout /t 60 >nul
+    )
+)
+goto :supervise
+
+:finished
 echo.
 echo   tbot has stopped.
 echo   Run stop.bat to save the journal to GitHub if you have not already.

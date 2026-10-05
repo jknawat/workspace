@@ -845,8 +845,14 @@ def main(argv: list[str] | None = None) -> int:
         ConfigError, BrokerError, SnapshotError, TelegramError, AlreadyRunning,
         FileNotFoundError, ValueError,
     ) as exc:
+        # Exit 2, not 1: these are all "this cannot start" -- a bad config, a
+        # missing file, another bot already holding the account. run.bat
+        # supervises the bot and restarts it after a crash, and restarting any
+        # of these would spin forever retrying something that cannot work while
+        # looking like a bot that is running. An unhandled exception still
+        # exits 1 and is worth a restart.
         print(f"error: {exc}", file=sys.stderr)
-        return 1
+        return 2
     except KeyboardInterrupt:  # pragma: no cover
         print("\ninterrupted", file=sys.stderr)
         return 130
