@@ -38,6 +38,7 @@ from ..data.snapshot_store import SnapshotStore
 from ..journal import Journal
 from ..obs import log as obs_log
 from ..risk import RiskManager
+from . import carryover
 from .chartdata import chart_payload
 from .core import TradeEngine
 from .events import ERROR, STARTED, STATUS, STOPPED
@@ -110,10 +111,56 @@ class Runner:
     def paused(self) -> bool:
         return bool(self.control is not None and self.control.paused)
 
+    def _carry_over_positions(self) -> None:
+        """Bring back simulated positions left open by the previous run.
+
+        Then replay the bars that passed while the bot was down, so a stop or
+        target hit during the downtime settles at the price and time it really
+        settled at, instead of the position reappearing as though nothing had
+        happened in between.
+        """
+        if self.journal is None or self.config.engine.mode != "paper":
+            return
+        broker = self.broker
+        if not hasattr(broker, "_positions"):
+            return  # not the simulator; live positions live at the broker
+
+        rows = carryover.load(self.journal)
+        if not rows:
+            return
+        restored = carryover.restore(broker, rows)
+        if not restored:
+            return
+
+        # settle_missed feeds every bar through on_bar, which also sets the
+        # simulator's last-seen price for the symbol, so nothing needs priming
+        # separately.
+        bars_by_symbol = {}
+        for pos in restored:
+            rt = self.engine.runtimes.get(pos.symbol)
+            if rt is not None and rt.bars:
+                bars_by_symbol[pos.symbol] = rt.bars
+
+        self.log.info(
+            "restored %d simulated position(s) from the previous run",
+            len(restored),
+            extra={"event": "carryover", "positions": len(restored)},
+        )
+        for trade in carryover.settle_missed(broker, restored, bars_by_symbol):
+            self.log.info(
+                "a carried-over position had already settled while the bot was "
+                "off: %s %s pnl %.2f (%s)",
+                trade.symbol, trade.side, trade.pnl, trade.reason,
+                extra={"event": "carryover_settled", "symbol": trade.symbol},
+            )
+            self.engine._on_closed(trade)  # noqa: SLF001 - same package
+        carryover.save(self.journal, broker)
+
     def prepare(self) -> None:
         self.engine.register_all()
         if not self.engine.runtimes:
             raise RuntimeError("no enabled symbols to trade")
+        self._carry_over_positions()
         account = self._account_safely()
         self.log.info(
             "%s mode on %s: %d symbol(s), %s",
@@ -266,6 +313,19 @@ class Runner:
             except Exception as exc:  # noqa: BLE001
                 self.log.error("chart sink failed: %s", exc)
 
+    def _save_positions(self) -> None:
+        """Keep the open simulated positions on disk, so a stop keeps them.
+
+        Written every poll rather than at shutdown: a crash, a kill or a power
+        cut would otherwise lose exactly the trade this exists to protect.
+        """
+        if self.journal is None or self.config.engine.mode != "paper":
+            return
+        if not hasattr(self.broker, "_positions"):
+            return
+        with contextlib.suppress(Exception):
+            carryover.save(self.journal, self.broker)
+
     def _record_equity(self, status: dict) -> None:
         """Keep an equity history for paper and live runs.
 
@@ -290,6 +350,7 @@ class Runner:
         self._publish_chart()
         status = self.status()
         self._record_equity(status)
+        self._save_positions()
         for sink in self.status_sinks:
             try:
                 sink(status)
