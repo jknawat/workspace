@@ -329,22 +329,6 @@ footer{padding:0 20px 24px;color:var(--muted);font-size:12px}
     <thead><tr><th>Symbol</th><th>Side</th><th>Volume</th><th>Entry</th>
     <th>SL</th><th>TP</th><th>Open P/L</th></tr></thead><tbody></tbody></table></div></div>
 
-  <div class="card"><h2>Why it is doing that</h2><div id="why"></div></div>
-
-  <div class="card"><h2>Timeframes</h2><div class="scroll">
-    <table id="mtf"><thead><tr><th>Symbol</th><th id="tfhead">Timeframes</th></tr></thead>
-    <tbody></tbody></table></div>
-    <div class="muted" style="margin-top:8px">
-      Bull needs price above the trend EMA <em>and</em> fast above slow. Anything
-      else reads flat — the honest answer, not a coin flip.
-    </div></div>
-
-  <div class="card"><h2>Strategy state</h2><div class="scroll"><table id="phases">
-    <thead><tr><th>Symbol</th><th>Phase</th><th>Structure</th><th>Last rejection</th></tr></thead>
-    <tbody></tbody></table></div></div>
-
-  <div class="card"><h2>Recent activity</h2><div id="events"></div></div>
-
   <div class="card"><h2>Live chart <span id="chartsym" class="muted"></span></h2>
     <div class="filters" id="symtabs"></div>
     <div class="px">
@@ -373,6 +357,22 @@ footer{padding:0 20px 24px;color:var(--muted);font-size:12px}
     <div class="verdict" id="verdict"></div>
     <div class="prov" id="prov"></div>
   </div>
+
+  <div class="card"><h2>Why it is doing that</h2><div id="why"></div></div>
+
+  <div class="card"><h2>Timeframes</h2><div class="scroll">
+    <table id="mtf"><thead><tr><th>Symbol</th><th id="tfhead">Timeframes</th></tr></thead>
+    <tbody></tbody></table></div>
+    <div class="muted" style="margin-top:8px">
+      Bull needs price above the trend EMA <em>and</em> fast above slow. Anything
+      else reads flat — the honest answer, not a coin flip.
+    </div></div>
+
+  <div class="card"><h2>Strategy state</h2><div class="scroll"><table id="phases">
+    <thead><tr><th>Symbol</th><th>Phase</th><th>Structure</th><th>Last rejection</th></tr></thead>
+    <tbody></tbody></table></div></div>
+
+  <div class="card"><h2>Recent activity</h2><div id="events"></div></div>
 
   <div class="card"><h2>Score history</h2>
     <canvas id="scorestrip"></canvas>
