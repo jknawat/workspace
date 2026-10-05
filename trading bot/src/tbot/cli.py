@@ -271,6 +271,25 @@ def _run_session(args, cfg, mode: str) -> int:
     journal = Journal(cfg.engine.journal_path)
     journal.start_run(mode, broker.name)
 
+    # A paper account must carry its balance across restarts, or every restart
+    # silently erases the result it exists to measure. Mirroring the live
+    # balance is right when the simulated account is new; after that the
+    # simulated account's own balance is the truth, and re-mirroring would
+    # discard it. Four restarts in one morning had already wiped a loss.
+    if mode == "paper" and cfg.engine.mirror_account_balance:
+        saved = journal.get_state("paper_balance")
+        if saved is not None:
+            try:
+                resumed = float(saved)
+            except ValueError:
+                resumed = 0.0
+            if resumed > 0 and abs(resumed - broker.balance) > 1e-9:
+                print(f"paper account resumes at {resumed:,.2f} "
+                      f"(was {broker.balance:,.2f} before this run)")
+                broker.balance = resumed
+    if mode == "paper":
+        journal.set_state("paper_balance", f"{broker.balance:.2f}")
+
     runner = Runner(
         cfg, broker, feed,
         journal=journal,

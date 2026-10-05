@@ -94,6 +94,11 @@ CREATE TABLE IF NOT EXISTS observations (
     r_multiple REAL,
     outcome    TEXT
 );
+CREATE TABLE IF NOT EXISTS state (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    at    TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS ix_signals_symbol   ON signals(symbol, ts);
 CREATE INDEX IF NOT EXISTS ix_trades_symbol    ON trades(symbol, closed_at);
 CREATE INDEX IF NOT EXISTS ix_decisions_symbol ON decisions(symbol, ts);
@@ -370,6 +375,21 @@ class Journal:
                 "profit_factor": (sum(wins) / gross_loss) if gross_loss else None,
             })
         return out
+
+    def get_state(self, key: str) -> str | None:
+        row = self.conn.execute(
+            "SELECT value FROM state WHERE key = ?", (key,)
+        ).fetchone()
+        return row["value"] if row else None
+
+    def set_state(self, key: str, value: str) -> None:
+        """Small facts that must outlive one run, such as the paper balance."""
+        self.conn.execute(
+            "INSERT INTO state (key, value, at) VALUES (?,?,?) "
+            "ON CONFLICT(key) DO UPDATE SET value = excluded.value, "
+            "at = excluded.at",
+            (key, str(value), _now()),
+        )
 
     def record_equity(self, ts: datetime, equity: float) -> None:
         self.conn.execute(

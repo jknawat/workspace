@@ -10,6 +10,7 @@ broken in the others. Here, changing the pipeline changes every mode at once.
 
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 
@@ -395,6 +396,13 @@ class TradeEngine:
                 f"{trade.reason}, pnl {trade.pnl:+.2f}",
                 phase="EXIT", price=trade.exit_price, volume=trade.volume,
             )
+            # Written per settled trade rather than at shutdown: a bot that is
+            # killed, crashes or loses power must not forget the result.
+            if self.config.engine.mode == "paper":
+                with contextlib.suppress(Exception):
+                    self.journal.set_state(
+                        "paper_balance", f"{self.broker.account().balance:.2f}"
+                    )
         self.log.info(
             "closed %s %s %.2f lots pnl %.2f (%s)",
             trade.symbol, trade.side, trade.volume, trade.pnl, trade.reason,

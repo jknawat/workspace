@@ -82,6 +82,7 @@ class Runner:
         self.control = control
         self.status_sinks = list(status_sinks or [])
         self.chart_sinks = list(chart_sinks or [])
+        self._last_equity_at: datetime | None = None
         self.log = obs_log.get("runner")
         self.stats = RunnerStats()
         self.max_iterations = max_iterations
@@ -265,9 +266,30 @@ class Runner:
             except Exception as exc:  # noqa: BLE001
                 self.log.error("chart sink failed: %s", exc)
 
+    def _record_equity(self, status: dict) -> None:
+        """Keep an equity history for paper and live runs.
+
+        The journal only ever held an equity curve for backtests, so the thing
+        the forward test exists to produce -- the shape of the account over
+        weeks -- was not being written down anywhere. One point per poll is
+        plenty at a 15-second cadence and costs a few hundred KB a year.
+        """
+        if self.journal is None:
+            return
+        equity = status.get("equity")
+        if not isinstance(equity, (int, float)):
+            return
+        now = datetime.now(timezone.utc)
+        if self._last_equity_at and (now - self._last_equity_at).total_seconds() < 60:
+            return
+        self._last_equity_at = now
+        with contextlib.suppress(Exception):
+            self.journal.record_equity(now, float(equity))
+
     def _publish_status(self) -> None:
         self._publish_chart()
         status = self.status()
+        self._record_equity(status)
         for sink in self.status_sinks:
             try:
                 sink(status)

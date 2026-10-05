@@ -361,3 +361,52 @@ def test_the_log_reports_which_symbols_it_knows(tmp_path):
 
     state = DashboardState(journal_path=tmp_path / "j.sqlite")
     assert state.log_rows()["symbols"] == ["JP225m", "US30m", "XAUUSDm"]
+
+
+# --------------------------------------------------------------------------- #
+# A paper account must not forget
+# --------------------------------------------------------------------------- #
+
+
+def test_state_survives_reopening_the_journal(tmp_path):
+    """The paper balance is stored here, so a restart resumes rather than
+    resets. Four restarts in one morning once erased a recorded loss."""
+    path = tmp_path / "j.sqlite"
+    j = Journal(path)
+    j.start_run("paper", "paper")
+    j.set_state("paper_balance", "4976.51")
+    j.conn.commit()
+    j.close()
+
+    again = Journal(path)
+    assert again.get_state("paper_balance") == "4976.51"
+    again.close()
+
+
+def test_state_overwrites_rather_than_accumulating(tmp_path):
+    j = journal_at(tmp_path)
+    j.set_state("paper_balance", "5000.00")
+    j.set_state("paper_balance", "4976.51")
+    assert j.get_state("paper_balance") == "4976.51"
+    assert j.conn.execute(
+        "SELECT COUNT(*) FROM state WHERE key = 'paper_balance'"
+    ).fetchone()[0] == 1
+    j.close()
+
+
+def test_missing_state_reads_as_none_not_zero(tmp_path):
+    """So a fresh account mirrors the live balance instead of starting broke."""
+    j = journal_at(tmp_path)
+    assert j.get_state("paper_balance") is None
+    j.close()
+
+
+def test_equity_can_be_recorded_outside_a_backtest(tmp_path):
+    """Paper and live runs had no equity history at all, so the forward test
+    produced no curve -- only a number that reset on restart."""
+    j = journal_at(tmp_path)
+    j.record_equity(TS, 5000.0)
+    j.record_equity(TS + timedelta(minutes=1), 4976.51)
+    rows = list(j.conn.execute("SELECT equity FROM equity ORDER BY rowid"))
+    assert [r[0] for r in rows] == [5000.0, 4976.51]
+    j.close()
