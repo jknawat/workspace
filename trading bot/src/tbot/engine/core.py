@@ -350,9 +350,20 @@ class TradeEngine:
             why = f"{signal.reason}"
             if out.score is not None:
                 why = f"{out.score.explain()}; {why}"
+            # A refused order must not read like a filled one. Logging both as
+            # "buy" hid two live rejections completely: the panel showed an
+            # entry, the broker had no position, and nothing connected the two.
+            if result.ok:
+                action = "buy" if signal.side.value.upper() == "LONG" else "sell"
+            else:
+                action = "rejected"
+                why = (
+                    f"{signal.side.value} order REFUSED by the broker: "
+                    f"{result.message}  ({why})"
+                )
             self.journal.record_decision(
                 bar.ts, rt.cfg.symbol,
-                "buy" if signal.side.value.upper() == "LONG" else "sell",
+                action,
                 why,
                 phase="ENTRY",
                 score=out.score.points if out.score else None,

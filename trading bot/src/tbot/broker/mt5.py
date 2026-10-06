@@ -25,6 +25,17 @@ from ..core.types import (
 from ..obs import log as obs_log
 from .base import Broker, BrokerError
 
+#: Longest order comment the MetaTrader5 Python binding will accept.
+#:
+#: MQL5 documents 31, and the binding does not truncate: it refuses the whole
+#: request with ``(-2, 'Invalid "comment" argument')`` and returns None, which
+#: reads like a connection problem rather than a rejected string. Measured
+#: against Exness build on 2026-10-06 with ``order_check``: 29 accepted, 30
+#: refused, content irrelevant. Truncating at 31 meant every live order the bot
+#: ever sent was rejected, while paper mode -- which ignores the field -- had
+#: reported them all as filled.
+MAX_COMMENT = 29
+
 # The full ladder MT5 offers. Note the gaps that catch people out: there is no
 # H5 and no H10, so "about five hours" means H4 or H6 and "about ten" means H8
 # or H12. Anything missing here is silently unavailable as context, so keep it
@@ -313,7 +324,7 @@ class MT5Broker(Broker):
             "tp": round(req.tp, spec.digits),
             "deviation": req.deviation_points or self.deviation_points,
             "magic": self.magic,
-            "comment": req.comment[:31],  # MT5 truncates silently past 31 chars
+            "comment": req.comment[:MAX_COMMENT],
             "type_time": mt5.ORDER_TIME_GTC,
             "type_filling": self._filling_mode(req.symbol),
         }

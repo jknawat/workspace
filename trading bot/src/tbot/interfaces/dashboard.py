@@ -279,6 +279,7 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute
 .act.sell{color:var(--down);border-color:var(--down)}
 .act.wait{color:var(--muted)}
 .act.closed{color:var(--accent);border-color:var(--accent)}
+.act.rejected{color:var(--down);border-color:var(--down);font-weight:600}
 .bar{display:inline-block;height:6px;border-radius:3px;background:var(--accent);
      vertical-align:middle;margin-right:6px}
 #chart,#vol,#scorestrip{width:100%;display:block}
@@ -411,6 +412,7 @@ footer{padding:0 20px 24px;color:var(--muted);font-size:12px}
       <button data-action="sell">Sell</button>
       <button data-action="wait">Waiting</button>
       <button data-action="closed">Closed</button>
+      <button data-action="rejected">Rejected</button>
     </div>
     <div class="scroll"><table>
       <thead><tr><th>When</th><th>Action</th><th>Score</th><th>Risk</th>
@@ -640,7 +642,7 @@ function renderLog(d) {
   const t = d.totals || {};
   txt('logbadge', d.orders_all === undefined
     ? (t.buy || 0) + (t.sell || 0) : d.orders_all);
-  const parts = ['buy', 'sell', 'wait', 'closed']
+  const parts = ['buy', 'sell', 'wait', 'closed', 'rejected']
     .filter(k => t[k]).map(k => `${t[k]} ${k}`);
   if (parts.length) {
     const scope = logSymbol ? ' for <b>' + esc(logSymbol) + '</b>'
