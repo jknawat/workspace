@@ -84,6 +84,8 @@ class Runner:
         self.status_sinks = list(status_sinks or [])
         self.chart_sinks = list(chart_sinks or [])
         self._last_equity_at: datetime | None = None
+        #: Symbols whose strategy state has been rebuilt from recent bars.
+        self._replayed: set[str] = set()
         self.log = obs_log.get("runner")
         self.stats = RunnerStats()
         self.max_iterations = max_iterations
@@ -404,6 +406,67 @@ class Runner:
     # The loop
     # ------------------------------------------------------------------ #
 
+    def _replay_strategy(self, symbol: str, rt: Any) -> None:
+        """Rebuild the strategy's state by replaying the bars it missed.
+
+        A strategy is a state machine -- scanning, armed, waiting for a
+        pullback, waiting for a breakout -- and starting fresh throws all of
+        that away. A setup two bars from triggering becomes a setup that never
+        existed, and the bot waits for a whole new crossover. Restarting ten
+        times in a day, as happened while this was being built, discards ten
+        chances.
+
+        Rather than persisting the state machine -- whose internals are bar
+        *indices* into a window that shifts between runs -- the bars are simply
+        fed through it again. The machine is deterministic, so replaying the
+        recent past puts it exactly where the market left it.
+
+        The signals this produces are discarded. They belong to bars that
+        closed while the bot was down, and acting on them would be trading the
+        past. Only the state survives, and the newest bar is then handled
+        normally by the caller.
+
+        ``on_bar`` is called directly rather than through ``engine.step``, so
+        no order can be sent from here however the replay turns out.
+        """
+        bars = rt.bars
+        depth = int(self.config.engine.replay_bars)
+        if depth <= 0 or len(bars) < 2:
+            return
+        start = max(rt.strategy.warmup, len(bars) - 1 - depth)
+        if start >= len(bars) - 1:
+            return
+
+        spread = 0.0
+        with contextlib.suppress(Exception):
+            spread = self.broker.spread_points(symbol)
+
+        replayed = 0
+        for i in range(start, len(bars) - 1):
+            # Snapshot deliberately None: MT5's structure snapshot describes
+            # only the present, so handing today's to a bar from an hour ago
+            # would be lookahead. Gates that read it fail closed, which keeps
+            # the replay conservative.
+            ctx = rt.context(i, spread, None)
+            with contextlib.suppress(Exception):
+                rt.strategy.on_bar(ctx)  # signals discarded on purpose
+            replayed += 1
+
+        state = rt.strategy.state_summary()
+        phase = str(state.get("phase", "?"))
+        if phase != "SCANNING":
+            self.log.info(
+                "replayed %d bars for %s; resumed mid-setup: %s %s",
+                replayed, symbol, phase, state.get("side") or "",
+                extra={"symbol": symbol, "event": "replay", "phase": phase},
+            )
+        else:
+            self.log.info(
+                "replayed %d bars for %s; nothing in progress",
+                replayed, symbol,
+                extra={"symbol": symbol, "event": "replay", "phase": phase},
+            )
+
     def poll_once(self) -> int:
         """One pass over every symbol. Returns the number of new bars handled."""
         handled = 0
@@ -429,6 +492,9 @@ class Runner:
             rt.ingest(bars)
             if self.config.engine.context_timeframes:
                 self.engine.refresh_mtf(symbol, self.feed)
+            if symbol not in self._replayed:
+                self._replayed.add(symbol)
+                self._replay_strategy(symbol, rt)
 
             try:
                 result = self.engine.step(symbol)

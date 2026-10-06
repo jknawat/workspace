@@ -133,6 +133,11 @@ class EngineConfig:
     #: seed's weight at ~1e-4. Timeframes with less history available (MN1)
     #: simply return what exists and stay "not ready" until they have 200.
     context_bars: int = 1200
+    #: Bars replayed through each strategy on the first poll, so a restart
+    #: resumes a setup in progress instead of discarding it. Needs to cover a
+    #: whole setup: pullback_max_wait + window_bars + cooldown_bars, with room
+    #: to spare. 0 disables the replay.
+    replay_bars: int = 60
     #: Touch this file to stop the bot after its current cycle. stop.bat
     #: writes it; run.bat clears it on start.
     stop_file: str = "data/STOP"
@@ -158,6 +163,7 @@ class EngineConfig:
                 "journal_path",
                 "context_timeframes",
                 "context_bars",
+                "replay_bars",
                 "stop_file",
                 "mirror_account_balance",
             },
