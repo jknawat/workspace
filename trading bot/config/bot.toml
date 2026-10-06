@@ -82,7 +82,7 @@ host = "127.0.0.1"         # loopback only; changing this exposes your balance
 port = 8787
 
 [telegram]
-enabled = false
+enabled = true
 # Put the token and chat id in config/credentials.toml (gitignored) or in
 # TBOT_TELEGRAM_TOKEN / TBOT_TELEGRAM_CHAT_ID. Run: tbot telegram-setup
 events = ["order", "closed", "error", "started", "stopped"]
