@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import math
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, ClassVar
 
 from ..core.types import (
     AccountState,
@@ -263,6 +263,64 @@ class MT5Broker(Broker):
             return 0.0
         spec = self.symbol_spec(symbol)
         return (float(tick.ask) - float(tick.bid)) / spec.point
+
+    #: Retcodes meaning the request itself is wrong, not the moment. These will
+    #: refuse every order until the code or config changes, so they are worth
+    #: refusing to start over.
+    FATAL_RETCODES: ClassVar[set[int]] = {
+        10013,  # invalid request
+        10014,  # invalid volume
+        10015,  # invalid price
+        10016,  # invalid stops
+        10030,  # unsupported filling mode
+    }
+
+    def preflight(self, symbol: str) -> tuple[bool, str]:
+        """Validate a representative order without placing it.
+
+        ``order_check`` runs the broker's own validation and sends nothing. The
+        volume is the symbol's minimum and the stops are a percent either side,
+        so this tests the *shape* of the request -- comment, filling mode,
+        magic, precision -- rather than any particular signal.
+        """
+        mt5 = self.mt5
+        sym = symbol.strip()
+        info = mt5.symbol_info(sym)
+        tick = mt5.symbol_info_tick(sym)
+        if info is None:
+            return True, f"{sym} is not offered by this broker"
+        if tick is None or tick.ask <= 0:
+            return False, f"{sym} has no quote yet (market closed?)"
+
+        price = float(tick.ask)
+        request = {
+            "action": mt5.TRADE_ACTION_DEAL,
+            "symbol": sym,
+            "volume": float(info.volume_min),
+            "type": mt5.ORDER_TYPE_BUY,
+            "price": price,
+            "sl": round(price * 0.98, info.digits),
+            "tp": round(price * 1.04, info.digits),
+            "deviation": self.deviation_points,
+            "magic": self.magic,
+            "comment": "tbot preflight"[:MAX_COMMENT],
+            "type_time": mt5.ORDER_TIME_GTC,
+            "type_filling": self._filling_mode(sym),
+        }
+        result = mt5.order_check(request)
+        if result is None:
+            # None means the binding rejected the request before the broker
+            # ever saw it -- a malformed field. This is the failure that cost
+            # two trades, and it is always fatal.
+            return True, f"{sym}: broker refused the request shape: {mt5.last_error()}"
+        if result.retcode in self.FATAL_RETCODES:
+            return True, (
+                f"{sym}: retcode {result.retcode} ({result.comment}) -- every "
+                "order will be refused until this is fixed"
+            )
+        if result.retcode != 0:
+            return False, f"{sym}: retcode {result.retcode} ({result.comment})"
+        return False, f"{sym}: ok"
 
     def quote(self, symbol: str) -> tuple[float, float] | None:
         tick = self.mt5.symbol_info_tick(symbol.strip())

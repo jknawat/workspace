@@ -76,6 +76,20 @@ class Broker(ABC):
         """Current spread in points; 0.0 when quotes are unavailable."""
         return 0.0
 
+    def preflight(self, symbol: str) -> tuple[bool, str]:
+        """Can this broker actually accept an order for ``symbol`` right now?
+
+        Returns ``(fatal, message)``. ``fatal`` means the request shape itself
+        is wrong -- the bot will never place a trade until it is fixed -- as
+        opposed to a passing condition like a closed market or no free margin.
+
+        This exists because two live orders were refused for a malformed
+        comment field and the failure only surfaced on the first signal, hours
+        later, having already cost the setups. A broker that will refuse every
+        order should say so at startup.
+        """
+        return False, "not checked"
+
     def quote(self, symbol: str) -> tuple[float, float] | None:
         """Current ``(bid, ask)``, or ``None`` when no quote is available.
 

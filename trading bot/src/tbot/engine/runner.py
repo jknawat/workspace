@@ -31,7 +31,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from ..broker.base import Broker
+from ..broker.base import Broker, BrokerError
 from ..config.models import BotConfig
 from ..data.feed import BarFeed
 from ..data.snapshot_store import SnapshotStore
@@ -156,11 +156,53 @@ class Runner:
             self.engine._on_closed(trade)  # noqa: SLF001 - same package
         carryover.save(self.journal, broker)
 
+    def _preflight_orders(self) -> None:
+        """Refuse to start live if the broker will reject every order.
+
+        Two live orders were lost to a malformed comment field, and the failure
+        only appeared on the first signal -- hours after start, with the setups
+        already gone. A bot that cannot place an order should say so while
+        someone is still watching the window, not discover it at 3am.
+
+        Only fatal problems stop the start. A closed market or no free margin
+        are conditions of the moment and pass with a warning.
+        """
+        if self.config.engine.mode != "live":
+            return
+        problems: list[str] = []
+        for symbol in self.engine.runtimes:
+            try:
+                fatal, message = self.broker.preflight(symbol)
+            except Exception as exc:  # noqa: BLE001 - a check must not crash the bot
+                self.log.warning(
+                    "order preflight for %s could not run: %s", symbol, exc,
+                    extra={"symbol": symbol, "event": "preflight_error"},
+                )
+                continue
+            if fatal:
+                problems.append(message)
+                self.log.error(
+                    "order preflight FAILED: %s", message,
+                    extra={"symbol": symbol, "event": "preflight_failed"},
+                )
+            else:
+                self.log.info(
+                    "order preflight %s", message,
+                    extra={"symbol": symbol, "event": "preflight"},
+                )
+        if problems:
+            raise BrokerError(
+                "the broker will refuse every order as this request is built:\n  "
+                + "\n  ".join(problems)
+                + "\nNothing was traded. Fix this before starting again."
+            )
+
     def prepare(self) -> None:
         self.engine.register_all()
         if not self.engine.runtimes:
             raise RuntimeError("no enabled symbols to trade")
         self._carry_over_positions()
+        self._preflight_orders()
         account = self._account_safely()
         self.log.info(
             "%s mode on %s: %d symbol(s), %s",
