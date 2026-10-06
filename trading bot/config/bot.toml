@@ -4,7 +4,16 @@
 # TBOT_BROKER_UTC_OFFSET_HOURS.
 
 [engine]
-mode = "paper"                  # backtest | paper | live
+# backtest | paper | live
+#
+# live sends real orders through MetaTrader. On 2026-10-06 this account is an
+# Exness DEMO (account_info().trade_mode == 0), so the money is the broker's
+# fiction -- but the orders, fills, spreads, slippage and swap are real
+# mechanics, which paper mode only simulates.
+#
+# Before changing this back and forth, remember the journal records both: runs
+# carry their mode, and paper and live results should not be read as one set.
+mode = "live"
 broker = "mt5"                  # paper | mt5   (data source in paper mode)
 timeframe = "M5"
 poll_seconds = 15               # how often to look for a newly closed bar

@@ -117,7 +117,10 @@ REM -------------------------------------------------------------------
 set /a RESTARTS=0
 
 :supervise
-".venv\Scripts\python.exe" -m tbot.cli paper -c "config\bot.toml"
+REM live, with --yes, because the mode is set deliberately in config\bot.toml
+REM and this file is double-clicked rather than typed. The CLI still refuses
+REM to trade live unless the config says live, so the two have to agree.
+".venv\Scripts\python.exe" -m tbot.cli live --yes -c "config\bot.toml"
 set EXITCODE=%ERRORLEVEL%
 
 REM Asked to stop: that is not a crash.
