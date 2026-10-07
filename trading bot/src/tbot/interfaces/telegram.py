@@ -60,14 +60,25 @@ class TelegramClient:
     def _redact(self, text: str) -> str:
         return text.replace(self._token, "<token>")
 
-    def call(self, method: str, **params: Any) -> dict[str, Any]:
+    def call(
+        self, method: str, _http_timeout: float | None = None, **params: Any
+    ) -> dict[str, Any]:
+        """Call the Bot API.
+
+        ``_http_timeout`` overrides the socket timeout for this call. Long
+        polling needs it: ``getUpdates`` asks Telegram to *hold* the connection
+        open, so a socket timeout shorter than the hold is guaranteed to fire
+        first and every poll fails.
+        """
         url = f"{API}/bot{self._token}/{method}"
         payload = json.dumps({k: v for k, v in params.items() if v is not None}).encode()
         request = urllib.request.Request(
             url, data=payload, headers={"Content-Type": "application/json"}
         )
         try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+            with urllib.request.urlopen(
+                request, timeout=_http_timeout or self.timeout
+            ) as response:
                 body = json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode("utf-8", "replace")[:300]
@@ -86,8 +97,20 @@ class TelegramClient:
             "sendMessage", chat_id=chat_id, text=text[:4000], disable_web_page_preview=True
         )
 
+    #: Seconds of slack between Telegram's long-poll hold and our socket
+    #: timeout. Without it the socket closes while Telegram is still holding
+    #: the connection open, every poll raises, and no command ever arrives --
+    #: which is exactly what happened: a 20s socket against a 25s hold meant
+    #: /status had never once worked.
+    POLL_SLACK = 15.0
+
     def get_updates(self, offset: int | None = None, timeout: int = 25) -> list[dict[str, Any]]:
-        result = self.call("getUpdates", offset=offset, timeout=timeout)
+        result = self.call(
+            "getUpdates",
+            _http_timeout=max(self.timeout, timeout + self.POLL_SLACK),
+            offset=offset,
+            timeout=timeout,
+        )
         return result if isinstance(result, list) else []
 
     def me(self) -> dict[str, Any]:
