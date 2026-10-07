@@ -76,6 +76,19 @@ class Broker(ABC):
         """Current spread in points; 0.0 when quotes are unavailable."""
         return 0.0
 
+    def closed_trade(self, ticket: int) -> ClosedTrade | None:
+        """Reconstruct a settled trade the broker closed on its own.
+
+        In live trading a stop or target fires server-side: there is no
+        callback, the position simply disappears between polls. Without this
+        the bot knows its balance moved but never records *what* happened, so
+        the journal keeps the signal and loses the outcome -- which is the one
+        half that makes the record worth keeping.
+
+        ``None`` means the trade could not be reconstructed.
+        """
+        return None
+
     def preflight(self, symbol: str) -> tuple[bool, str]:
         """Can this broker actually accept an order for ``symbol`` right now?
 

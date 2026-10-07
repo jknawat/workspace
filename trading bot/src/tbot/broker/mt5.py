@@ -23,7 +23,7 @@ from ..core.types import (
     round_to_step,
 )
 from ..obs import log as obs_log
-from .base import Broker, BrokerError
+from .base import Broker, BrokerError, ClosedTrade
 
 #: Longest order comment the MetaTrader5 Python binding will accept.
 #:
@@ -274,6 +274,53 @@ class MT5Broker(Broker):
         10016,  # invalid stops
         10030,  # unsupported filling mode
     }
+
+    #: MetaTrader's reason codes for why a deal happened, in words.
+    DEAL_REASONS: ClassVar[dict[int, str]] = {
+        0: "manual", 1: "mobile", 2: "web", 3: "strategy",
+        4: "SL", 5: "TP", 6: "stop out", 7: "rollover",
+        8: "variation margin", 9: "split",
+    }
+
+    def closed_trade(self, ticket: int) -> ClosedTrade | None:
+        """Rebuild a settled trade from the broker's own deal history.
+
+        A position produces at least two deals: one in, one out. Summing the
+        out deals gives the realised profit including commission and swap,
+        which is the number that actually moved the balance -- recomputing it
+        from prices would quietly disagree with the account.
+        """
+        mt5 = self.mt5
+        deals = mt5.history_deals_get(position=ticket)
+        if not deals:
+            return None
+        entries = [d for d in deals if d.entry == 0]      # DEAL_ENTRY_IN
+        exits = [d for d in deals if d.entry in (1, 2)]   # OUT, INOUT
+        if not entries or not exits:
+            return None  # still open, or a partial we cannot settle yet
+
+        first, last = entries[0], exits[-1]
+        volume = sum(float(d.volume) for d in exits)
+        pnl = sum(
+            float(d.profit) + float(getattr(d, "commission", 0.0) or 0.0)
+            + float(getattr(d, "swap", 0.0) or 0.0)
+            for d in deals
+        )
+        reason = self.DEAL_REASONS.get(int(getattr(last, "reason", 0)), "closed")
+        return ClosedTrade(
+            symbol=str(first.symbol),
+            # The *entry* deal's direction is the position's direction; the
+            # exit deal is its mirror and would record every trade backwards.
+            side="LONG" if int(first.type) == 0 else "SHORT",
+            volume=volume,
+            entry_price=float(first.price),
+            exit_price=float(last.price),
+            opened_at=datetime.fromtimestamp(int(first.time), tz=timezone.utc),
+            closed_at=datetime.fromtimestamp(int(last.time), tz=timezone.utc),
+            pnl=pnl,
+            reason=reason,
+            strategy=str(getattr(first, "comment", "") or ""),
+        )
 
     def preflight(self, symbol: str) -> tuple[bool, str]:
         """Validate a representative order without placing it.

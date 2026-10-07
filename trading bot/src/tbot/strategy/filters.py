@@ -204,21 +204,68 @@ class PriceVsEmaFilter(Filter):
     """Trade only on the correct side of a slow trend EMA."""
 
     name = "price_vs_ema"
-    defaults: ClassVar[dict[str, Any]] = {"series": "ema_trend"}
+    defaults: ClassVar[dict[str, Any]] = {
+        "series": "ema_trend",
+        # "position" -- price must be on the right side of the line (strict).
+        # "slope"    -- the line must be moving the right way; where price sits
+        #               relative to it does not matter.
+        # "either"   -- one of the two is enough.
+        #
+        # The distinction is real: "the trend is up" and "price is above the
+        # 200-EMA" are different claims, and a pullback through the line during
+        # a rising trend is arguably the best entry a trend-follower gets.
+        "mode": "position",
+        # How far onto the wrong side price may stray and still pass, in ATR.
+        # 0 keeps the strict reading.
+        "tolerance_atr": 0.0,
+        # Bars back used to judge whether the line is rising or falling.
+        "slope_bars": 10,
+    }
 
     def check(self, ctx: BarContext, side: Side) -> Decision:
-        ref = ctx.value(self.opt["series"])
+        series = self.opt["series"]
+        ref = ctx.value(series)
         if ref is None:
             return Decision.no("trend ema not ready")
+        mode = str(self.opt["mode"])
         close = ctx.bar.close
-        ok = close > ref if side is Side.LONG else close < ref
+
+        tolerance = 0.0
+        if float(self.opt["tolerance_atr"]):
+            atr = ctx.value("atr")
+            if atr is None:
+                return Decision.no("atr not ready for the tolerance band")
+            tolerance = float(self.opt["tolerance_atr"]) * atr
+
+        # Position: price on the right side, within any tolerance band.
+        by_position = (
+            close > ref - tolerance if side is Side.LONG else close < ref + tolerance
+        )
+
+        by_slope = None
+        if mode in ("slope", "either"):
+            back = ctx.value(series, offset=int(self.opt["slope_bars"]))
+            if back is None:
+                return Decision.no("not enough history to judge the trend's direction")
+            by_slope = ref > back if side is Side.LONG else ref < back
+
+        if mode == "position":
+            ok, how = by_position, "price"
+        elif mode == "slope":
+            ok, how = bool(by_slope), "the trend's direction"
+        elif mode == "either":
+            ok, how = (by_position or bool(by_slope)), "price or the trend's direction"
+        else:
+            return Decision.no(f"mode={mode!r} is not one of position|slope|either")
+
         if not ok:
+            band = f" (tolerance {tolerance:.5f})" if tolerance else ""
             return Decision.no(
-                f"close {close:.5f} on wrong side of trend ema {ref:.5f}",
+                f"{how} disagrees: close {close:.5f} vs trend ema {ref:.5f}{band}",
                 close=close,
                 ref=ref,
             )
-        return Decision.ok("price aligned with trend", close=close, ref=ref)
+        return Decision.ok(f"{how} aligned with the trade", close=close, ref=ref)
 
 
 @register

@@ -438,14 +438,50 @@ class TradeEngine:
         current = {p.ticket for p in self.broker.positions()}
         vanished = sorted(self._known_tickets - current)
         balance = self.broker.account().balance
-        if vanished and self._last_balance is not None:
-            delta = balance - self._last_balance
-            self.risk.record_close(delta, date.today())
-            self.log.info(
-                "reconciled %d closed position(s), balance delta %.2f",
-                len(vanished), delta,
-                extra={"event": "reconcile", "tickets": vanished, "pnl": delta},
-            )
+
+        if vanished:
+            # Ask the broker what each one actually did. Recording the trade is
+            # the point: without it the journal keeps the signal and loses the
+            # outcome, and an observation sits "open" forever -- which is the
+            # half that makes the record worth keeping.
+            recovered = []
+            for ticket in vanished:
+                try:
+                    trade = self.broker.closed_trade(ticket)
+                except Exception as exc:  # noqa: BLE001 - never block the loop
+                    self.log.warning(
+                        "could not read closed position %s: %s", ticket, exc,
+                        extra={"event": "reconcile_error", "ticket": ticket},
+                    )
+                    trade = None
+                if trade is not None:
+                    recovered.append(trade)
+
+            if len(recovered) == len(vanished):
+                # Per-trade accounting: _on_closed also feeds the daily-loss
+                # kill-switch, so the balance delta must NOT be counted again.
+                for trade in recovered:
+                    self.log.info(
+                        "broker closed %s %s %.2f lots: %s, pnl %.2f",
+                        trade.symbol, trade.side, trade.volume,
+                        trade.reason, trade.pnl,
+                        extra={"symbol": trade.symbol, "event": "broker_close"},
+                    )
+                    self._on_closed(trade)
+            elif self._last_balance is not None:
+                # Could not reconstruct them all. Fall back to the balance
+                # delta so the kill-switch stays honest even though the
+                # journal misses the detail.
+                delta = balance - self._last_balance
+                self.risk.record_close(delta, date.today())
+                self.log.warning(
+                    "reconciled %d closed position(s) by balance delta %.2f; "
+                    "%d could not be reconstructed and are missing from the "
+                    "journal",
+                    len(vanished), delta, len(vanished) - len(recovered),
+                    extra={"event": "reconcile", "tickets": vanished, "pnl": delta},
+                )
+
         self._known_tickets = current
         self._last_balance = balance
         return vanished
